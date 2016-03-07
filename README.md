@@ -7,8 +7,8 @@ colors. This helps to understand data patterns in csv, tsv, etc files more
 quickly. Every 10-th column has a default font color.
 
 There are 2 ways to enable csv columns highlighting:
-    1. CSV autodetection based on buffer content
-    2. Manual CSV delimiter selection
+1. CSV autodetection based on buffer content
+2. Manual CSV delimiter selection
 
 When a new buffer is opened, Rainbow CSV analyzes it's content and tries to
 autodect whether it is a csv file or not; and if it is, what character this
