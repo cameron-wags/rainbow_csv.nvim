@@ -23,7 +23,7 @@ under the cursor will be used as csv delimiter for columns highlighting.
 
 Another feature of Rainbow CSV is to provide information about current csv
 column. Column numbers are available for every csv data file. If csv data file
-columns have associated names, user can put them in a special `Header` file.
+columns have associated names, user can put them in a special *Header* file.
 To get info about a column, press `<leader>d` combination.
 
 ###Header concept
@@ -57,9 +57,9 @@ Name,Age
 
 ##Mappings
 
-|Key          |  mode  |   Action                                             |
-|-------------|--------|------------------------------------------------------|
-|<leader>d    |    n   |   Print info about current column (under the cursor) |
+|Key           |  mode  |   Action                                             |
+|--------------|--------|------------------------------------------------------|
+|`<leader>d`   |    n   |   Print info about current column (under the cursor) |
 
 To disable all mappings set global variable `g:rcsv_map_keys` to 0
 
@@ -95,9 +95,9 @@ Requires an argument - path to the header file.
 Sets header file for the current tsv data file. It will be recorded in config
 file for future vim sessions.
 
-Usage:
+*Usage:*
 ```
-RainbowSetHeader path/to/header
+:RainbowSetHeader path/to/header
 ```
 
 ##Configuration
@@ -114,7 +114,7 @@ By default plugin checks only TAB and comma characters for csv autodetection.
 You can specify your own set of autodetectable delimiters by defining a custom
 `g:rcsv_delimiters` list in your .vimrc
 
-Example:
+*Example:*
 (plugin will check TAB, semicolon, colon and whitespace on autodetect)
 ```
 let g:rcsv_delimiters = [	;: ]
@@ -127,7 +127,7 @@ If plugin csv autodetection feature produces to much false positives, you can
 disable this mechanism by defining `g:disable_rainbow_csv_autodetect`
 option in your .vimrc
 
-Example:
+*Example:*
 ```
 let g:disable_rainbow_csv_autodetect = 1
 ```
@@ -139,18 +139,18 @@ You will still be able to use manual csv delimiter selection.
 Autodetection will fail if buffer has more than `g:rcsv_max_columns` columns.
 You can rise or lower this limit.
 
-Example:
+*Example:*
 ```
 let g:rcsv_max_columns = 40
 ```
 
-**NOTE:** setting rcsv_max_columns to a big value may slow down csv files display
+NOTE: setting rcsv_max_columns to a big value may slow down csv files display
 
 ####g:rcsv_colorpairs
 *Default: see autoload/rainbow_csv.vim code*
 
 If you don't like the default column colors, you can specify your own.
-Example:
+*Example:*
 (1,6,11... columns are darkred, and every 5-th column have default font color)
 
 ```
