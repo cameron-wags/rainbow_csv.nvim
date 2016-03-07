@@ -27,6 +27,11 @@ column. Column numbers are available for every csv data file. If csv data file
 columns have associated names, user can put them in a special *Header* file.
 To get info about a column, press `<leader>d` combination.
 
+Screenshot of csv data file with information about a column (at the bottom):
+
+![screenshot csv](https://raw.githubusercontent.com/mechatroner/rainbow_csv/master/iris.png)
+
+
 ###Header concept
 
 Header file is a single-line csv file with the same number of fields as the data
