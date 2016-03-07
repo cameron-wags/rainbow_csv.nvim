@@ -7,6 +7,7 @@ colors. This helps to understand data patterns in csv, tsv, etc files more
 quickly. Every 10-th column has a default font color.
 
 There are 2 ways to enable csv columns highlighting:
+
 1. CSV autodetection based on buffer content
 2. Manual CSV delimiter selection
 
