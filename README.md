@@ -1,4 +1,4 @@
-rainbow_csv highlight columns in csv/tsv/*sv files in different colors
+**rainbow_csv**: highlight columns in csv/tsv/*sv files in different colors
 
 ##Overview
 
@@ -18,13 +18,13 @@ autodetection, autodetection should work even if buffer content was loaded by
 vim from stdin.
 
 If autodetection mechanism was disabled or failed for some reason, you can 
-specify csv delimiter manualy: execute command |:RainbowDelim| and character 
+specify csv delimiter manualy: execute command `:RainbowDelim` and character 
 under the cursor will be used as csv delimiter for columns highlighting.
 
 Another feature of Rainbow CSV is to provide information about current csv
 column. Column numbers are available for every csv data file. If csv data file
-columns have associated names, user can put them in a special |Header| file.
-To get info about a column, press '<leader>d' combination.
+columns have associated names, user can put them in a special `Header` file.
+To get info about a column, press `<leader>d` combination.
 
 ###Header concept
 
@@ -37,26 +37,21 @@ names of data file columns.
 If the number of fields in data and header files mismatch, a warning will be printed
 when user requests column information.
 
-Example of tsv data file and header file pair~
+####Example of tsv data file and header file pair
 csv data file content:
-`
-    Jack,20
-    Maria,18
-    John,40
-    Dmitry,27
-    Maria,30
-    John,17
-`
+`    Jack,20  `
+`    Maria,18 `
+`    John,40  `
+`    Dmitry,27`
+`    Maria,30 `
+`    John,17  `
 
 csv header file content:
-`
-    Name,Age
-`
+`    Name,Age`
 
 ##Mappings
 
-*Key         mode    Action*
-*<leader>d     n     Print info about current column (under the cursor)*
+`<leader>d`    Print info about current column (under the cursor)
 
 To disable all mappings set global variable `g:rcsv_map_keys` to 0
 
@@ -130,7 +125,7 @@ Autodetection will fail if buffer has more than `g:rcsv_max_columns` columns.
 You can rise or lower this limit.
 Example:
 `let g:rcsv_max_columns = 40`
-NOTE: setting rcsv_max_columns to a big value may slow down csv files display
+**NOTE:** setting rcsv_max_columns to a big value may slow down csv files display
 
 ####g:rcsv_colorpairs
 *Default: see autoload/rainbow_csv.vim code*
@@ -138,12 +133,11 @@ NOTE: setting rcsv_max_columns to a big value may slow down csv files display
 If you don't like the default column colors, you can specify your own.
 Example: 
 (1,6,11... columns are darkred, and every 5-th column have default font color)
-`
-let g:rcsv_colorpairs = [
-    \ ['darkred',     'darkred'],
-    \ ['darkblue',    'darkblue'],
-    \ ['darkgreen',   'darkgreen'],
-    \ ['darkmagenta', 'darkmagenta'],
-    \ ['NONE',        'NONE'],
-    \ ]
-`
+
+`let g:rcsv_colorpairs = [             `
+`    \ ['darkred',     'darkred'],     `
+`    \ ['darkblue',    'darkblue'],    `
+`    \ ['darkgreen',   'darkgreen'],   `
+`    \ ['darkmagenta', 'darkmagenta'], `
+`    \ ['NONE',        'NONE'],        `
+`    \ ]                               `
