@@ -22,11 +22,11 @@ endfunc
 
 autocmd BufEnter * call s:TryLoadHighlighting()
 
-command RainbowDelim call rainbow_csv#manual_load()
-command NoRainbowDelim call rainbow_csv#disable()
-command RainbowNoDelim call rainbow_csv#disable()
-command RainbowGetColumn call rainbow_csv#get_column()
-command -complete=file -nargs=1 RainbowSetHeader call rainbow_csv#set_header_manually(<f-args>)
+command! RainbowDelim call rainbow_csv#manual_load()
+command! NoRainbowDelim call rainbow_csv#disable()
+command! RainbowNoDelim call rainbow_csv#disable()
+command! RainbowGetColumn call rainbow_csv#get_column()
+command! -complete=file -nargs=1 RainbowSetHeader call rainbow_csv#set_header_manually(<f-args>)
 
 if !exists('g:rcsv_map_keys')
     let g:rcsv_map_keys = 1
