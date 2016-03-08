@@ -61,6 +61,12 @@ csv header file content:
 Name,Age
 ```
 
+
+##Installation
+
+Install with your favorite plugin manager.
+
+
 ##Mappings
 
 |Key           |  mode  |   Action                                             |
