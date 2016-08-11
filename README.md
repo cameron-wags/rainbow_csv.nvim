@@ -29,7 +29,7 @@ To get info about a column, press `<leader>d` combination.
 
 Screenshot of csv data file with information about a column (at the bottom):
 
-![screenshot tsv](https://raw.githubusercontent.com/mechatroner/rainbow_csv/master/iris.png)
+![screenshot tsv](https://raw.githubusercontent.com/mechatroner/rainbow_csv/master/screenshot.png)
 
 
 ###Header concept
