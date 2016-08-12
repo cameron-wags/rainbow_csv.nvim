@@ -25,21 +25,26 @@ There are 2 ways to enable csv columns highlighting:
         1. CSV autodetection based on buffer content
         2. Manual CSV delimiter selection
 
-When a new buffer is opened, Rainbow CSV analyzes it's content and tries to
+When a new buffer is being opened, Rainbow CSV analyzes it's content and tries to
 autodect whether it is a csv file or not; and if it is, what character this
 csv is delimited by. Autodetection is triggered only if no other syntax rules 
 have been set for the buffer. Buffer's file extension is irrelevant for 
-autodetection, autodetection should work even if buffer content was loaded by
-vim from stdin.
+autodetection, autodetection should work even if the buffer content was loaded
+from stdin.
 
 If autodetection mechanism was disabled or failed for some reason, you can 
 specify csv delimiter manualy: execute command |:RainbowDelim| and character 
 under the cursor will be used as csv delimiter for columns highlighting.
+You can do this even for non-csv/tsv files. for example to highlight function
+arguments separated by commas in different colors.
 
 Another feature of Rainbow CSV is to provide information about current csv
 column. Column numbers are available for every csv data file. If csv data file
 columns have associated names, user can put them in a special |Header| file.
 To get info about a column, press '<leader>d' combination.
+
+Rainbow csv supports Column-editing mode. It provides transposed view on csv
+table. In this mode you can delete, swap and clone columns.
 
 -------------------------------------------------------------------------------
 *Header* concept
@@ -68,6 +73,16 @@ csv header file content:
 >
     Name,Age
 <
+
+-------------------------------------------------------------------------------
+Column editing mode
+
+To enter the mode, execute the following command in csv file: |:RainbowColumnsEdit|
+A new buffer will be opened, with special lines corresponding to csv columns.
+You can swap, delete and clone these column lines. Just try not to edit text
+inside these lines =). After you finished, you can apply your changes by
+entering |:RainbowColumnsApply| After that original csv file would be modified. 
+
 
 ===============================================================================
 2. Mappings                                                         *mappings*
@@ -119,6 +134,15 @@ usage:
 >
   RainbowSetHeader path/to/header
 <
+-------------------------------------------------------------------------------
+*:RainbowColumnsEdit*
+
+Enter column edit mode. (Transposed view on the table)
+
+-------------------------------------------------------------------------------
+*:RainbowColumnsApply*
+
+Apply changes from column-edit mode.
 
 ===============================================================================
 4. Configuration                                               *configuration*
