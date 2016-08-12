@@ -22,6 +22,9 @@ If autodetection mechanism was disabled or failed for some reason, you can
 specify csv delimiter manualy: execute command `:RainbowDelim` and character
 under the cursor will be used as csv delimiter for columns highlighting.
 
+Rainbow csv supports Column-editing mode. It provides transposed view on csv
+table. In this mode you can delete, swap and clone columns.
+
 Another feature of Rainbow CSV is to provide information about current csv
 column. Column numbers are available for every csv data file. If csv data file
 columns have associated names, user can put them in a special *Header* file.
