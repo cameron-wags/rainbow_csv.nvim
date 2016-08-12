@@ -44,6 +44,7 @@ The only function of header file is to provide info about csv data files
 column names. If you don't need this feature, rainbow_csv plugin works perfectly
 without it.
 
+
 ####Example of tsv data file and header file pair
 csv data file content:
 
@@ -60,6 +61,14 @@ csv header file content:
 ```
 Name,Age
 ```
+
+###Column editing mode
+
+To enter the mode, execute the following command in csv file: `:RainbowColumnsEdit`
+A new buffer will be opened, with special lines corresponding to csv columns.
+You can swap, delete and clone these column lines. Just try not to edit text
+inside these lines =). After you finished, you can apply your changes by
+entering `:RainbowColumnsApply` After that original csv file would be modified. 
 
 
 ##Installation
@@ -111,6 +120,14 @@ file for future vim sessions.
 ```
 :RainbowSetHeader path/to/header
 ```
+
+####:RainbowColumnsEdit
+
+Enter column edit mode. (Transposed view on the table)
+
+####:RainbowColumnsApply
+
+Apply changes from column-edit mode.
 
 ##Configuration
 
