@@ -1,4 +1,4 @@
-**rainbow_csv**: highlight columns in csv/tsv/*sv files in different colors
+**rainbow_csv** vim editor plugin: highlight columns in csv/tsv/*sv files in different colors
 
 ##Overview
 
