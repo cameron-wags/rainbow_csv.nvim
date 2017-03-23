@@ -1,6 +1,6 @@
 **rainbow_csv** vim editor plugin: highlight columns in csv/tsv/*sv files in different colors
 
-##Overview
+## Overview
 
 Rainbow CSV provides a way to highlight logical columns in different rainbow
 colors. This helps to understand data patterns in csv, tsv, etc files more
@@ -35,7 +35,7 @@ Screenshot of csv data file with information about a column (at the bottom):
 ![screenshot tsv](https://raw.githubusercontent.com/mechatroner/rainbow_csv/master/screenshot.png)
 
 
-###Header concept
+### "Header" concept
 
 Header file is a single-line csv file with the same number of fields as the data
 file, which are separated by the same delimiter. Values in header fields are
@@ -48,7 +48,7 @@ column names. If you don't need this feature, rainbow_csv plugin works perfectly
 without it.
 
 
-####Example of tsv data file and header file pair
+#### Example of tsv data file and header file pair
 csv data file content:
 
 ```
@@ -65,7 +65,7 @@ csv header file content:
 Name,Age
 ```
 
-###Column editing mode
+### Column editing mode
 
 To enter the mode, execute the following command in csv file: `:RainbowColumnsEdit`
 A new buffer will be opened, with special lines corresponding to csv columns.
@@ -74,12 +74,12 @@ inside these lines =). After you finished, you can apply your changes by
 entering `:RainbowColumnsApply` After that original csv file would be modified. 
 
 
-##Installation
+## Installation
 
 Install with your favorite plugin manager.
 
 
-##Mappings
+## Mappings
 
 |Key           |  mode  |   Action                                             |
 |--------------|--------|------------------------------------------------------|
@@ -87,24 +87,24 @@ Install with your favorite plugin manager.
 
 To disable all mappings set global variable `g:rcsv_map_keys` to 0
 
-##Commands
+## Commands
 
-####:RainbowDelim
+#### :RainbowDelim
 
 Mark current file as csv and highlight columns in rainbow colors, character
 under the cursor will be used as delimiter. Selection will be recorded in the
 config file for future vim sessions.
 
-####:NoRainbowDelim
+#### :NoRainbowDelim
 
 This command will disable rainbow columns highlighting for the current file.
 Usefull when autodection mechanism has failed and marked non csv file as csv
 
-####:RainbowNoDelim
+#### :RainbowNoDelim
 
 alias for `:NoRainbowDelim`
 
-####:RainbowGetColumn
+#### :RainbowGetColumn
 
 Will print info about current csv column (column under the cursor).
 Printed info contains:
@@ -113,7 +113,7 @@ Printed info contains:
 
 By default this command is mapped to `<leader>d` combination
 
-####:RainbowSetHeader
+#### :RainbowSetHeader
 
 Requires an argument - path to the header file.
 Sets header file for the current tsv data file. It will be recorded in config
@@ -124,22 +124,22 @@ file for future vim sessions.
 :RainbowSetHeader path/to/header
 ```
 
-####:RainbowColumnsEdit
+#### :RainbowColumnsEdit
 
 Enter column edit mode. (Transposed view on the table)
 
-####:RainbowColumnsApply
+#### :RainbowColumnsApply
 
 Apply changes from column-edit mode.
 
 ##Configuration
 
-####g:rcsv_map_keys
+#### g:rcsv_map_keys
 *Default: 1*
 
 Set to 0 if you want to diable plugin key mappings
 
-####g:rcsv_delimiters
+#### g:rcsv_delimiters
 *Default: [	,]*
 
 By default plugin checks only TAB and comma characters for csv autodetection.
@@ -152,7 +152,7 @@ You can specify your own set of autodetectable delimiters by defining a custom
 let g:rcsv_delimiters = [	;: ]
 ```
 
-####g:disable_rainbow_csv_autodetect
+#### g:disable_rainbow_csv_autodetect
 *Default: 0*
 
 If plugin csv autodetection feature produces to much false positives, you can
@@ -165,7 +165,7 @@ let g:disable_rainbow_csv_autodetect = 1
 ```
 You will still be able to use manual csv delimiter selection.
 
-####g:rcsv_max_columns
+#### g:rcsv_max_columns
 *Default: 30*
 
 Autodetection will fail if buffer has more than `g:rcsv_max_columns` columns.
@@ -178,7 +178,7 @@ let g:rcsv_max_columns = 40
 
 NOTE: setting rcsv_max_columns to a big value may slow down csv files display
 
-####g:rcsv_colorpairs
+#### g:rcsv_colorpairs
 *Default: see autoload/rainbow_csv.vim code*
 
 If you don't like the default column colors, you can specify your own.
