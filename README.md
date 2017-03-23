@@ -35,7 +35,7 @@ Screenshot of csv data file with information about a column (at the bottom):
 ![screenshot tsv](https://raw.githubusercontent.com/mechatroner/rainbow_csv/master/screenshot.png)
 
 
-### "Header" concept
+### "Header" file
 
 Header file is a single-line csv file with the same number of fields as the data
 file, which are separated by the same delimiter. Values in header fields are
