@@ -132,7 +132,7 @@ Enter column edit mode. (Transposed view on the table)
 
 Apply changes from column-edit mode.
 
-##Configuration
+## Configuration
 
 #### g:rcsv_map_keys
 *Default: 1*
