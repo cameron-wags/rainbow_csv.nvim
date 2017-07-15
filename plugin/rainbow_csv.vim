@@ -25,9 +25,11 @@ autocmd BufEnter * call s:TryLoadHighlighting()
 command! RainbowDelim call rainbow_csv#manual_load()
 command! NoRainbowDelim call rainbow_csv#disable()
 command! RainbowNoDelim call rainbow_csv#disable()
-command! RainbowGetColumn call rainbow_csv#get_column()
-command! RainbowColumnsEdit call rainbow_csv#columns_edit()
-command! RainbowColumnsApply call rainbow_csv#columns_apply()
+command! RbGetColumn call rainbow_csv#get_column()
+command! RbSelect call rainbow_csv#select_mode()
+command! RbRun call rainbow_csv#run_select()
+command! RainbowSelect call rainbow_csv#select_mode()
+command! RainbowRun call rainbow_csv#run_select()
 command! -complete=file -nargs=1 RainbowSetHeader call rainbow_csv#set_header_manually(<f-args>)
 
 if !exists('g:rcsv_map_keys')
@@ -35,6 +37,6 @@ if !exists('g:rcsv_map_keys')
 endif
 
 if g:rcsv_map_keys
-    execute "autocmd FileType csv" "nnoremap <buffer>" "<Leader>d"  ":RainbowGetColumn<CR>"
+    execute "autocmd FileType csv" "nnoremap <buffer>" "<Leader>d"  ":RbGetColumn<CR>"
 endif
 

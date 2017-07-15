@@ -1,10 +1,44 @@
 "==============================================================================
 "  Description: rainbow csv
-"               by Dmitry Ignatovich
 "==============================================================================
 
+"FIXME try with csv file
+"FIXME add rbql.py variable - number of columns in line
 
 let s:max_columns = exists('g:rcsv_max_columns') ? g:rcsv_max_columns : 30
+let s:rainbowStorage = $HOME . '/.rainbow_csv_storage'
+let s:rainbowSettingsPath = $HOME . '/.rainbow_csv_files'
+
+let s:script_folder_path = fnamemodify(resolve(expand('<sfile>:p')), ':h')
+let s:python_env_initialized = 0
+
+function! s:EnsurePythonInitialization()
+    if (s:python_env_initialized)
+        return 1
+    endif
+    if has("python3")
+        py3 import sys
+        py3 import vim
+        exe 'python3 sys.path.insert(0, "' . s:script_folder_path . '/../python")'
+        py3 import rbql
+    elseif has("python")
+        py import sys
+        py import vim
+        exe 'python sys.path.insert(0, "' . s:script_folder_path . '/../python")'
+        py import rbql
+    else
+        echoerr "vim must have 'python' or 'python3' feature installed to run in this mode"
+        return 0
+    endif
+    let s:python_env_initialized = 1
+    return 1
+endfunction
+
+func! s:ensure_storage_exists()
+    if !isdirectory(s:rainbowStorage)
+        call mkdir(s:rainbowStorage, "p")
+    endif
+endfunc
 
 
 func! s:lines_are_delimited(lines, delim)
@@ -57,57 +91,10 @@ let s:delimiters = ['	', ',']
 let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : s:delimiters
 
 
-func! rainbow_csv#columns_apply()
-    if !exists("b:rb_parent_buf_no")
-        echoerr "Not in column edit mode buffer"
-        return
-    endif
-    
-    let stratch_bfr_nr=bufnr('%')
-    let lines = getline(1, '$')
-    let convmap = []
-    for lnum in range(len(lines))
-        if lines[lnum][:5] != 'Column'
-            continue
-        endif
-        let cid = str2nr(split(lines[lnum][6:], ' ')[0])
-        call add(convmap, cid - 1)
-    endfor
-
-    1,$d
-    call setline(1, "Processing...")
-    redraw
-    let prnt_buffer = b:rb_parent_buf_no
-    execute "buffer " . prnt_buffer
-    echomsg "Processing..."
-    let delim = b:rainbow_csv_delim
-    let num_fields = len(split(getline(1), delim))
-    for mvv in convmap
-        if mvv < 0 || mvv >= num_fields
-            echoerr "Bad column specified: Column" . mvv
-            return
-        endif
-    endfor
-    let nlines = line('$')
-    for lnum in range(1, nlines)
-        let src_line = getline(lnum)
-        let fields = split(src_line, delim)
-        if len(fields) != num_fields
-            echoerr "Wrong number of fields in line: " . lnum
-            return
-        endif
-        let new_fields = []
-        for mvv in convmap
-            call add(new_fields, fields[mvv])
-        endfor
-        let new_line = join(new_fields, delim)
-        call setline(lnum, new_line)
-    endfor
-    execute "bdelete " . stratch_bfr_nr
-    silent! close
-    execute "buffer " . prnt_buffer
-    let b:in_col_edit_mode = 0
+func! s:rstrip(src)
+    return substitute(a:src, '\s*$', '', '')
 endfunc
+
 
 
 func! s:read_column_names()
@@ -137,19 +124,51 @@ endfunc
 
 
 
-func! rainbow_csv#columns_edit()
+func! s:do_run_select(table_path, rb_script_path, py_script_path, dst_table_path, delim)
+    let query_status = 'Unknown error'
+    let report = 'Something went wrong'
+    let py_call = 'rbql.vim_execute("' . a:table_path. '", "' . a:rb_script_path . '", "' . a:py_script_path . '", "' . a:dst_table_path . '", "' . a:delim . '")'
+    if has("python3")
+        exe 'python3 ' . py_call
+    elseif has("python")
+        exe 'python ' . py_call
+    else
+        return ["python not found", "vim must have 'python' or 'python3' feature installed to run in this mode"]
+    endif
+    return [query_status, report]
+endfunc
+
+
+func! rainbow_csv#clear_current_buf_content()
+    let nl = line("$")
+    call cursor(1, 1)
+    execute "delete " . nl
+endfunc
+
+
+func! rainbow_csv#select_mode()
     if !exists("b:rainbow_csv_delim") || !len(b:rainbow_csv_delim)
         echoerr "Error: no delim specified"
         return
     endif
-    let delim = b:rainbow_csv_delim
 
-    if exists("b:in_col_edit_mode") && b:in_col_edit_mode == 1
-        echoerr "Already in col edit mode"
-        "TODO improve this situation handling. go to the col edit buffer instead of error
+    if exists("b:selected_buf") && buflisted(b:selected_buf)
+        execute "bd " . b:selected_buf
+    endif
+
+    if !s:EnsurePythonInitialization()
         return
     endif
-    let b:in_col_edit_mode = 1
+
+    let delim = b:rainbow_csv_delim
+    let buf_number = bufnr("%")
+    let buf_path = expand("%")
+
+    let rb_script_name = expand("%:t") . ".rb"
+    call s:ensure_storage_exists()
+    let rb_script_path = s:rainbowStorage . '/' . rb_script_name
+
+    let already_exists = filereadable(rb_script_path)
 
     let lines = getline(1, 10)
     if !len(lines)
@@ -157,81 +176,151 @@ func! rainbow_csv#columns_edit()
         return
     endif
     let num_fields = len(split(lines[0], delim))
-    let custom_names = s:read_column_names()
+    "let custom_names = s:read_column_names()
     let new_rows = []
     for nf in range(1, num_fields)
-        let custom_name = ''
-        if num_fields == len(custom_names)
-            let custom_name = ' (' . custom_names[nf - 1] . ')'
-        endif
-        call add(new_rows, 'Column' . nf . custom_name . ' [')
+        "let custom_name = ''
+        "if num_fields == len(custom_names)
+        "    let custom_name = ' (' . custom_names[nf - 1] . ')'
+        "endif
+        call add(new_rows, 'c' . nf . ',')
     endfor
 
-    let mxf = 4
-    let partial = 1
-    if len(lines) <= 6
-        let mxf = len(lines)
-        let partial = 0
+    execute "e " . rb_script_path
+
+    map <buffer> <F5> :RbRun<cr>
+    call rainbow_csv#generate_microlang_syntax(num_fields)
+    let b:table_path = buf_path
+    let b:table_buf_number = buf_number
+    let b:rainbow_select = 1
+    let b:table_csv_delim = delim
+
+    call rainbow_csv#clear_current_buf_content()
+    let help_before = []
+    call add(help_before, '# Welcome to RBQL: SQL with python expressions')
+    call add(help_before, "")
+    call add(help_before, '# "c1", "c2", etc are column names')
+    call add(help_before, '# You can use them in python expression, e.g. "int(c1) * 20 + len(c2)"')
+    call add(help_before, '# Press F5 or execute ":RbRun" to run the query')
+    call add(help_before, '')
+    call add(help_before, 'select')
+    call setline(1, help_before)
+    for nf in range(num_fields)
+        call setline(nf + 1 + len(help_before), new_rows[nf])
+    endfor
+    let help_after = []
+    call add(help_after, '')
+    call add(help_after, '')
+    call add(help_after, '# To filter result set, uncomment and modify the next two lines:')
+    call add(help_after, '#where')
+    call add(help_after, '#len(c1) > 10')
+    call add(help_after, '')
+    call add(help_after, '# To sort result set, uncomment and modify the next two lines:')
+    call add(help_after, '#order by')
+    call add(help_after, '#c2 desc')
+    call add(help_after, '')
+    call add(help_after, '# Examples of rbql queries:')
+    call add(help_after, '# select * where lnum <= 10 # this is an equivalent of bash command "head -n 10", lnum is 1-based')
+    call add(help_after, '# select c1, c4 # this is an equivalent of bash command "cut -f 1,4"')
+    call add(help_after, '# select * order by int(c2) desc # this is an equivalent of bash command "sort -k2,2 -r -n"')
+    call add(help_after, '# select * order by random.random() # random sort, this is an equivalent of bash command "sort -R"')
+    call add(help_after, '# select lnum, * # - enumerate lines, lnum is 1-based')
+    call add(help_after, '# select * where re.match(".*ab.*", c1) is not None # select entries where first column has "ab" pattern')
+    call add(help_after, '# select distinct c1, *, 200, int(c2) + 5, "hello world" where lnum > 100 and int(c5) < -7 order by c3 ASC')
+    call add(help_after, '')
+    call add(help_after, '')
+    call add(help_after, '# Did you know? You have rbql.py script in the .vim extension folder which you can run from command line like this:')
+    call add(help_after, '# ./rbql.py --query "select c1, c2 order by c1" < input.tsv')
+    call add(help_after, '# run ./rbql.py -h for more info')
+    call setline(num_fields + 1 + len(help_before), help_after)
+    call cursor(1 + len(help_before), 1)
+    w
+    redraw
+    echomsg "Press F5 to run the query"
+endfunc
+
+
+func! rainbow_csv#copy_file_content_to_buf(src_file_path, dst_buf_no)
+    bd!
+    redraw
+    echo "executing..."
+    execute "buffer " . a:dst_buf_no
+    call rainbow_csv#clear_current_buf_content()
+    let lines = readfile(a:src_file_path)
+    call setline(1, lines)
+endfunc
+
+
+
+func! rainbow_csv#run_select()
+    if !exists("b:rainbow_select")
+        echoerr "Execute from rainbow query buffer"
+        return
     endif
 
-    for lnum in range(mxf)
-        let line = lines[lnum]
-        let fields = split(line, delim)
-        if len(fields) != num_fields
-            echoerr "Wrong number of fields in line " . (lnum + 1)
-            return
-        endif
-        for nf in range(num_fields)
-            if lnum > 0
-                let new_rows[nf] = new_rows[nf] . ', '
-            endif
-            let new_rows[nf] = new_rows[nf] . fields[nf]
-        endfor
-    endfor
+    w
+    let rb_script_path = expand("%")
 
-    for nf in range(num_fields)
-        if partial
-            let new_rows[nf] = new_rows[nf] . ', ... '
-        endif
-        let new_rows[nf] = new_rows[nf] . ']'
-    endfor
+    if !s:EnsurePythonInitialization()
+        return
+    endif
 
-    let parent_buf_num = bufnr('%')
+    let py_module_name = "vim_rb_convert_" .  strftime("%Y_%m_%d_%H_%M_%S") . ".py"
 
-    below new
-    let b:rb_parent_buf_no=parent_buf_num
-    setlocal buftype=nofile
-    setlocal noswapfile
-    setlocal nowrap
-    file RainbowColumnsEditBuffer
+    let cache_dir = expand("%:p:h")
+    let py_script_path = cache_dir . "/" . py_module_name
+    let table_name = fnamemodify(b:table_path, ":t")
+    let table_buf_number = b:table_buf_number
+    let dst_table_path = cache_dir . "/" . table_name . ".rbselected"
 
-    for nf in range(num_fields)
-        call setline(nf + 1, new_rows[nf])
-    endfor
-    setlocal cursorline
-    call rainbow_csv#generate_transposed_syntax(num_fields)
-    let help_msg = '"Delete/copy/swap any number of "ColumnX ..." lines. Execute ":RainbowColumnsApply" to apply your changes'
-    call setline(num_fields + 1, "")
-    call setline(num_fields + 2, "")
-    call setline(num_fields + 3, help_msg)
-    call cursor(num_fields + 3, 1)
+    redraw
+    echo "executing..."
+
+    let [query_status, report] = s:do_run_select(b:table_path, rb_script_path, py_script_path, dst_table_path, b:table_csv_delim)
+    if query_status == "Parsing Error"
+        echohl ErrorMsg
+        echo "Parsing Error"
+        echohl None
+        echo report
+        return
+    endif
+    if query_status == "Execution Error"
+        echohl ErrorMsg
+        echo "Execution Error"
+        echohl None
+        echo report
+        echo "Generated python module was saved here: " . py_script_path
+        return
+    endif
+    if query_status != "OK"
+        echohl ErrorMsg
+        echo "Unknown Error has occured during execution of select query"
+        echohl None
+        return
+    endif
+    bd!
+    execute "e " . dst_table_path
+    let b:self_path = dst_table_path
+    let b:root_table_buf_number = table_buf_number
+    let buf_number = bufnr("%")
+    call setbufvar(table_buf_number, 'selected_buf', buf_number)
+    map <buffer> <silent> <F5> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
+    redraw
+    echomsg "Press F5 to replace " . table_name . " with this table" 
 endfunc
 
 
 func! s:read_settings()
     let lines = []
-    let rainbowSettingsPath = $HOME . '/.rainbow_csv_files'
-    if (filereadable(rainbowSettingsPath))
-        let lines = readfile(rainbowSettingsPath)
+    if (filereadable(s:rainbowSettingsPath))
+        let lines = readfile(s:rainbowSettingsPath)
     endif
     return lines
 endfunc
 
 
 func! s:write_settings(lines)
-    "TODO make setting path configurable
-    let rainbowSettingsPath = $HOME . '/.rainbow_csv_files'
-    call writefile(a:lines, rainbowSettingsPath)
+    call writefile(a:lines, s:rainbowSettingsPath)
 endfunc
 
 
@@ -260,36 +349,50 @@ func! rainbow_csv#try_load()
     if (!len(delim))
         let delim = s:auto_detect_delimiter(s:delimiters)
     endif
-    let b:rainbow_csv_delim = delim
     if (!len(delim))
         return
     endif
-    set filetype=csv
     call rainbow_csv#generate_syntax(delim)
 endfunc
 
 
-func! rainbow_csv#generate_transposed_syntax(nlines)
+func! rainbow_csv#generate_microlang_syntax(nlines)
     let npairs = len(s:pairs)
     if (npairs < 2)
         return
     endif
 
-    for lnum in range(1, a:nlines)
-        let cmd = 'highlight line%d ctermfg=%s guifg=%s'
-        exe printf(cmd, lnum, s:pairs[(lnum - 1) % npairs][0], s:pairs[(lnum - 1) % npairs][1])
-        let cmd = 'syntax match line%d /Column%d .*/'
-        exe printf(cmd, lnum, lnum)
+    set ft=python
+
+    for pn in range(npairs)
+        let cmd = 'highlight rbql_color%d ctermfg=%s guifg=%s'
+        exe printf(cmd, pn + 1, s:pairs[pn][0], s:pairs[pn][1])
     endfor
+
+    for lnum in range(1, a:nlines)
+        let color_num = ((lnum - 1) % npairs) + 1
+        let cmd = 'syntax keyword rbql_color%d c%d'
+        exe printf(cmd, color_num, lnum)
+    endfor
+
     highlight RbCmd ctermbg=blue guibg=blue
-    syntax keyword RbCmd RainbowColumnsApply contained
-    syntax match Comment "^\".*" contains=RbCmd
+    syntax keyword RbCmd SELECT WHERE INITIALIZE DESC ASC
+    syntax keyword RbCmd select where initialize desc asc
+    syntax match RbCmd "ORDER BY"
+    syntax match RbCmd "order by"
 endfunc
+
 
 func! rainbow_csv#generate_syntax(delim)
     if (len(s:pairs) < 2)
         return
     endif
+
+    if exists("b:rainbow_csv_delim") && len(b:rainbow_csv_delim)
+        return
+    endif
+
+    map <buffer> <silent> <F5> :RbSelect<cr>
 
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
@@ -304,6 +407,7 @@ func! rainbow_csv#generate_syntax(delim)
     exe printf(cmd, a:delim)
     let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
+    let b:rainbow_csv_delim = a:delim
 endfunc
 
 func! s:make_entry(delim)
@@ -327,7 +431,6 @@ endfunc
 
 func! rainbow_csv#manual_load()
     let delim = getline('.')[col('.') - 1]  
-    let b:rainbow_csv_delim = delim
     call rainbow_csv#generate_syntax(delim)
     call s:save_file_delim(delim)
 endfunc
@@ -386,6 +489,8 @@ func! rainbow_csv#disable()
         let match = 'column' . groupid
         exe "syntax clear " . match
     endfor
+
+    unmap <buffer> <F5>
 
     let b:rainbow_csv_delim = ''
     call s:save_file_delim('DISABLED')
