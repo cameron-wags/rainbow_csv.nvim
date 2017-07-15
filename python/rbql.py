@@ -27,11 +27,6 @@ def dynamic_import(module_name):
     return importlib.import_module(module_name)
 
 
-#TODO Description of features
-# * varying number of column for where queries or when column is not in result
-# * lnum feature
-
-
 sp4 = '    '
 sp8 = sp4 + sp4
 sp12 = sp4 + sp4 + sp4

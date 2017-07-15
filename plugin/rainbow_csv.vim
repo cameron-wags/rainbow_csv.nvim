@@ -3,12 +3,11 @@
 "               by Dmitry Ignatovich
 "==============================================================================
 
+"TODO create explanatory youtube video
+"FIXME fix leader-D combination
+
+
 func! s:TryLoadHighlighting()
-    "caching
-    if exists("b:rainbow_csv_delim") && len(b:rainbow_csv_delim)
-        call rainbow_csv#generate_syntax(b:rainbow_csv_delim)
-        return
-    endif
     if exists("g:disable_rainbow_csv_autodetect")
         return
     endif

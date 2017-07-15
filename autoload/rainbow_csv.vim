@@ -2,9 +2,6 @@
 "  Description: rainbow csv
 "==============================================================================
 
-"FIXME try with csv file
-"FIXME add rbql.py variable - number of columns in line
-
 let s:max_columns = exists('g:rcsv_max_columns') ? g:rcsv_max_columns : 30
 let s:rainbowStorage = $HOME . '/.rainbow_csv_storage'
 let s:rainbowSettingsPath = $HOME . '/.rainbow_csv_files'
@@ -429,8 +426,19 @@ func! s:save_file_delim(delim)
 endfunc
 
 
+func! s:disable_syntax()
+    syntax clear startcolumn
+    for groupid in range(len(s:pairs))
+        let match = 'column' . groupid
+        exe "syntax clear " . match
+    endfor
+    let b:rainbow_csv_delim = ''
+endfunc
+
+
 func! rainbow_csv#manual_load()
     let delim = getline('.')[col('.') - 1]  
+    call s:disable_syntax()
     call rainbow_csv#generate_syntax(delim)
     call s:save_file_delim(delim)
 endfunc
@@ -484,14 +492,7 @@ endfunc
 
 
 func! rainbow_csv#disable()
-    syntax clear startcolumn
-    for groupid in range(len(s:pairs))
-        let match = 'column' . groupid
-        exe "syntax clear " . match
-    endfor
-
+    call s:disable_syntax()
     unmap <buffer> <F5>
-
-    let b:rainbow_csv_delim = ''
     call s:save_file_delim('DISABLED')
 endfunc
