@@ -1,5 +1,5 @@
 # RBQL Description
-RBQL is powerful but minimalistic SQL-like language that supports "select" queries with python expressions.
+RBQL is minimalistic but powerful SQL-like language that supports "select" queries with python expressions.
 RBQL works with tsv and csv files, so you don't need a database to use it.
 RBQL is similar to "awk" unix tool.
 

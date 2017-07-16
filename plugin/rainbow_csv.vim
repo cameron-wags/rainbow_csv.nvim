@@ -5,6 +5,7 @@
 
 "TODO create explanatory youtube video
 
+
 func! s:TryLoadHighlighting()
     if exists("b:current_syntax")
         return
@@ -17,7 +18,10 @@ func! s:TryLoadHighlighting()
     endif
 endfunc
 
-autocmd BufEnter * call s:TryLoadHighlighting()
+augroup RainbowAutodetectAuGrp
+    autocmd!
+    autocmd BufEnter * call s:TryLoadHighlighting()
+augroup END
 
 command! RainbowDelim call rainbow_csv#manual_load()
 command! NoRainbowDelim call rainbow_csv#disable()

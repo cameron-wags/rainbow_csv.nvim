@@ -233,7 +233,7 @@ func! rainbow_csv#select_mode()
     call cursor(1 + len(help_before), 1)
     w
     redraw
-    echomsg "Press F5 to run the query"
+    echo "Press F5 to run the query"
 endfunc
 
 
@@ -303,7 +303,7 @@ func! rainbow_csv#run_select()
     call setbufvar(table_buf_number, 'selected_buf', buf_number)
     map <buffer> <silent> <F5> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
     redraw
-    echomsg "Press F5 to replace " . table_name . " with this table" 
+    echo "Press F5 to replace " . table_name . " with this table" 
 endfunc
 
 
@@ -392,6 +392,11 @@ func! rainbow_csv#generate_syntax(delim)
     map <buffer> <silent> <F5> :RbSelect<cr>
     nmap <buffer> <silent> <Leader>d :RbGetColumn<cr>
 
+    augroup RainbowHintGrp
+        autocmd! CursorHold <buffer>
+        autocmd CursorHold <buffer> echo "Press F5 to enter \"select\" query mode"
+    augroup END
+
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
@@ -406,6 +411,8 @@ func! rainbow_csv#generate_syntax(delim)
     let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
     let b:rainbow_csv_delim = a:delim
+    redraw
+    echo "Press F5 to enter \"select\" query mode"
 endfunc
 
 func! s:make_entry(delim)
@@ -433,6 +440,9 @@ func! s:disable_syntax()
         let match = 'column' . groupid
         exe "syntax clear " . match
     endfor
+    augroup RainbowHintGrp
+        autocmd! CursorHold <buffer>
+    augroup END
     let b:rainbow_csv_delim = ''
 endfunc
 
@@ -488,7 +498,7 @@ func! rainbow_csv#get_column()
     let numCols = len(split(line, delim))
 
     let colName = s:read_column_name(colNo - 1, numCols)
-    echomsg 'Col: [' . colNo . '], Name: [' . colName . ']'
+    echo 'Col: [' . colNo . '], Name: [' . colName . ']'
 endfunc
 
 

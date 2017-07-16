@@ -1,5 +1,5 @@
 ## Overview
-Rainbow CSV: Powerful but minimalistic vim plugin for viewing csv/tsv files and executing SQL "select" queries.
+Rainbow CSV: minimalistic but powerful vim plugin for viewing csv/tsv files and executing SQL "select" queries.
 * The plugin highlights csv columns in different rainbow colors. 
 * Rainbow csv also allows user to run simple "select" queries in SQL-like RBQL language.
 
@@ -14,7 +14,7 @@ There are 2 ways to enable csv columns highlighting:
 
 
 ## RBQL Description
-RBQL is powerful but minimalistic SQL-like language that supports "select" queries with python expressions.
+minimalistic SQL-like language that supports "select" queries with python expressions.
 
 ### Main Features
 * Use python expressions inside "select", "where" and "order by" statements
