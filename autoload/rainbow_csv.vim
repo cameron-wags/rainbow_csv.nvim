@@ -390,6 +390,7 @@ func! rainbow_csv#generate_syntax(delim)
     endif
 
     map <buffer> <silent> <F5> :RbSelect<cr>
+    nmap <buffer> <silent> <Leader>d :RbGetColumn<cr>
 
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
@@ -494,5 +495,6 @@ endfunc
 func! rainbow_csv#disable()
     call s:disable_syntax()
     unmap <buffer> <F5>
+    nunmap <buffer> <Leader>d
     call s:save_file_delim('DISABLED')
 endfunc
