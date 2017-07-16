@@ -14,6 +14,7 @@ There are 2 ways to enable csv columns highlighting:
 
 
 ## RBQL Description
+RBQL is powerful but minimalistic SQL-like language that supports "select" queries with python expressions.
 
 ### Main Features
 * Use python expressions inside "select", "where" and "order by" statements
