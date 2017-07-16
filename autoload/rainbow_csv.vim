@@ -2,6 +2,9 @@
 "  Description: rainbow csv
 "==============================================================================
 
+"TODO show advices in other modes OnHold events too, not only at start
+
+
 let s:max_columns = exists('g:rcsv_max_columns') ? g:rcsv_max_columns : 30
 let s:rainbowStorage = $HOME . '/.rainbow_csv_storage'
 let s:rainbowSettingsPath = $HOME . '/.rainbow_csv_files'
@@ -223,6 +226,7 @@ func! rainbow_csv#select_mode()
     call add(help_after, '# select * order by random.random() # random sort, this is an equivalent of bash command "sort -R"')
     call add(help_after, '# select lnum, * # - enumerate lines, lnum is 1-based')
     call add(help_after, '# select * where re.match(".*ab.*", c1) is not None # select entries where first column has "ab" pattern')
+    call add(help_after, '# select * where flike(c1, "%ab%") # same as previous, but using "flike()" function (equivalent of SQL "LIKE" operator)')
     call add(help_after, '# select distinct c1, *, 200, int(c2) + 5, "hello world" where lnum > 100 and int(c5) < -7 order by c3 ASC')
     call add(help_after, '')
     call add(help_after, '')

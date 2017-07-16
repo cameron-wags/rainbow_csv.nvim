@@ -253,6 +253,35 @@ import re #for regexes
 spart_1 = r'''
 DLM = '{}'
 
+class Flike:
+    def __init__(self):
+        self._cache = dict()
+
+    def _like_to_regex(self, pattern):
+        p = 0
+        i = 0
+        converted = ''
+        while i < len(pattern):
+            if pattern[i] in ['_', '%']:
+                converted += re.escape(pattern[p:i])
+                p = i + 1
+                if pattern[i] == '_':
+                    converted += '.'
+                else:
+                    converted += '.*'
+            i += 1
+        converted += re.escape(pattern[p:i])
+        return '^' + converted + '$'
+
+    def __call__(self, text, pattern):
+        if pattern not in self._cache:
+            rgx = self._like_to_regex(pattern)
+            self._cache[pattern] = re.compile(rgx)
+        return self._cache[pattern].match(text) is not None
+
+flike = Flike()
+
+
 class SimpleWriter:
     def __init__(self, dst):
         self.dst = dst
@@ -563,7 +592,7 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
 
     def test_run3(self):
-        query = 'select * order by int(c1) desc'
+        query = 'select * where flike(c2, "%a_a") order by int(c1) desc'
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
         input_table.append(['-20', 'haha', 'hioho'])
@@ -577,8 +606,6 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['50', 'haha', 'dfdf'])
         canonic_table.append(['20', 'haha', ''])
         canonic_table.append(['13', 'haha', ''])
-        canonic_table.append(['11', 'hoho', ''])
-        canonic_table.append(['10', 'hihi', ''])
         canonic_table.append(['5', 'haha', 'hoho'])
         canonic_table.append(['-20', 'haha', 'hioho'])
 
