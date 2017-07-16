@@ -1,91 +1,59 @@
-**rainbow_csv** vim editor plugin: highlight columns in csv/tsv/*sv files in different colors
-
 ## Overview
+Rainbow CSV: Powerful but minimalistic vim plugin for viewing csv/tsv files and executing SQL "select" queries.
+* The plugin highlights csv columns in different rainbow colors. 
+* Rainbow csv also allows user to run simple "select" queries in SQL-like RBQL language.
 
-Rainbow CSV provides a way to highlight logical columns in different rainbow
-colors. This helps to understand data patterns in csv, tsv, etc files more
-quickly. Every 10-th column has a default font color.
+To enter a "select" query, press `F5`. To execute the query press `F5` again. If you want to replace the source table with select results, press `F5` again.
 
 There are 2 ways to enable csv columns highlighting:
+1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
+2. Manual CSV delimiter selection with `:RainbowDelim` command (So you can use it even for non-csv files, e.g. to highlight function arguments in different colors)
 
-1. CSV autodetection based on buffer content
-2. Manual CSV delimiter selection
-
-When a new buffer is opened, Rainbow CSV analyzes it's content and tries to
-autodect whether it is a csv file or not; and if it is, what character this
-csv is delimited by. Autodetection is triggered only if no other syntax rules
-have been set for the buffer. Buffer's file extension is irrelevant for
-autodetection, autodetection should work even if buffer content was loaded by
-vim from stdin.
-
-If autodetection mechanism was disabled or failed for some reason, you can
-specify csv delimiter manualy: execute command `:RainbowDelim` and character
-under the cursor will be used as csv delimiter for columns highlighting.
-
-Rainbow csv supports Column-editing mode. It provides transposed view on csv
-table. In this mode you can delete, swap and clone columns.
-
-Another feature of Rainbow CSV is to provide information about current csv
-column. Column numbers are available for every csv data file. If csv data file
-columns have associated names, user can put them in a special *Header* file.
-To get info about a column, press `<leader>d` combination.
-
-Screenshot of csv data file with information about a column (at the bottom):
 
 ![screenshot tsv](https://raw.githubusercontent.com/mechatroner/rainbow_csv/master/screenshot.png)
 
 
-### "Header" file
+## RBQL Description
 
-Header file is a single-line csv file with the same number of fields as the data
-file, which are separated by the same delimiter. Values in header fields are
-names of data file columns.
-If the number of fields in data and header files mismatch, a warning will be printed
-when user requests column information.
+### Main Features
+* Use python expressions inside "select", "where" and "order by" statements
+* Use "c1", "c2", ... , "cN" as column names to write select queries
+* Output entries appear in the same order as in input unless "ORDER BY" is provided.
+* "lnum" variable holds entry line number
+* Input csv/tsv table may contain varying number of entries (but select query must be written in a way that prevents output of missing values)
 
-The only function of header file is to provide info about csv data files
-column names. If you don't need this feature, rainbow_csv plugin works perfectly
-without it.
+### Supported SQL Keywords (Keywords are case insensitive)
+* select 
+* where 
+* order by
+* desc/asc
+* distinct
 
+### Special variables
+* `c1`, `c2`, ... , `cN` - column names
+* `*` - whole line/entry
+* `lnum` - line number (1-based)
+* `flen` - number of columns in current line/entry
 
-#### Example of tsv data file and header file pair
-csv data file content:
+### Query examples
 
-```
-Jack,20  
-Maria,18 
-John,40  
-Dmitry,27
-Maria,30 
-John,17  
-```
-
-csv header file content:
-```
-Name,Age
-```
-
-### Column editing mode
-
-To enter the mode, execute the following command in csv file: `:RainbowColumnsEdit`
-A new buffer will be opened, with special lines corresponding to csv columns.
-You can swap, delete and clone these column lines. Just try not to edit text
-inside these lines =). After you finished, you can apply your changes by
-entering `:RainbowColumnsApply` After that original csv file would be modified. 
-
-
-## Installation
-
-Install with your favorite plugin manager.
+* `select * where lnum <= 10` - this is an equivalent of bash command "head -n 10", lnum is 1-based')
+* `select c1, c4` - this is an equivalent of bash command "cut -f 1,4"
+* `select * order by int(c2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
+* `select * order by random.random()` - random sort, this is an equivalent of bash command "sort -R"
+* `select lnum, *` - enumerate lines, lnum is 1-based
+* `select * where re.match(".*ab.*", c1) is not None` - select entries where first column has "ab" pattern
 
 
 ## Mappings
 
-|Key           |  mode  |   Action                                             |
-|--------------|--------|------------------------------------------------------|
-|`<leader>d`   |    n   |   Print info about current column (under the cursor) |
+|Key           | Action                                                      |
+|--------------|-------------------------------------------------------------|
+|`<leader>d`   | Print info about current column (under the cursor)          |
+|`F5`          | Start "select" query editing for the current csv file       |
+|`F5`          | Execute currently edited "select" query                     |
+|`F5`          | Replace the original csv file content with "select" results |
 
-To disable all mappings set global variable `g:rcsv_map_keys` to 0
 
 ## Commands
 
@@ -99,98 +67,34 @@ config file for future vim sessions.
 
 This command will disable rainbow columns highlighting for the current file.
 Usefull when autodection mechanism has failed and marked non csv file as csv
+this command also has an alias `:NoRainbowDelim`
 
-#### :RainbowNoDelim
-
-alias for `:NoRainbowDelim`
-
-#### :RainbowGetColumn
-
-Will print info about current csv column (column under the cursor).
-Printed info contains:
-1. column number, 1 - based
-2. column name, only available if a header file is set
-
-By default this command is mapped to `<leader>d` combination
-
-#### :RainbowSetHeader
-
-Requires an argument - path to the header file.
-Sets header file for the current tsv data file. It will be recorded in config
-file for future vim sessions.
-
-*Usage:*
-```
-:RainbowSetHeader path/to/header
-```
-
-#### :RainbowColumnsEdit
-
-Enter column edit mode. (Transposed view on the table)
-
-#### :RainbowColumnsApply
-
-Apply changes from column-edit mode.
 
 ## Configuration
 
-#### g:rcsv_map_keys
-*Default: 1*
-
-Set to 0 if you want to diable plugin key mappings
-
 #### g:rcsv_delimiters
 *Default: [	,]*
-
-By default plugin checks only TAB and comma characters for csv autodetection.
-You can specify your own set of autodetectable delimiters by defining a custom
-`g:rcsv_delimiters` list in your .vimrc
-
-*Example:*
-(plugin will check TAB, semicolon, colon and whitespace on autodetect)
-```
-let g:rcsv_delimiters = [	;: ]
-```
+By default plugin checks only TAB and comma characters during autodetection stage.
+You can override this variable to autodetect tables with other separators. e.g. `let g:rcsv_delimiters = [	;:,]`
 
 #### g:disable_rainbow_csv_autodetect
-*Default: 0*
-
-If plugin csv autodetection feature produces to much false positives, you can
-disable this mechanism by defining `g:disable_rainbow_csv_autodetect`
-option in your .vimrc
-
-*Example:*
-```
-let g:disable_rainbow_csv_autodetect = 1
-```
+You can disable csv files autodetection mechanism by setting this variable value to 1.
 You will still be able to use manual csv delimiter selection.
 
 #### g:rcsv_max_columns
 *Default: 30*
-
 Autodetection will fail if buffer has more than `g:rcsv_max_columns` columns.
 You can rise or lower this limit.
 
-*Example:*
-```
-let g:rcsv_max_columns = 40
-```
 
-NOTE: setting rcsv_max_columns to a big value may slow down csv files display
+## Optional "Header" file feature
+Rainbow csv allows you to create a special "header" file for your table files. It should have the same name as the table file but with ".header" suffix (e.g. for "input.tsv" the header file is "input.tsv.header"). The only purpose of header file is to provide csv column names for `:RbGetColumn` command.
 
-#### g:rcsv_colorpairs
-*Default: see autoload/rainbow_csv.vim code*
 
-If you don't like the default column colors, you can specify your own.
-*Example:*
-(1,6,11... columns are darkred, and every 5-th column have default font color)
+## Installation
 
-```
-let g:rcsv_colorpairs = [
-    \ ['darkred',     'darkred'],
-    \ ['darkblue',    'darkblue'],
-    \ ['darkgreen',   'darkgreen'],
-    \ ['darkmagenta', 'darkmagenta'],
-    \ ['NONE',        'NONE'],
-    \ ]
-```
+Install with your favorite plugin manager.
+
+
+## Requirements
+vim compiled with "python" or "python3".

@@ -6,6 +6,7 @@ RBQL is similar to "awk" unix tool.
 ## Main Features
 * Use python expressions inside "select", "where" and "order by" statements
 * Use "c1", "c2", ... , "cN" as column names to write select queries
+* Output entries appear in the same order as in input unless "ORDER BY" is provided.
 * "lnum" variable holds entry line number
 * Input csv/tsv table may contain varying number of entries (but select query must be written in a way that prevents output of missing values)
 
