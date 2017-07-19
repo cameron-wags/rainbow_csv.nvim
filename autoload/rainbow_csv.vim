@@ -12,6 +12,17 @@ let s:rainbowSettingsPath = $HOME . '/.rainbow_csv_files'
 let s:script_folder_path = fnamemodify(resolve(expand('<sfile>:p')), ':h')
 let s:python_env_initialized = 0
 
+
+func! s:create_recurrent_tip(tip_text)
+    let b:rb_tip_text = a:tip_text
+    augroup RainbowHintGrp
+        autocmd! CursorHold <buffer>
+        autocmd CursorHold <buffer> echo b:rb_tip_text
+    augroup END
+    redraw
+    echo a:tip_text
+endfunc
+
 function! s:EnsurePythonInitialization()
     if (s:python_env_initialized)
         return 1
@@ -200,8 +211,8 @@ func! rainbow_csv#select_mode()
     call add(help_before, '# Welcome to RBQL: SQL with python expressions')
     call add(help_before, "")
     call add(help_before, '# "c1", "c2", etc are column names')
-    call add(help_before, '# You can use them in python expression, e.g. "int(c1) * 20 + len(c2)"')
-    call add(help_before, '# Press F5 or execute ":RbRun" to run the query')
+    call add(help_before, '# You can use them in python expression, e.g. "int(c1) * 20 + len(c2) order by c1 desc"')
+    call add(help_before, '# To run the query press F5')
     call add(help_before, '')
     call add(help_before, 'select')
     call setline(1, help_before)
@@ -236,8 +247,7 @@ func! rainbow_csv#select_mode()
     call setline(num_fields + 1 + len(help_before), help_after)
     call cursor(1 + len(help_before), 1)
     w
-    redraw
-    echo "Press F5 to run the query"
+    call s:create_recurrent_tip("Press F5 to run the query")
 endfunc
 
 
@@ -306,8 +316,7 @@ func! rainbow_csv#run_select()
     let buf_number = bufnr("%")
     call setbufvar(table_buf_number, 'selected_buf', buf_number)
     map <buffer> <silent> <F5> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
-    redraw
-    echo "Press F5 to replace " . table_name . " with this table" 
+    call s:create_recurrent_tip("Press F5 to replace " . table_name . " with this table" )
 endfunc
 
 
@@ -383,7 +392,6 @@ func! rainbow_csv#generate_microlang_syntax(nlines)
     syntax match RbCmd "order by"
 endfunc
 
-
 func! rainbow_csv#generate_syntax(delim)
     if (len(s:pairs) < 2)
         return
@@ -395,11 +403,6 @@ func! rainbow_csv#generate_syntax(delim)
 
     map <buffer> <silent> <F5> :RbSelect<cr>
     nmap <buffer> <silent> <Leader>d :RbGetColumn<cr>
-
-    augroup RainbowHintGrp
-        autocmd! CursorHold <buffer>
-        autocmd CursorHold <buffer> echo "Press F5 to enter \"select\" query mode"
-    augroup END
 
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
@@ -415,8 +418,7 @@ func! rainbow_csv#generate_syntax(delim)
     let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
     let b:rainbow_csv_delim = a:delim
-    redraw
-    echo "Press F5 to enter \"select\" query mode"
+    call s:create_recurrent_tip("Press F5 to enter \"select\" query mode")
 endfunc
 
 func! s:make_entry(delim)

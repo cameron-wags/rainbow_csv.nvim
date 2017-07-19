@@ -1,7 +1,7 @@
 ## Overview
 Rainbow CSV: minimalistic but powerful vim plugin for viewing csv/tsv files and executing SQL "select" queries.
 * The plugin highlights csv columns in different rainbow colors. 
-* Rainbow csv also allows user to run simple "select" queries in SQL-like RBQL language.
+* Rainbow csv also allows user to run simple "select" queries in SQL-like RBQL language e.g. `select c1, int(c2) + int(c3) * 10 where c4 != 'car' order by c1 desc`
 
 To enter a "select" query, press `F5`. To execute the query press `F5` again. If you want to replace the source table with select results, press `F5` again.
 
