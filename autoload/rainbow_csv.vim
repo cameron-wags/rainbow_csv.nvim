@@ -13,6 +13,11 @@ let s:script_folder_path = fnamemodify(resolve(expand('<sfile>:p')), ':h')
 let s:python_env_initialized = 0
 
 
+func! s:is_rainbow_table()
+    return exists("b:rainbow_csv_delim") && len(b:rainbow_csv_delim)
+endfunc
+
+
 func! s:create_recurrent_tip(tip_text)
     let b:rb_tip_text = a:tip_text
     augroup RainbowHintGrp
@@ -22,6 +27,70 @@ func! s:create_recurrent_tip(tip_text)
     redraw
     echo a:tip_text
 endfunc
+
+function! s:InvertMap(pairs)
+    let i = 0
+    while i < len(a:pairs)
+        let tmpv = a:pairs[i][0]
+        let a:pairs[i][0] = a:pairs[i][1]
+        let a:pairs[i][1] = tmpv
+        let i += 1
+    endwhile
+    return a:pairs
+endfunction
+
+function! s:ListExistingBufDirs()
+    let buff_ids = filter(range(1, bufnr('$')), 'buflisted(v:val)')
+    let dirs_weights = {}
+    let dirs_weights[getcwd()] = 1000000
+    let home_dir = $HOME
+    let dirs_weights[home_dir] = 10000
+    for buff_id in buff_ids
+        let buff_dir = expand("#" . buff_id . ":p:h")
+        let weight = 1
+        if !has_key(dirs_weights, buff_dir)
+            let dirs_weights[buff_dir] = 0
+        endif
+        if len(getbufvar(buff_id, "selected_buf"))
+            let weight = 100
+        endif
+        let dirs_weights[buff_dir] += weight
+    endfor
+    let ranked = sort(s:InvertMap(items(dirs_weights)))
+    let ranked = reverse(ranked)
+    let result = []
+    for rr in ranked
+        call add(result, rr[1])
+    endfor
+    return result
+endfunction
+
+
+func! rainbow_csv#create_save_dialog()
+    noswapfile enew
+    setlocal buftype=nofile
+    setlocal modifiable
+    setlocal noswapfile
+    setlocal nowrap
+
+    setlocal nonumber
+    setlocal cursorline
+    setlocal nobuflisted
+
+    setlocal bufhidden=delete
+    let existing_dirs = s:ListExistingBufDirs()
+    call setline(1, "Select target directory and press Enter:")
+    call setline(2, "")
+    for nf in range(len(existing_dirs))
+        call setline(nf + 3, existing_dirs[nf])
+    endfor
+    call cursor(3, 1)
+    echo "Select target directory and press Enter"
+    redraw
+    setlocal nomodifiable
+endfunction
+
+
 
 function! s:EnsurePythonInitialization()
     if (s:python_env_initialized)
@@ -158,8 +227,8 @@ endfunc
 
 
 func! rainbow_csv#select_mode()
-    if !exists("b:rainbow_csv_delim") || !len(b:rainbow_csv_delim)
-        echoerr "Error: no delim specified"
+    if !s:is_rainbow_table()
+        echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
 
@@ -197,9 +266,9 @@ func! rainbow_csv#select_mode()
         call add(new_rows, 'c' . nf . ',')
     endfor
 
-    execute "e " . rb_script_path
+    execute "noswapfile e " . rb_script_path
 
-    map <buffer> <F5> :RbRun<cr>
+    nnoremap <buffer> <F5> :RbRun<cr>
     call rainbow_csv#generate_microlang_syntax(num_fields)
     let b:table_path = buf_path
     let b:table_buf_number = buf_number
@@ -310,13 +379,17 @@ func! rainbow_csv#run_select()
         return
     endif
     bd!
-    execute "e " . dst_table_path
+    execute "noswapfile e " . dst_table_path
     let b:self_path = dst_table_path
     let b:root_table_buf_number = table_buf_number
     let buf_number = bufnr("%")
     call setbufvar(table_buf_number, 'selected_buf', buf_number)
-    map <buffer> <silent> <F5> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
-    call s:create_recurrent_tip("Press F5 to replace " . table_name . " with this table" )
+    nnoremap <buffer> <silent> <F5> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
+    nnoremap <buffer> <silent> <F6> :call rainbow_csv#create_save_dialog()<cr>
+    "FIXME implement convenient safe to other file. suggest to choose between
+    "dirs (original filename dir, vim working dir, home, dirs of other files)
+    setlocal nomodifiable
+    call s:create_recurrent_tip("Press F5 to replace " . table_name . " with this table or F6 to save this as a new file" )
 endfunc
 
 
@@ -351,7 +424,8 @@ func! s:try_load_from_settings()
 endfunc
 
 
-func! rainbow_csv#try_load()
+func! rainbow_csv#run_autodetection()
+    let b:rainbow_csv_delim = ''
     let delim = s:try_load_from_settings() 
     if delim == 'DISABLED'
         return
@@ -397,12 +471,12 @@ func! rainbow_csv#generate_syntax(delim)
         return
     endif
 
-    if exists("b:rainbow_csv_delim") && len(b:rainbow_csv_delim)
+    if s:is_rainbow_table()
         return
     endif
 
-    map <buffer> <silent> <F5> :RbSelect<cr>
-    nmap <buffer> <silent> <Leader>d :RbGetColumn<cr>
+    nnoremap <buffer> <silent> <F5> :RbSelect<cr>
+    nnoremap <buffer> <silent> <Leader>d :RbGetColumn<cr>
 
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
@@ -441,6 +515,9 @@ endfunc
 
 
 func! s:disable_syntax()
+    if !s:is_rainbow_table()
+        return
+    endif
     syntax clear startcolumn
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
@@ -449,6 +526,8 @@ func! s:disable_syntax()
     augroup RainbowHintGrp
         autocmd! CursorHold <buffer>
     augroup END
+    unmap <buffer> <F5>
+    unmap <buffer> <Leader>d
     let b:rainbow_csv_delim = ''
 endfunc
 
@@ -462,11 +541,11 @@ endfunc
 
 
 func! rainbow_csv#set_header_manually(fname)
-    let delim = b:rainbow_csv_delim
-    if (!len(delim))
-        echoerr "Error: no delim specified"
+    if !s:is_rainbow_table()
+        echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
+    let delim = b:rainbow_csv_delim
     let entry = s:make_entry(delim)
     let entry = entry . "\t" . a:fname
     let lines = s:read_settings()
@@ -494,11 +573,11 @@ endfunc
 func! rainbow_csv#get_column()
     let line = getline('.')
     let pos = col('.') - 1
-    let delim = b:rainbow_csv_delim
-    if (!len(delim))
-        echoerr "Error: no delim specified"
+    if !s:is_rainbow_table()
+        echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
+    let delim = b:rainbow_csv_delim
 
     let colNo = len(split(line[0:pos], delim))
     let numCols = len(split(line, delim))
@@ -508,9 +587,7 @@ func! rainbow_csv#get_column()
 endfunc
 
 
-func! rainbow_csv#disable()
+func! rainbow_csv#manual_disable()
     call s:disable_syntax()
-    unmap <buffer> <F5>
-    nunmap <buffer> <Leader>d
     call s:save_file_delim('DISABLED')
 endfunc

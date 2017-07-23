@@ -6,14 +6,8 @@
 
 
 func! s:TryLoadHighlighting()
-    if exists("b:current_syntax")
-        return
-    endif
-    if exists("g:disable_rainbow_csv_autodetect")
-        return
-    endif
-    if (!exists("b:rainbow_csv_delim"))
-        call rainbow_csv#try_load()
+    if !exists("b:current_syntax") && !exists("g:disable_rainbow_csv_autodetect") && !exists("b:rainbow_csv_delim")
+        call rainbow_csv#run_autodetection()
     endif
 endfunc
 
@@ -23,8 +17,8 @@ augroup RainbowAutodetectAuGrp
 augroup END
 
 command! RainbowDelim call rainbow_csv#manual_load()
-command! NoRainbowDelim call rainbow_csv#disable()
-command! RainbowNoDelim call rainbow_csv#disable()
+command! NoRainbowDelim call rainbow_csv#manual_disable()
+command! RainbowNoDelim call rainbow_csv#manual_disable()
 command! RbGetColumn call rainbow_csv#get_column()
 command! RbSelect call rainbow_csv#select_mode()
 command! RbRun call rainbow_csv#run_select()
