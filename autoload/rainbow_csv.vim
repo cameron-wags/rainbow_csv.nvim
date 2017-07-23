@@ -2,8 +2,6 @@
 "  Description: rainbow csv
 "==============================================================================
 
-"TODO show advices in other modes OnHold events too, not only at start
-
 
 let s:max_columns = exists('g:rcsv_max_columns') ? g:rcsv_max_columns : 30
 let s:rainbowStorage = $HOME . '/.rainbow_csv_storage'
@@ -66,7 +64,20 @@ function! s:ListExistingBufDirs()
 endfunction
 
 
-func! rainbow_csv#create_save_dialog()
+func! rainbow_csv#save_and_swap(dst_path)
+    execute "bd " . b:parent_buf_nr
+    call rename(b:parent_path, a:dst_path)
+    execute "e " . a:dst_path
+endfunction
+
+
+func! s:SelectDirectory()
+    let line = getline('.')
+    call feedkeys(":RbSaveAndSwap " . line . "/")
+endfunction
+
+
+func! rainbow_csv#create_save_dialog(table_buf_nr, table_path)
     noswapfile enew
     setlocal buftype=nofile
     setlocal modifiable
@@ -78,8 +89,12 @@ func! rainbow_csv#create_save_dialog()
     setlocal nobuflisted
 
     setlocal bufhidden=delete
+
+    let b:parent_buf_nr = a:table_buf_nr
+    let b:parent_path = a:table_path
+
     let existing_dirs = s:ListExistingBufDirs()
-    call setline(1, "Select target directory and press Enter:")
+    call setline(1, "Select target directory, press Enter, and complete the command:")
     call setline(2, "")
     for nf in range(len(existing_dirs))
         call setline(nf + 3, existing_dirs[nf])
@@ -88,6 +103,7 @@ func! rainbow_csv#create_save_dialog()
     echo "Select target directory and press Enter"
     redraw
     setlocal nomodifiable
+    nnoremap <silent> <buffer> <CR> :call <SID>SelectDirectory()<CR>
 endfunction
 
 
@@ -256,13 +272,8 @@ func! rainbow_csv#select_mode()
         return
     endif
     let num_fields = len(split(lines[0], delim))
-    "let custom_names = s:read_column_names()
     let new_rows = []
     for nf in range(1, num_fields)
-        "let custom_name = ''
-        "if num_fields == len(custom_names)
-        "    let custom_name = ' (' . custom_names[nf - 1] . ')'
-        "endif
         call add(new_rows, 'c' . nf . ',')
     endfor
 
@@ -382,12 +393,10 @@ func! rainbow_csv#run_select()
     execute "noswapfile e " . dst_table_path
     let b:self_path = dst_table_path
     let b:root_table_buf_number = table_buf_number
-    let buf_number = bufnr("%")
-    call setbufvar(table_buf_number, 'selected_buf', buf_number)
+    let b:self_buf_number = bufnr("%")
+    call setbufvar(table_buf_number, 'selected_buf', b:self_buf_number)
     nnoremap <buffer> <silent> <F5> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
-    nnoremap <buffer> <silent> <F6> :call rainbow_csv#create_save_dialog()<cr>
-    "FIXME implement convenient safe to other file. suggest to choose between
-    "dirs (original filename dir, vim working dir, home, dirs of other files)
+    nnoremap <buffer> <silent> <F6> :call rainbow_csv#create_save_dialog(b:self_buf_number, b:self_path)<cr>
     setlocal nomodifiable
     call s:create_recurrent_tip("Press F5 to replace " . table_name . " with this table or F6 to save this as a new file" )
 endfunc

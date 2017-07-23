@@ -2,8 +2,6 @@
 "  Description: rainbow csv
 "==============================================================================
 
-"TODO create explanatory youtube video
-
 
 func! s:TryLoadHighlighting()
     if !exists("b:current_syntax") && !exists("g:disable_rainbow_csv_autodetect") && !exists("b:rainbow_csv_delim")
@@ -25,3 +23,4 @@ command! RbRun call rainbow_csv#run_select()
 command! RainbowSelect call rainbow_csv#select_mode()
 command! RainbowRun call rainbow_csv#run_select()
 command! -complete=file -nargs=1 RainbowSetHeader call rainbow_csv#set_header_manually(<f-args>)
+command! -complete=file -nargs=1 RbSaveAndSwap call rainbow_csv#save_and_swap(<f-args>)
