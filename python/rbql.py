@@ -31,7 +31,7 @@ sp4 = '    '
 sp8 = sp4 + sp4
 sp12 = sp4 + sp4 + sp4
 
-column_var_regex = re.compile(r'^c([1-9][0-9]*)$')
+column_var_regex = re.compile(r'^a([1-9][0-9]*)$')
 
 class RBParsingError(Exception):
     pass
@@ -357,6 +357,8 @@ def normalize_delim(delim):
         return r'\t'
     return delim
 
+#TODO you need to have access to join rhs table B in this function
+#It is either in rbql_lines or should be passed as a parameter
 def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
     if not py_dst.endswith('.py'):
         raise RBParsingError('python module file must have ".py" extension')
@@ -555,7 +557,7 @@ class TestEverything(unittest.TestCase):
         self.assertEqual(canonic_table, test_table)
 
     def test_run1(self):
-        query = 'select lnum, c1, len(c3) where int(c1) > 5'
+        query = 'select lnum, a1, len(a3) where int(a1) > 5'
 
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
@@ -571,7 +573,7 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
 
     def test_run2(self):
-        query = 'select distinct c2 where int(c1) > 10'
+        query = 'select distinct a2 where int(a1) > 10'
 
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
@@ -592,7 +594,7 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
 
     def test_run3(self):
-        query = 'select * where flike(c2, "%a_a") order by int(c1) desc'
+        query = 'select * where flike(a2, "%a_a") order by int(a1) desc'
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
         input_table.append(['-20', 'haha', 'hioho'])
@@ -614,7 +616,7 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
 
     def test_run4(self):
-        query = 'select int(math.sqrt(int(c1)))'
+        query = 'select int(math.sqrt(int(a1)))'
         input_table = list()
         input_table.append(['0', 'haha', 'hoho'])
         input_table.append(['9'])
@@ -632,7 +634,7 @@ class TestEverything(unittest.TestCase):
 
 
     def test_run5(self):
-        query = 'select c2'
+        query = 'select a2'
         input_table = list()
         input_table.append(['0', 'haha', 'hoho'])
         input_table.append(['9'])

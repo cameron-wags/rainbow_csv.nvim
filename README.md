@@ -1,7 +1,7 @@
 ## Overview
 Rainbow CSV: minimalistic but powerful vim plugin for viewing csv/tsv files and executing SQL "select" queries.
 * The plugin highlights csv columns in different rainbow colors. 
-* Rainbow csv also allows user to run simple "select" queries in SQL-like RBQL language e.g. `select c1, int(c2) + int(c3) * 10 where c4 != 'car' order by c1 desc`
+* Rainbow csv also allows user to run simple "select" queries in SQL-like RBQL language e.g. `select a1, int(a2) + int(a3) * 10 where a4 != 'car' order by a1 desc`
 
 To enter a "select" query, press `F5`. To execute the query press `F5` again. If you want to replace the source table with select results, press `F5` again.
 
@@ -18,7 +18,7 @@ minimalistic SQL-like language that supports "select" queries with python expres
 
 ### Main Features
 * Use python expressions inside "select", "where" and "order by" statements
-* Use "c1", "c2", ... , "cN" as column names to write select queries
+* Use "a1", "a2", ... , "aN" as column names to write select queries
 * Output entries appear in the same order as in input unless "ORDER BY" is provided.
 * "lnum" variable holds entry line number
 * Input csv/tsv table may contain varying number of entries (but select query must be written in a way that prevents output of missing values)
@@ -31,7 +31,7 @@ minimalistic SQL-like language that supports "select" queries with python expres
 * distinct
 
 ### Special variables
-* `c1`, `c2`, ... , `cN` - column names
+* `a1`, `a2`, ... , `aN` - column names
 * `*` - whole line/entry
 * `lnum` - line number (1-based)
 * `flen` - number of columns in current line/entry
@@ -39,11 +39,11 @@ minimalistic SQL-like language that supports "select" queries with python expres
 ### Query examples
 
 * `select * where lnum <= 10` - this is an equivalent of bash command "head -n 10", lnum is 1-based')
-* `select c1, c4` - this is an equivalent of bash command "cut -f 1,4"
-* `select * order by int(c2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
+* `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
+* `select * order by int(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
 * `select * order by random.random()` - random sort, this is an equivalent of bash command "sort -R"
 * `select lnum, *` - enumerate lines, lnum is 1-based
-* `select * where re.match(".*ab.*", c1) is not None` - select entries where first column has "ab" pattern
+* `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
 
 
 ## Mappings
