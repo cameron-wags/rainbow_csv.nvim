@@ -101,7 +101,6 @@ class TokenType:
     ALPHANUM_RAW = 4
     SYMBOLS_RAW = 5
 
-
 class Token:
     def __init__(self, ttype, content):
         self.ttype = ttype
@@ -196,23 +195,30 @@ def join_tokens(tokens):
     return ''.join([t.content for t in tokens])
 
 
-def consume_action(tokens, idx):
+class Pattern:
+    def __init__(self, text):
+        self.text = text
+        self.tokens = list()
+        fields = text.split(' ')
+        for i in xrange6(len(fields)):
+            self.tokens.append(Token(TokenType.ALPHANUM_RAW, fields[i]))
+            if i + 1 < len(fields):
+                self.tokens.append(Token(TokenType.WHITESPACE, ' '))
+        self.size = len(self.tokens)
+
+
+def consume_action(patterns, tokens, idx):
     if tokens[idx].ttype == TokenType.STRING_LITERAL:
         return (None, idx + 1)
-    if tokens[idx].content.upper() == 'SELECT':
-        action = RbAction('SELECT')
-        if idx + 2 < len(tokens) and tokens[idx + 1].ttype == TokenType.WHITESPACE and tokens[idx + 2].content.upper() == 'DISTINCT':
-            action.distinct = True
-            return (action, idx + 3)
-        else:
-            action.distinct = False
-            return (action, idx + 1)
-    if idx + 2 < len(tokens) and tokens[idx].content.upper() == 'ORDER' and tokens[idx + 1].ttype == TokenType.WHITESPACE and tokens[idx + 2].content.upper() == 'BY':
-        action = RbAction('ORDER BY')
-        return (action, idx + 3)
-    if tokens[idx].content.upper() == 'WHERE':
-        action = RbAction('WHERE')
-        return (action, idx + 1)
+    for pattern in patterns:
+        if idx + pattern.size >= len(tokens):
+            continue
+        input_slice = tokens[idx:idx + pattern.size]
+        if [t.content.upper() for t in input_slice] != [t.content for t in pattern.tokens]:
+            continue
+        if [t.ttype for t in input_slice] != [t.ttype for t in pattern.tokens]:
+            continue
+        return (RbAction(pattern.text), idx + pattern.size)
     return (None, idx + 1)
 
 
@@ -221,8 +227,10 @@ def separate_actions(tokens):
     prev_action = None
     k = 0
     i = 0
+    patterns = ['SELECT DISTINCT', 'SELECT', 'ORDER BY', 'WHERE'] #prefix must come after the longer string e.g. "select" goes after "select distinct"
+    patterns = [Pattern(p) for p in patterns]
     while i < len(tokens):
-        action, i_next = consume_action(tokens, i) 
+        action, i_next = consume_action(patterns, tokens, i) 
         if action is None:
             i = i_next
             continue
@@ -377,16 +385,20 @@ def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
     tokens = replace_column_vars(tokens)
     rb_actions = separate_actions(tokens)
 
-    if 'SELECT' not in rb_actions:
+    if 'SELECT' in rb_actions:
+        select_op = 'SELECT'
+        writer_name = 'SimpleWriter'
+    elif 'SELECT DISTINCT' in rb_actions:
+        select_op = 'SELECT DISTINCT'
+        writer_name = 'UniqWriter'
+    else:
         raise RBParsingError('"SELECT" statement not found')
-    select_distinct = rb_actions['SELECT'].distinct
-    select_items = rb_actions['SELECT'].meta_code.split(',')
+
+    select_items = rb_actions[select_op].meta_code.split(',')
     select_items = [l.strip() for l in select_items]
     select_items = [l for l in select_items if len(l)]
     if not len(select_items):
         raise RBParsingError('"SELECT" expression is empty')
-
-    writer_name = 'UniqWriter' if select_distinct else 'SimpleWriter'
 
     with open(py_dst, 'w') as dst:
         dst.write(spart_0)
