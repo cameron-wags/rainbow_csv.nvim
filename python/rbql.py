@@ -390,7 +390,7 @@ def rb_transform(source, destination):
             bfields = joiner.get({lhs_join_var})
             if bfields is None:
                 continue
-            star_line = DLM.join([line] + bfields)
+            star_line = DLM.join([line] + [str(f) for f in bfields])
 '''
 
 spart_2 = r'''
@@ -779,9 +779,45 @@ class TestEverything(unittest.TestCase):
 
         table_to_file(join_table, join_table_path)
 
-        query = r'select lnum, * inner join {} on a2 == b1 where int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
+        query = r'select lnum, * inner join {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
 
         input_table = list()
+        input_table.append(['5', 'car', 'lada'])
+        input_table.append(['-20', 'car', 'Ferrari'])
+        input_table.append(['50', 'plane', 'tu-134'])
+        input_table.append(['20', 'boat', 'destroyer'])
+        input_table.append(['10', 'boat', 'yacht'])
+        input_table.append(['200', 'plane', 'boeing 737'])
+        input_table.append(['80', 'train', 'Thomas'])
+
+        canonic_table = list()
+        canonic_table.append(['5', '10', 'boat', 'yacht', 'boat', 'wind'])
+        canonic_table.append(['4', '20', 'boat', 'destroyer', 'boat', 'wind'])
+        canonic_table.append(['2', '-20', 'car', 'Ferrari', 'car', 'gas'])
+        canonic_table.append(['1', '5', 'car', 'lada', 'car', 'gas'])
+        canonic_table.append(['3', '50', 'plane', 'tu-134', 'plane', 'wings'])
+        canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings'])
+
+        test_table = run_conversion_test(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+
+
+    def test_run7(self):
+        test_name = 'test7'
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas'])
+        join_table.append(['plane', 'wings'])
+        join_table.append(['rocket', 'some stuff'])
+
+        table_to_file(join_table, join_table_path)
+
+        query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
+
+        input_table = list()
+        input_table.append(['100', 'magic carpet', 'nimbus 3000'])
         input_table.append(['5', 'car', 'lada'])
         input_table.append(['-20', 'car', 'ferrari'])
         input_table.append(['50', 'plane', 'tu-134'])
@@ -790,16 +826,14 @@ class TestEverything(unittest.TestCase):
         input_table.append(['200', 'plane', 'boeing 737'])
 
         canonic_table = list()
-        canonic_table.append(['5', '10', 'boat', 'yacht', 'boat', 'wind'])
-        canonic_table.append(['4', '20', 'boat', 'destroyer', 'boat', 'wind'])
-        canonic_table.append(['2', '-20', 'car', 'ferrari', 'car', 'gas'])
-        canonic_table.append(['1', '5', 'car', 'lada', 'car', 'gas'])
-        canonic_table.append(['3', '50', 'plane', 'tu-134', 'plane', 'wings'])
-        canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings'])
+        canonic_table.append(['None', 'None', '100'])
+        canonic_table.append(['car', 'gas', '5'])
+        canonic_table.append(['car', 'gas', '-20'])
+        canonic_table.append(['None', 'None', '20'])
+        canonic_table.append(['None', 'None', '10'])
 
         test_table = run_conversion_test(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
-
 
 
 #FIXME write tests with RbqlRuntimeError and with joins
