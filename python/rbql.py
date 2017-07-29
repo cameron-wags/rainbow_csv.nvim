@@ -382,6 +382,7 @@ def rb_transform(source, destination):
     joiner = {joiner_type}('{rhs_table_path}')
     for lnum, line in enumerate(source, 1):
         line = line.rstrip('\n')
+        star_line = line
         fields = line.split(DLM)
         flen = len(fields)
         bfields = None
@@ -389,6 +390,7 @@ def rb_transform(source, destination):
             bfields = joiner.get({lhs_join_var})
             if bfields is None:
                 continue
+            star_line = DLM.join([line] + bfields)
 '''
 
 spart_2 = r'''
@@ -507,7 +509,7 @@ def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
         dst.write(spart_2)
         for l in select_items:
             if l == '*':
-                dst.write('{}line,\n'.format(sp12, l))
+                dst.write('{}star_line,\n'.format(sp12, l))
             else:
                 dst.write('{}{},\n'.format(sp12, l))
         dst.write(spart_3)
@@ -632,6 +634,13 @@ def table_to_string(array2d):
     return '\n'.join(['\t'.join(ln) for ln in array2d])
 
 
+def table_to_file(array2d, dst_path):
+    with open(dst_path, 'w') as f:
+        for row in array2d:
+            f.write('\t'.join(row))
+            f.write('\n')
+
+
 def table_to_stream(array2d):
     return StringIO(table_to_string(array2d))
 
@@ -664,6 +673,7 @@ class TestEverything(unittest.TestCase):
         self.assertEqual(canonic_table, test_table)
 
     def test_run1(self):
+        test_name = 'test1'
         query = 'select lnum, a1, len(a3) where int(a1) > 5'
 
         input_table = list()
@@ -676,10 +686,11 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['3', '50', '4'])
         canonic_table.append(['4', '20', '0'])
 
-        test_table = run_conversion_test(query, input_table, 'test1')
+        test_table = run_conversion_test(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
     def test_run2(self):
+        test_name = 'test2'
         query = '\tselect    distinct\ta2 where int(a1) > 10 #some#\t comments "with #text" "#"" '
 
         input_table = list()
@@ -697,10 +708,11 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['haha'])
         canonic_table.append(['hoho'])
 
-        test_table = run_conversion_test(query, input_table, 'test2')
+        test_table = run_conversion_test(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
     def test_run3(self):
+        test_name = 'test3'
         query = 'select \t  *  where flike(a2,\t"%a_a") order\tby int(a1)    desc   '
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
@@ -719,10 +731,11 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['-20', 'haha', 'hioho'])
 
 
-        test_table = run_conversion_test(query, input_table, 'test3')
+        test_table = run_conversion_test(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
     def test_run4(self):
+        test_name = 'test4'
         query = r'select int(math.sqrt(int(a1))), r"\'\"a   bc"'
         input_table = list()
         input_table.append(['0', 'haha', 'hoho'])
@@ -736,11 +749,12 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['9', r"\'\"a   bc"])
         canonic_table.append(['2', r"\'\"a   bc"])
 
-        test_table = run_conversion_test(query, input_table, 'test4', ['math', 'os'])
+        test_table = run_conversion_test(query, input_table, test_name, ['math', 'os'])
         self.compare_tables(canonic_table, test_table)
 
 
     def test_run5(self):
+        test_name = 'test5'
         query = 'select a2'
         input_table = list()
         input_table.append(['0', 'haha', 'hoho'])
@@ -749,7 +763,43 @@ class TestEverything(unittest.TestCase):
         input_table.append(['4', 'haha', 'dfdf', 'asdfa', '111'])
 
         with self.assertRaises(IndexError):
-            run_conversion_test(query, input_table, 'test5', ['math', 'os'])
+            run_conversion_test(query, input_table, test_name, ['math', 'os'])
+
+
+    def test_run6(self):
+        test_name = 'test6'
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas'])
+        join_table.append(['plane', 'wings'])
+        join_table.append(['boat', 'wind'])
+        join_table.append(['rocket', 'some stuff'])
+
+        table_to_file(join_table, join_table_path)
+
+        query = r'select lnum, * inner join {} on a2 == b1 where int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
+
+        input_table = list()
+        input_table.append(['5', 'car', 'lada'])
+        input_table.append(['-20', 'car', 'ferrari'])
+        input_table.append(['50', 'plane', 'tu-134'])
+        input_table.append(['20', 'boat', 'destroyer'])
+        input_table.append(['10', 'boat', 'yacht'])
+        input_table.append(['200', 'plane', 'boeing 737'])
+
+        canonic_table = list()
+        canonic_table.append(['5', '10', 'boat', 'yacht', 'boat', 'wind'])
+        canonic_table.append(['4', '20', 'boat', 'destroyer', 'boat', 'wind'])
+        canonic_table.append(['2', '-20', 'car', 'ferrari', 'car', 'gas'])
+        canonic_table.append(['1', '5', 'car', 'lada', 'car', 'gas'])
+        canonic_table.append(['3', '50', 'plane', 'tu-134', 'plane', 'wings'])
+        canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings'])
+
+        test_table = run_conversion_test(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+
 
 
 #FIXME write tests with RbqlRuntimeError and with joins
