@@ -14,6 +14,8 @@ import importlib
 #This module must be both python2 and python3 compatible
 #TODO add other languages for functions: java, node js, cpp, perl
 
+#config_path = os.path.join(os.path.expanduser('~'), '.rbql_config')
+
 try:
     from StringIO import StringIO
 except ImportError:
@@ -32,6 +34,9 @@ sp8 = sp4 + sp4
 sp12 = sp4 + sp4 + sp4
 
 column_var_regex = re.compile(r'^a([1-9][0-9]*)$')
+bcolumn_var_regex = re.compile(r'^b([1-9][0-9]*)$')
+field_var_regex = re.compile(r'^fields\[([0-9][0-9]*)\]$')
+bfield_var_regex = re.compile(r'^bfields\[([0-9][0-9]*)\]$')
 
 class RBParsingError(Exception):
     pass
@@ -188,11 +193,17 @@ def replace_column_vars(tokens):
         if mtobj is not None:
             column_number = int(mtobj.group(1))
             tokens[i].content = 'fields[{}]'.format(column_number - 1)
+            continue
+        mtobj = bcolumn_var_regex.match(tokens[i].content)
+        if mtobj is not None:
+            column_number = int(mtobj.group(1))
+            tokens[i].content = 'bfields[{}]'.format(column_number - 1)
+            continue
     return tokens
 
 
 def join_tokens(tokens):
-    return ''.join([t.content for t in tokens])
+    return ''.join([t.content for t in tokens]).strip()
 
 
 class Pattern:
@@ -227,7 +238,7 @@ def separate_actions(tokens):
     prev_action = None
     k = 0
     i = 0
-    patterns = ['SELECT DISTINCT', 'SELECT', 'ORDER BY', 'WHERE'] #prefix must come after the longer string e.g. "select" goes after "select distinct"
+    patterns = ['LEFT JOIN STRICT', 'LEFT JOIN', 'INNER JOIN', 'SELECT DISTINCT', 'SELECT', 'ORDER BY', 'WHERE'] #prefix must come after the longer string e.g. "select" goes after "select distinct"
     patterns = [Pattern(p) for p in patterns]
     while i < len(tokens):
         action, i_next = consume_action(patterns, tokens, i) 
@@ -253,13 +264,18 @@ def separate_actions(tokens):
 spart_0 = r'''#!/usr/bin/env python
 
 import sys
+import os
 import random #for random sort
 import datetime #for date manipulations
 import re #for regexes
 '''
 
 spart_1 = r'''
-DLM = '{}'
+DLM = '{dlm}'
+
+class RbqlRuntimeError(Exception):
+    pass
+
 
 class Flike:
     def __init__(self):
@@ -312,16 +328,67 @@ class UniqWriter:
         self.dst.write('\n')
 
 
+def read_join_table(join_table_path):
+    fields_max_len = 0
+    if not os.path.isfile(join_table_path):
+        raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
+    result = dict()
+    with open(join_table_path) as src:
+        for line in src:
+            line = line.rstrip('\n')
+            bfields = line.split(DLM)
+            fields_max_len = max(fields_max_len, len(bfields))
+            key = {rhs_join_var}
+            if key in result:
+                raise RbqlRuntimeError('Join column must be unique in right-hand-side "B" table')
+            result[key] = bfields
+    return (result, fields_max_len)
+
+
+def none_joiner(path):
+    return None
+
+
+class InnerJoiner:
+    def __init__(self, join_table_path):
+        self.join_data, self.fields_max_len = read_join_table(join_table_path)
+    def get(self, lhs_key):
+        return self.join_data.get(lhs_key, None)
+
+
+class LeftJoiner:
+    def __init__(self, join_table_path):
+        self.join_data, self.fields_max_len = read_join_table(join_table_path)
+    def get(self, lhs_key):
+        return self.join_data.get(lhs_key, [None] * self.fields_max_len)
+
+
+class LeftStrictJoiner:
+    def __init__(self, join_table_path):
+        self.join_data, self.fields_max_len = read_join_table(join_table_path)
+    def get(self, lhs_key):
+        result = self.join_data.get(lhs_key, None)
+        if result is None:
+            raise RbqlRuntimeError('In "LEFT JOIN STRICT" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found')
+        return result
+
+
 def main():
     rb_transform(sys.stdin, sys.stdout)
 
 def rb_transform(source, destination):
     unsorted_entries = list()
-    writer = {}(destination)
+    writer = {writer_type}(destination)
+    joiner = {joiner_type}('{rhs_table_path}')
     for lnum, line in enumerate(source, 1):
         line = line.rstrip('\n')
         fields = line.split(DLM)
         flen = len(fields)
+        bfields = None
+        if joiner is not None:
+            bfields = joiner.get({lhs_join_var})
+            if bfields is None:
+                continue
 '''
 
 spart_2 = r'''
@@ -365,8 +432,19 @@ def normalize_delim(delim):
         return r'\t'
     return delim
 
-#TODO you need to have access to join rhs table B in this function
-#It is either in rbql_lines or should be passed as a parameter
+
+def parse_join_expression(meta_code):
+    tokens = meta_code.split(' ')
+    syntax_err_msg = 'Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"'
+    if len(tokens) != 5 or tokens[1].upper() != 'ON' or tokens[3] != '==':
+        raise RBParsingError(syntax_err_msg)
+    if field_var_regex.match(tokens[4]) is not None:
+        tokens[2], tokens[4] = tokens[4], tokens[2]
+    if field_var_regex.match(tokens[2]) is None or bfield_var_regex.match(tokens[4]) is None:
+        raise RBParsingError(syntax_err_msg)
+    return (tokens[0], tokens[2], tokens[4])
+
+
 def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
     if not py_dst.endswith('.py'):
         raise RBParsingError('python module file must have ".py" extension')
@@ -381,18 +459,35 @@ def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
 
     tokens = tokenize_string_literals(rbql_lines)
     tokens = tokenize_terms(tokens)
+    #you have to keep whitespace tokens, because otherwise you won't be able to e.g. restore floats e.g. "3.14"
     tokens = remove_consecutive_whitespaces(tokens)
     tokens = replace_column_vars(tokens)
     rb_actions = separate_actions(tokens)
 
-    if 'SELECT' in rb_actions:
-        select_op = 'SELECT'
-        writer_name = 'SimpleWriter'
-    elif 'SELECT DISTINCT' in rb_actions:
-        select_op = 'SELECT DISTINCT'
-        writer_name = 'UniqWriter'
-    else:
+    select_op = None
+    writer_name = None
+    select_ops = {'SELECT': 'SimpleWriter', 'SELECT DISTINCT': 'UniqWriter'}
+    for k, v in select_ops.items():
+        if k in rb_actions:
+            select_op = k
+            writer_name = v
+
+    if select_op is None:
         raise RBParsingError('"SELECT" statement not found')
+
+    joiner_name = 'none_joiner'
+    join_op = None
+    rhs_table_path = None
+    lhs_join_var = None
+    rhs_join_var = None
+    join_ops = {'INNER JOIN': 'InnerJoiner', 'LEFT JOIN': 'LeftJoiner', 'LEFT JOIN STRICT': 'LeftStrictJoiner'}
+    for k, v in join_ops.items():
+        if k in rb_actions:
+            join_op = k
+            joiner_name = v
+
+    if join_op is not None:
+        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op].meta_code)
 
     select_items = rb_actions[select_op].meta_code.split(',')
     select_items = [l.strip() for l in select_items]
@@ -405,7 +500,7 @@ def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
         if import_modules is not None:
             for mdl in import_modules:
                 dst.write('import {}\n'.format(mdl))
-        dst.write(spart_1.format(normalize_delim(delim), writer_name))
+        dst.write(spart_1.format(dlm=normalize_delim(delim), rhs_join_var=rhs_join_var, writer_type=writer_name, joiner_type=joiner_name, rhs_table_path=rhs_table_path, lhs_join_var=lhs_join_var))
         if 'WHERE' in rb_actions:
             dst.write('{}if not ({}):\n'.format(sp8, rb_actions['WHERE'].meta_code))
             dst.write('{}continue\n'.format(sp12))
@@ -585,7 +680,7 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
 
     def test_run2(self):
-        query = 'select distinct a2 where int(a1) > 10'
+        query = '\tselect    distinct\ta2 where int(a1) > 10 #some#\t comments "with #text" "#"" '
 
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
@@ -606,7 +701,7 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
 
     def test_run3(self):
-        query = 'select * where flike(a2, "%a_a") order by int(a1) desc'
+        query = 'select \t  *  where flike(a2,\t"%a_a") order\tby int(a1)    desc   '
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
         input_table.append(['-20', 'haha', 'hioho'])
@@ -628,7 +723,7 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
 
     def test_run4(self):
-        query = 'select int(math.sqrt(int(a1)))'
+        query = r'select int(math.sqrt(int(a1))), r"\'\"a   bc"'
         input_table = list()
         input_table.append(['0', 'haha', 'hoho'])
         input_table.append(['9'])
@@ -636,10 +731,10 @@ class TestEverything(unittest.TestCase):
         input_table.append(['4', 'haha', 'dfdf', 'asdfa', '111'])
 
         canonic_table = list()
-        canonic_table.append(['0'])
-        canonic_table.append(['3'])
-        canonic_table.append(['9'])
-        canonic_table.append(['2'])
+        canonic_table.append(['0', r"\'\"a   bc"])
+        canonic_table.append(['3', r"\'\"a   bc"])
+        canonic_table.append(['9', r"\'\"a   bc"])
+        canonic_table.append(['2', r"\'\"a   bc"])
 
         test_table = run_conversion_test(query, input_table, 'test4', ['math', 'os'])
         self.compare_tables(canonic_table, test_table)
@@ -655,6 +750,9 @@ class TestEverything(unittest.TestCase):
 
         with self.assertRaises(IndexError):
             run_conversion_test(query, input_table, 'test5', ['math', 'os'])
+
+
+#FIXME write tests with RbqlRuntimeError and with joins
 
 
 class TestStringMethods(unittest.TestCase):
