@@ -238,7 +238,8 @@ def separate_actions(tokens):
     prev_action = None
     k = 0
     i = 0
-    patterns = ['LEFT JOIN STRICT', 'LEFT JOIN', 'INNER JOIN', 'SELECT DISTINCT', 'SELECT', 'ORDER BY', 'WHERE'] #prefix must come after the longer string e.g. "select" goes after "select distinct"
+    patterns = ['LEFT JOIN STRICT', 'LEFT JOIN', 'INNER JOIN', 'SELECT DISTINCT', 'SELECT', 'ORDER BY', 'WHERE']
+    patterns = sorted(patterns, key=len, reverse=True)
     patterns = [Pattern(p) for p in patterns]
     while i < len(tokens):
         action, i_next = consume_action(patterns, tokens, i) 
@@ -836,7 +837,78 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
 
 
-#FIXME write tests with RbqlRuntimeError and with joins
+    def test_run8(self):
+        test_name = 'test8'
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas'])
+        join_table.append(['plane', 'wings'])
+        join_table.append(['rocket', 'some stuff'])
+
+        table_to_file(join_table, join_table_path)
+
+        query = r'select b1,b2,   a1 left join strict {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
+
+        input_table = list()
+        input_table.append(['5', 'car', 'lada'])
+        input_table.append(['-20', 'car', 'ferrari'])
+        input_table.append(['50', 'plane', 'tu-134'])
+        input_table.append(['20', 'boat', 'destroyer'])
+        input_table.append(['10', 'boat', 'yacht'])
+        input_table.append(['200', 'plane', 'boeing 737'])
+        input_table.append(['100', 'magic carpet', 'nimbus 3000'])
+
+        with self.assertRaises(Exception) as cm:
+            test_table = run_conversion_test(query, input_table, test_name)
+        e = cm.exception
+        self.assertTrue(str(e).find('all A table keys must be present in table B') != -1)
+
+
+    def test_run9(self):
+        test_name = 'test9'
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas'])
+        join_table.append(['plane', 'wings'])
+        join_table.append(['plane', 'air'])
+        join_table.append(['rocket', 'some stuff'])
+
+        table_to_file(join_table, join_table_path)
+
+        query = r'select b1,b2,a1 inner join {} on a2 == b1 where b1 != "car"'.format(join_table_path)
+
+        input_table = list()
+        input_table.append(['5', 'car', 'lada'])
+        input_table.append(['-20', 'car', 'ferrari'])
+        input_table.append(['50', 'plane', 'tu-134'])
+        input_table.append(['200', 'plane', 'boeing 737'])
+
+        with self.assertRaises(Exception) as cm:
+            test_table = run_conversion_test(query, input_table, test_name)
+        e = cm.exception
+        self.assertTrue(str(e).find('Join column must be unique in right-hand-side "B" table') != -1)
+
+
+    def test_run10(self):
+        test_name = 'test10'
+        query = 'select * where a3 =="hoho" or int(a1)==50 or a1 == "aaaa" or a2== "bbbbb" '
+
+        input_table = list()
+        input_table.append(['5', 'haha', 'hoho'])
+        input_table.append(['-20', 'haha', 'hioho'])
+        input_table.append(['50', 'haha', 'dfdf'])
+        input_table.append(['20', 'haha', ''])
+
+        canonic_table = list()
+        canonic_table.append(['5', 'haha', 'hoho'])
+        canonic_table.append(['50', 'haha', 'dfdf'])
+
+        test_table = run_conversion_test(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
 
 
 class TestStringMethods(unittest.TestCase):
