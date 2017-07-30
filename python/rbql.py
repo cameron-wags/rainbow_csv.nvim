@@ -9,12 +9,19 @@ import re
 import tempfile
 import time
 import importlib
+import codecs
+import io
 
 
 #This module must be both python2 and python3 compatible
 #TODO add other languages for functions: java, node js, cpp, perl
 
 #config_path = os.path.join(os.path.expanduser('~'), '.rbql_config')
+
+#TODO if query contains non-ascii symbols, read input files in utf-8 encoding (in other cases use latin-1 as usual)
+#TODO also make it possible for user to explicitly select the encoding. For vim mode you have buffer encodings vim environment variables
+
+PY3 = sys.version_info[0] == 3
 
 try:
     from StringIO import StringIO
@@ -27,6 +34,19 @@ def dynamic_import(module_name):
     except AttributeError:
         pass
     return importlib.import_module(module_name)
+
+
+def get_encoded_stdin():
+    if PY3:
+        return io.TextIOWrapper(sys.stdin.buffer, encoding='latin-1')
+    else:
+        return codecs.getreader('latin-1')(sys.stdin)
+
+def get_encoded_stdout():
+    if PY3:
+        return io.TextIOWrapper(sys.stdout.buffer, encoding='latin-1')
+    else:
+        return codecs.getwriter('latin-1')(sys.stdout)
 
 
 sp4 = '    '
@@ -49,9 +69,9 @@ class RbAction:
 
 
 def xrange6(x):
-    if sys.version_info[0] < 3:
-        return xrange(x)
-    return range(x)
+    if PY3:
+        return range(x)
+    return xrange(x)
 
 
 def is_digit(c):
@@ -263,15 +283,26 @@ def separate_actions(tokens):
 
 
 spart_0 = r'''#!/usr/bin/env python
-
 import sys
 import os
 import random #for random sort
 import datetime #for date manipulations
 import re #for regexes
+import codecs
 '''
 
 spart_1 = r'''
+
+PY3 = sys.version_info[0] == 3
+
+def str6(obj):
+    if PY3 and isinstance(obj, str):
+        return obj
+    if not PY3 and isinstance(obj, basestring):
+        return obj
+    return str(obj)
+
+
 DLM = '{dlm}'
 
 class RbqlRuntimeError(Exception):
@@ -334,8 +365,8 @@ def read_join_table(join_table_path):
     if not os.path.isfile(join_table_path):
         raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
     result = dict()
-    with open(join_table_path) as src:
-        for line in src:
+    with codecs.open(join_table_path, encoding='latin-1') as src_text:
+        for line in src_text:
             line = line.rstrip('\n')
             bfields = line.split(DLM)
             fields_max_len = max(fields_max_len, len(bfields))
@@ -391,7 +422,7 @@ def rb_transform(source, destination):
             bfields = joiner.get({lhs_join_var})
             if bfields is None:
                 continue
-            star_line = DLM.join([line] + [str(f) for f in bfields])
+            star_line = DLM.join([line] + [str6(f) for f in bfields])
 '''
 
 spart_2 = r'''
@@ -402,12 +433,12 @@ spart_3 = r'''        ]
 '''
 
 spart_simple_print = r'''
-        writer.write(DLM.join([str(f) for f in out_fields]))
+        writer.write(DLM.join([str6(f) for f in out_fields]))
 '''
 
 spart_sort_add= r'''
         sort_key_value = ({})
-        unsorted_entries.append((sort_key_value, DLM.join([str(f) for f in out_fields])))
+        unsorted_entries.append((sort_key_value, DLM.join([str6(f) for f in out_fields])))
 '''
 
 spart_sort_print = r'''
@@ -498,8 +529,9 @@ def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
     if not len(select_items):
         raise RBParsingError('"SELECT" expression is empty')
 
-    with open(py_dst, 'w') as dst:
+    with codecs.open(py_dst, 'w', encoding='utf-8') as dst:
         dst.write(spart_0)
+        #FIXME "format" function fails in python2 when there is non-ascii chars inside
         if import_modules is not None:
             for mdl in import_modules:
                 dst.write('import {}\n'.format(mdl))
@@ -537,7 +569,8 @@ def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, 
         os.remove(py_script_path)
     import vim
     try:
-        src_lines = open(rb_script_path).readlines()
+        #src_lines = open(rb_script_path).readlines()
+        src_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
         parse_to_py(src_lines, py_script_path, delim)
     except RBParsingError as e:
         set_vim_variable(vim, 'query_status', 'Parsing Error')
@@ -551,8 +584,11 @@ def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, 
     sys.path.insert(0, module_dir)
     try:
         rbconvert = dynamic_import(module_name)
-        src = open(src_table_path, 'r')
-        with open(dst_table_path, 'w') as dst:
+
+        src = codecs.open(src_table_path, encoding='latin-1')
+        #src = open(src_table_path, 'r')
+        #with open(dst_table_path, 'w') as dst:
+        with codecs.open(dst_table_path, 'w', encoding='latin-1') as dst:
             rbconvert.rb_transform(src, dst)
         src.close()
     except Exception as e:
@@ -560,6 +596,10 @@ def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, 
         error_msg += 'Original python exception:\n{}\n'.format(str(e))
         set_vim_variable(vim, 'query_status', 'Execution Error')
         set_vim_variable(vim, 'report', error_msg)
+        tmp_dir = tempfile.gettempdir()
+        import traceback
+        with open(os.path.join(tmp_dir, 'last_exception'), 'w') as exc_dst:
+            traceback.print_exc(file=exc_dst)
         return
     set_vim_variable(vim, 'query_status', 'OK')
 
@@ -593,7 +633,7 @@ def main():
         sys.exit(1)
     if query_path is not None:
         assert query is None
-        rbql_lines = open(query_path).readlines()
+        rbql_lines = codecs.open(query_path, encoding='utf-8').readlines()
     else:
         assert query_path is None
         rbql_lines = [query]
@@ -616,17 +656,22 @@ def main():
     sys.path.insert(0, tmp_dir)
     try:
         rbconvert = dynamic_import(module_name)
-        input_src = open(input_path) if input_path else sys.stdin
-        if output_path:
-            with open(output_path, 'w') as dst:
-                rbconvert.rb_transform(input_src, dst)
+        src = None
+        if input_path:
+            src = codecs.open(input_path, encoding='latin-1')
         else:
-            rbconvert.rb_transform(input_src, sys.stdout)
+            src = get_encoded_stdin()
+        if output_path:
+            with codecs.open(output_path, 'w', encoding='latin-1') as dst:
+                rbconvert.rb_transform(src, dst)
+        else:
+            dst = get_encoded_stdout()
+            rbconvert.rb_transform(src, dst)
     except Exception as e:
         error_msg = 'Error: Unable to use generated python module.\n'
         error_msg += 'Location of the generated module: {}\n\n'.format(tmp_path)
         error_msg += 'Original python exception:\n{}\n'.format(str(e))
-        print >> sys.stderr, error_msg
+        sys.stderr.write(error_msg)
         sys.exit(1)
 
 
@@ -658,7 +703,7 @@ def run_conversion_test(query, input_table, testname, import_modules=None):
     parse_to_py([query], tmp_path, '\t', import_modules)
     assert os.path.isfile(tmp_path) and os.access(tmp_path, os.R_OK)
     rbconvert = dynamic_import(module_name)
-    rbconvert.rb_transform(src, dst)
+    rbconvert.rb_transform(src, dst) #FIXME open in latin-1
     out_data = dst.getvalue()
     out_lines = out_data[:-1].split('\n')
     out_table = [ln.split('\t') for ln in out_lines]
@@ -672,6 +717,8 @@ class TestEverything(unittest.TestCase):
             self.assertEqual(len(canonic_table[i]), len(test_table[i]))
             self.assertEqual(canonic_table[i], test_table[i])
         self.assertEqual(canonic_table, test_table)
+
+    #FIXME add tests with weird binary data
 
     def test_run1(self):
         test_name = 'test1'
