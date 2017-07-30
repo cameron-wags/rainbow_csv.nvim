@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import unicode_literals
+from __future__ import print_function
 
 import sys
 import os
@@ -22,6 +24,9 @@ import io
 #TODO also make it possible for user to explicitly select the encoding. For vim mode you have buffer encodings vim environment variables
 
 PY3 = sys.version_info[0] == 3
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 try:
     from StringIO import StringIO
@@ -283,6 +288,8 @@ def separate_actions(tokens):
 
 
 spart_0 = r'''#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
 import sys
 import os
 import random #for random sort
@@ -301,7 +308,6 @@ def str6(obj):
     if not PY3 and isinstance(obj, basestring):
         return obj
     return str(obj)
-
 
 DLM = '{dlm}'
 
@@ -531,7 +537,6 @@ def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
 
     with codecs.open(py_dst, 'w', encoding='utf-8') as dst:
         dst.write(spart_0)
-        #FIXME "format" function fails in python2 when there is non-ascii chars inside
         if import_modules is not None:
             for mdl in import_modules:
                 dst.write('import {}\n'.format(mdl))
@@ -626,10 +631,10 @@ def main():
 
     rbql_lines = None
     if query is None and query_path is None:
-        print >> sys.stderr, 'Error: provide either "--query" or "--query_path" option'
+        eprint('Error: provide either "--query" or "--query_path" option')
         sys.exit(1)
     if query is not None and query_path is not None:
-        print >> sys.stderr, 'Error: unable to use both "--query" and "--query_path" options'
+        eprint('Error: unable to use both "--query" and "--query_path" options')
         sys.exit(1)
     if query_path is not None:
         assert query is None
@@ -651,7 +656,7 @@ def main():
         print('RBQL Parsing Error: \t{}'.format(e))
         sys.exit(1)
     if not os.path.isfile(tmp_path) or not os.access(tmp_path, os.R_OK):
-        print >> sys.stderr, 'Error: Unable to find generated python module at {}.'.format(tmp_path)
+        eprint('Error: Unable to find generated python module at {}.'.format(tmp_path))
         sys.exit(1)
     sys.path.insert(0, tmp_dir)
     try:
@@ -671,7 +676,7 @@ def main():
         error_msg = 'Error: Unable to use generated python module.\n'
         error_msg += 'Location of the generated module: {}\n\n'.format(tmp_path)
         error_msg += 'Original python exception:\n{}\n'.format(str(e))
-        sys.stderr.write(error_msg)
+        eprint(error_msg)
         sys.exit(1)
 
 
