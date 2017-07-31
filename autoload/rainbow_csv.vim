@@ -475,6 +475,12 @@ func! rainbow_csv#generate_microlang_syntax(nlines)
     syntax keyword RbCmd select where initialize desc asc
     syntax match RbCmd "ORDER BY"
     syntax match RbCmd "order by"
+    syntax match RbCmd "INNER JOIN"
+    syntax match RbCmd "inner join"
+    syntax match RbCmd "LEFT JOIN"
+    syntax match RbCmd "left join"
+    syntax match RbCmd "LEFT JOIN STRICT"
+    syntax match RbCmd "left join strict"
 endfunc
 
 func! rainbow_csv#generate_syntax(delim)
