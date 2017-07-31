@@ -21,7 +21,8 @@ import io
 #config_path = os.path.join(os.path.expanduser('~'), '.rbql_config')
 
 #TODO if query contains non-ascii symbols, read input files in utf-8 encoding (in other cases use latin-1 as usual)
-#TODO also make it possible for user to explicitly select the encoding. For vim mode you have buffer encodings vim environment variables
+
+default_csv_encoding = 'latin-1'
 
 PY3 = sys.version_info[0] == 3
 
@@ -41,17 +42,17 @@ def dynamic_import(module_name):
     return importlib.import_module(module_name)
 
 
-def get_encoded_stdin():
+def get_encoded_stdin(encoding_name):
     if PY3:
-        return io.TextIOWrapper(sys.stdin.buffer, encoding='latin-1')
+        return io.TextIOWrapper(sys.stdin.buffer, encoding=encoding_name)
     else:
-        return codecs.getreader('latin-1')(sys.stdin)
+        return codecs.getreader(encoding_name)(sys.stdin)
 
-def get_encoded_stdout():
+def get_encoded_stdout(encoding_name):
     if PY3:
-        return io.TextIOWrapper(sys.stdout.buffer, encoding='latin-1')
+        return io.TextIOWrapper(sys.stdout.buffer, encoding=encoding_name)
     else:
-        return codecs.getwriter('latin-1')(sys.stdout)
+        return codecs.getwriter(encoding_name)(sys.stdout)
 
 
 sp4 = '    '
@@ -371,7 +372,7 @@ def read_join_table(join_table_path):
     if not os.path.isfile(join_table_path):
         raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
     result = dict()
-    with codecs.open(join_table_path, encoding='latin-1') as src_text:
+    with codecs.open(join_table_path, encoding='{join_encoding}') as src_text:
         for line in src_text:
             line = line.rstrip('\n')
             bfields = line.split(DLM)
@@ -485,7 +486,7 @@ def parse_join_expression(meta_code):
     return (tokens[0], tokens[2], tokens[4])
 
 
-def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
+def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encoding, import_modules=None):
     if not py_dst.endswith('.py'):
         raise RBParsingError('python module file must have ".py" extension')
 
@@ -499,7 +500,7 @@ def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
 
     tokens = tokenize_string_literals(rbql_lines)
     tokens = tokenize_terms(tokens)
-    #you have to keep whitespace tokens, because otherwise you won't be able to e.g. restore floats e.g. "3.14"
+    #you have to keep whitespace tokens, because otherwise you won't be able to e.g. distinguish between floats "3.14" and "a1,a2"
     tokens = remove_consecutive_whitespaces(tokens)
     tokens = replace_column_vars(tokens)
     rb_actions = separate_actions(tokens)
@@ -540,7 +541,7 @@ def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
         if import_modules is not None:
             for mdl in import_modules:
                 dst.write('import {}\n'.format(mdl))
-        dst.write(spart_1.format(dlm=normalize_delim(delim), rhs_join_var=rhs_join_var, writer_type=writer_name, joiner_type=joiner_name, rhs_table_path=rhs_table_path, lhs_join_var=lhs_join_var))
+        dst.write(spart_1.format(dlm=normalize_delim(delim), join_encoding=join_csv_encoding, rhs_join_var=rhs_join_var, writer_type=writer_name, joiner_type=joiner_name, rhs_table_path=rhs_table_path, lhs_join_var=lhs_join_var))
         if 'WHERE' in rb_actions:
             dst.write('{}if not ({}):\n'.format(sp8, rb_actions['WHERE'].meta_code))
             dst.write('{}continue\n'.format(sp12))
@@ -569,14 +570,13 @@ def parse_to_py(rbql_lines, py_dst, delim, import_modules=None):
         dst.write(spart_final)
 
 
-def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, delim):
+def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, delim, csv_encoding=default_csv_encoding):
     if os.path.exists(py_script_path):
         os.remove(py_script_path)
     import vim
     try:
-        #src_lines = open(rb_script_path).readlines()
         src_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
-        parse_to_py(src_lines, py_script_path, delim)
+        parse_to_py(src_lines, py_script_path, csv_encoding, delim)
     except RBParsingError as e:
         set_vim_variable(vim, 'query_status', 'Parsing Error')
         set_vim_variable(vim, 'report', e)
@@ -590,10 +590,8 @@ def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, 
     try:
         rbconvert = dynamic_import(module_name)
 
-        src = codecs.open(src_table_path, encoding='latin-1')
-        #src = open(src_table_path, 'r')
-        #with open(dst_table_path, 'w') as dst:
-        with codecs.open(dst_table_path, 'w', encoding='latin-1') as dst:
+        src = codecs.open(src_table_path, encoding=csv_encoding)
+        with codecs.open(dst_table_path, 'w', encoding=csv_encoding) as dst:
             rbconvert.rb_transform(src, dst)
         src.close()
     except Exception as e:
@@ -615,9 +613,10 @@ def main():
     parser.add_argument('--delim', help='Delimiter', default=r'\t')
     parser.add_argument('--query', help='Query string in rbql')
     parser.add_argument('--query_path', metavar='FILE', help='Read rbql query from FILE')
-    parser.add_argument('--input_table_path', metavar='FILE', help='Read input table from FILE instead of stdin')
+    parser.add_argument('--input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
     parser.add_argument('--output_table_path', metavar='FILE', help='Write output table to FILE instead of stdout')
-    parser.add_argument('--convert_only', action='store_true', help='Only generate python script do not run query on input table')
+    parser.add_argument('--convert_only', action='store_true', help='Only generate python script do not run query on csv table')
+    parser.add_argument('--csv_encoding', help='Manually set csv table encoding', default=default_csv_encoding, choices=['latin-1', 'utf-8'])
     parser.add_argument('-I', dest='libs', action='append', help='Import module to use in the result conversion script. Can be used multiple times')
     args = parser.parse_args()
 
@@ -628,6 +627,7 @@ def main():
     input_path = args.input_table_path
     output_path = args.output_table_path
     import_modules = args.libs
+    csv_encoding = args.csv_encoding
 
     rbql_lines = None
     if query is None and query_path is None:
@@ -651,7 +651,7 @@ def main():
     tmp_path = os.path.join(tmp_dir, module_filename)
 
     try:
-        parse_to_py(rbql_lines, tmp_path, delim, import_modules)
+        parse_to_py(rbql_lines, tmp_path, delim, csv_encoding, import_modules)
     except RBParsingError as e:
         print('RBQL Parsing Error: \t{}'.format(e))
         sys.exit(1)
@@ -663,14 +663,14 @@ def main():
         rbconvert = dynamic_import(module_name)
         src = None
         if input_path:
-            src = codecs.open(input_path, encoding='latin-1')
+            src = codecs.open(input_path, encoding=csv_encoding)
         else:
-            src = get_encoded_stdin()
+            src = get_encoded_stdin(csv_encoding)
         if output_path:
-            with codecs.open(output_path, 'w', encoding='latin-1') as dst:
+            with codecs.open(output_path, 'w', encoding=csv_encoding) as dst:
                 rbconvert.rb_transform(src, dst)
         else:
-            dst = get_encoded_stdout()
+            dst = get_encoded_stdout(csv_encoding)
             rbconvert.rb_transform(src, dst)
     except Exception as e:
         error_msg = 'Error: Unable to use generated python module.\n'
@@ -703,12 +703,12 @@ def run_conversion_test(query, input_table, testname, import_modules=None):
     module_name = 'rbconvert_{}_{}'.format(time.time(), testname).replace('.', '_')
     module_filename = '{}.py'.format(module_name)
     tmp_path = os.path.join(tmp_dir, module_filename)
-    src = table_to_stream(input_table)
+    src = table_to_stream(input_table) #FIXME? encoding?
     dst = StringIO()
-    parse_to_py([query], tmp_path, '\t', import_modules)
+    parse_to_py([query], tmp_path, '\t', default_csv_encoding, import_modules)
     assert os.path.isfile(tmp_path) and os.access(tmp_path, os.R_OK)
     rbconvert = dynamic_import(module_name)
-    rbconvert.rb_transform(src, dst) #FIXME open in latin-1
+    rbconvert.rb_transform(src, dst)
     out_data = dst.getvalue()
     out_lines = out_data[:-1].split('\n')
     out_table = [ln.split('\t') for ln in out_lines]
@@ -723,7 +723,7 @@ class TestEverything(unittest.TestCase):
             self.assertEqual(canonic_table[i], test_table[i])
         self.assertEqual(canonic_table, test_table)
 
-    #FIXME add tests with weird binary data
+    #FIXME add tests with weird binary data and in different encodings
 
     def test_run1(self):
         test_name = 'test1'
