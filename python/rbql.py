@@ -576,7 +576,7 @@ def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, 
     import vim
     try:
         src_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
-        parse_to_py(src_lines, py_script_path, csv_encoding, delim)
+        parse_to_py(src_lines, py_script_path, delim, csv_encoding)
     except RBParsingError as e:
         set_vim_variable(vim, 'query_status', 'Parsing Error')
         set_vim_variable(vim, 'report', e)
