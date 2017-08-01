@@ -676,45 +676,43 @@ def main():
 
 
 
-def table_to_string(array2d):
-    result = '\n'.join(['\t'.join(ln) for ln in array2d])
+def table_to_string(array2d, delim):
+    result = '\n'.join([delim.join(ln) for ln in array2d])
     if len(array2d):
         result += '\n'
     return result
 
 
-def table_to_file(array2d, dst_path):
+def table_to_file(array2d, dst_path, delim='\t'):
     with open(dst_path, 'w') as f:
         for row in array2d:
-            f.write('\t'.join(row))
+            f.write(delim.join(row))
             f.write('\n')
 
 
-def table_to_stream(array2d):
-    #FIXME you can explicitly call string.encode(encoding) on table_to_string result
-    return io.StringIO(table_to_string(array2d))
+def table_to_stream(array2d, delim):
+    return io.StringIO(table_to_string(array2d, delim))
 
 
 rainbow_ut_prefix = 'ut_rbconvert_'
 
-def run_conversion_test(query, input_table, testname, import_modules=None, csv_encoding=default_csv_encoding):
+def run_conversion_test(query, input_table, testname, import_modules=None, csv_encoding=default_csv_encoding, delim='\t'):
     tmp_dir = tempfile.gettempdir()
     if not len(sys.path) or sys.path[0] != tmp_dir:
         sys.path.insert(0, tmp_dir)
     module_name = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
     module_filename = '{}.py'.format(module_name)
     tmp_path = os.path.join(tmp_dir, module_filename)
-    src = table_to_stream(input_table) #FIXME? encoding?
+    src = table_to_stream(input_table, delim)
     dst = io.StringIO()
-    parse_to_py([query], tmp_path, '\t', csv_encoding, import_modules)
+    parse_to_py([query], tmp_path, delim, csv_encoding, import_modules)
     assert os.path.isfile(tmp_path) and os.access(tmp_path, os.R_OK)
     rbconvert = dynamic_import(module_name)
-    #both src and dst should be binary, but here you will wrap them in coders
     rbconvert.rb_transform(src, dst)
     out_data = dst.getvalue()
     if len(out_data):
         out_lines = out_data[:-1].split('\n')
-        out_table = [ln.split('\t') for ln in out_lines]
+        out_table = [ln.split(delim) for ln in out_lines]
     else:
         out_table = []
     return out_table
@@ -722,8 +720,7 @@ def run_conversion_test(query, input_table, testname, import_modules=None, csv_e
 
 def make_random_csv_entry(min_len, max_len, restricted_chars):
     strlen = random.randint(min_len, max_len)
-    #char_set = list(range(256))
-    char_set = list(range(97, 121)) #FIXME
+    char_set = list(range(256))
     restricted_chars = [ord(c) for c in restricted_chars]
     char_set = [c for c in char_set if c not in restricted_chars]
     data = list()
@@ -758,7 +755,7 @@ def generate_random_scenario(max_num_rows, max_num_cols, delims):
         sql_op = '=='
         output_table = [row for row in input_table if row[key_col] == target_key]
     query = 'select * where a{} {} "{}"'.format(key_col + 1, sql_op, target_key)
-    return (input_table, query, output_table)
+    return (input_table, query, output_table, delim)
 
 
 class TestEverything(unittest.TestCase):
@@ -789,9 +786,9 @@ class TestEverything(unittest.TestCase):
 
     def test_random_bin_tables(self):
         test_name = 'test_random_bin_tables'
-        for subtest in xrange6(10): #FIXME increase num iterations
-            input_table, query, canonic_table = generate_random_scenario(12, 12, ['\t', ',', ';'])
-            test_table = run_conversion_test(query, input_table, test_name)
+        for subtest in xrange6(50):
+            input_table, query, canonic_table, delim = generate_random_scenario(12, 12, ['\t', ',', ';'])
+            test_table = run_conversion_test(query, input_table, test_name, delim=delim)
             self.compare_tables(canonic_table, test_table)
 
 
