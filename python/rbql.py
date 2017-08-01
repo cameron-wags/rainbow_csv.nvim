@@ -29,11 +29,6 @@ PY3 = sys.version_info[0] == 3
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
-
 def dynamic_import(module_name):
     try:
         importlib.invalidate_caches()
@@ -693,18 +688,22 @@ def table_to_file(array2d, dst_path):
 
 
 def table_to_stream(array2d):
-    return StringIO(table_to_string(array2d))
+    #FIXME you can explicitly call string.encode(encoding) on table_to_string result
+    return io.StringIO(table_to_string(array2d))
 
 
-def run_conversion_test(query, input_table, testname, import_modules=None):
+def run_conversion_test(query, input_table, testname, import_modules=None, use_random_module_name=True):
     tmp_dir = tempfile.gettempdir()
     if not len(sys.path) or sys.path[0] != tmp_dir:
         sys.path.insert(0, tmp_dir)
-    module_name = 'rbconvert_{}_{}'.format(time.time(), testname).replace('.', '_')
+    if use_random_module_name:
+        module_name = 'rbconvert_{}_{}'.format(time.time(), testname).replace('.', '_')
+    else:
+        module_name = 'rbconvert_{}'.format(testname).replace('.', '_')
     module_filename = '{}.py'.format(module_name)
     tmp_path = os.path.join(tmp_dir, module_filename)
     src = table_to_stream(input_table) #FIXME? encoding?
-    dst = StringIO()
+    dst = io.StringIO()
     parse_to_py([query], tmp_path, '\t', default_csv_encoding, import_modules)
     assert os.path.isfile(tmp_path) and os.access(tmp_path, os.R_OK)
     rbconvert = dynamic_import(module_name)
@@ -715,6 +714,47 @@ def run_conversion_test(query, input_table, testname, import_modules=None):
     return out_table
 
 
+def make_random_csv_entry(min_len, max_len, restricted_chars):
+    strlen = random.randint(min_len, max_len)
+    char_set = list(range(256))
+    restricted_chars = [ord(c) for c in restricted_chars]
+    char_set = [c for c in char_set if c not in restricted_chars]
+    data = list()
+    for i in xrange6(strlen):
+        data.append(random.choice(char_set))
+    raw_str = bytes(bytearray(data))
+    return raw_str
+
+
+def generate_random_scenario(max_num_rows, max_num_cols, delims):
+    num_rows = random.randint(1, max_num_rows)
+    num_cols = random.randint(1, max_num_cols)
+    delim = random.choice(delims)
+    restricted_chars = ['\r', '\n'] + [delim]
+    key_col = random.randint(0, num_cols - 1)
+    good_keys = ['Hello', 'Avada Kedavra ', ' ??????', '128', '3q295 fa#(@*$*)', ' abcdefg ', 'lnum', 'a1', 'a2']
+    input_table = list()
+    for r in xrange6(num_rows):
+        input_table.append(list())
+        for c in xrange6(num_cols):
+            if c != key_col:
+                input_table[-1].append(make_random_csv_entry(0, 20, restricted_chars))
+            else:
+                input_table[-1].append(random.choice(good_keys))
+
+    output_table = list()
+    target_key = random.choice(good_keys)
+    if random.choice([True, False]):
+        sql_op = '!='
+        output_table = [row for row in input_table if row[key_col] != target_key]
+    else:
+        sql_op = '=='
+        output_table = [row for row in input_table if row[key_col] == target_key]
+    query = 'select * where c{} {} "{}"'.format(key_col + 1, sql_op, target_key)
+    return (input_table, query, output_table)
+
+
+
 class TestEverything(unittest.TestCase):
     def compare_tables(self, canonic_table, test_table):
         self.assertEqual(len(canonic_table), len(test_table))
@@ -723,7 +763,22 @@ class TestEverything(unittest.TestCase):
             self.assertEqual(canonic_table[i], test_table[i])
         self.assertEqual(canonic_table, test_table)
 
-    #FIXME add tests with weird binary data and in different encodings
+    #TODO add tests with weird binary data and in different encodings
+        
+    #TODO write many tests with multiple random-generated (and binary) tables and queries.
+    #if you use simple query you can find out what the result should be and use it to compare
+
+    #TODO add degraded tests: empty table, one row table, empty result set etc
+
+
+
+    #def test_random_bin_tables(self):
+    #    test_name = 'test_random_bin_tables'
+    #    for subtest in xrange6(10): #FIXME increase num iterations
+    #        input_table, query, output_table = generate_random_scenario(12, 12, ['\t', ',', ';'])
+    #        test_table = run_conversion_test(query, input_table, test_name, use_random_module_name=False)
+    #        self.compare_tables(canonic_table, test_table)
+
 
     def test_run1(self):
         test_name = 'test1'
@@ -741,6 +796,7 @@ class TestEverything(unittest.TestCase):
 
         test_table = run_conversion_test(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
+
 
     def test_run2(self):
         test_name = 'test2'
