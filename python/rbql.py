@@ -263,7 +263,7 @@ def separate_actions(tokens):
     patterns = sorted(patterns, key=len, reverse=True)
     patterns = [Pattern(p) for p in patterns]
     while i < len(tokens):
-        action, i_next = consume_action(patterns, tokens, i) 
+        action, i_next = consume_action(patterns, tokens, i)
         if action is None:
             i = i_next
             continue
@@ -580,7 +580,7 @@ def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, 
     module_name = os.path.basename(py_script_path)
     assert module_name.endswith('.py')
     module_name = module_name[:-3]
-    module_dir = os.path.dirname(py_script_path) 
+    module_dir = os.path.dirname(py_script_path)
     sys.path.insert(0, module_dir)
     try:
         rbconvert = dynamic_import(module_name)
@@ -648,7 +648,7 @@ def main():
     try:
         parse_to_py(rbql_lines, tmp_path, delim, csv_encoding, import_modules)
     except RBParsingError as e:
-        print('RBQL Parsing Error: \t{}'.format(e))
+        eprint('RBQL Parsing Error: \t{}'.format(e))
         sys.exit(1)
     if not os.path.isfile(tmp_path) or not os.access(tmp_path, os.R_OK):
         eprint('Error: Unable to find generated python module at {}.'.format(tmp_path))
@@ -677,7 +677,10 @@ def main():
 
 
 def table_to_string(array2d):
-    return '\n'.join(['\t'.join(ln) for ln in array2d])
+    result = '\n'.join(['\t'.join(ln) for ln in array2d])
+    if len(array2d):
+        result += '\n'
+    return result
 
 
 def table_to_file(array2d, dst_path):
@@ -692,38 +695,41 @@ def table_to_stream(array2d):
     return io.StringIO(table_to_string(array2d))
 
 
-def run_conversion_test(query, input_table, testname, import_modules=None, use_random_module_name=True):
+
+def run_conversion_test(query, input_table, testname, import_modules=None, csv_encoding=default_csv_encoding):
     tmp_dir = tempfile.gettempdir()
     if not len(sys.path) or sys.path[0] != tmp_dir:
         sys.path.insert(0, tmp_dir)
-    if use_random_module_name:
-        module_name = 'rbconvert_{}_{}'.format(time.time(), testname).replace('.', '_')
-    else:
-        module_name = 'rbconvert_{}'.format(testname).replace('.', '_')
+    module_name = 'ut_rbconvert_{}_{}_{}'.format(time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
     module_filename = '{}.py'.format(module_name)
     tmp_path = os.path.join(tmp_dir, module_filename)
     src = table_to_stream(input_table) #FIXME? encoding?
     dst = io.StringIO()
-    parse_to_py([query], tmp_path, '\t', default_csv_encoding, import_modules)
+    parse_to_py([query], tmp_path, '\t', csv_encoding, import_modules)
     assert os.path.isfile(tmp_path) and os.access(tmp_path, os.R_OK)
     rbconvert = dynamic_import(module_name)
+    #both src and dst should be binary, but here you will wrap them in coders
     rbconvert.rb_transform(src, dst)
     out_data = dst.getvalue()
-    out_lines = out_data[:-1].split('\n')
-    out_table = [ln.split('\t') for ln in out_lines]
+    if len(out_data):
+        out_lines = out_data[:-1].split('\n')
+        out_table = [ln.split('\t') for ln in out_lines]
+    else:
+        out_table = []
     return out_table
 
 
 def make_random_csv_entry(min_len, max_len, restricted_chars):
     strlen = random.randint(min_len, max_len)
-    char_set = list(range(256))
+    #char_set = list(range(256))
+    char_set = list(range(97, 121)) #FIXME
     restricted_chars = [ord(c) for c in restricted_chars]
     char_set = [c for c in char_set if c not in restricted_chars]
     data = list()
     for i in xrange6(strlen):
         data.append(random.choice(char_set))
-    raw_str = bytes(bytearray(data))
-    return raw_str
+    pseudo_latin = bytes(bytearray(data)).decode('latin-1')
+    return pseudo_latin
 
 
 def generate_random_scenario(max_num_rows, max_num_cols, delims):
@@ -750,10 +756,11 @@ def generate_random_scenario(max_num_rows, max_num_cols, delims):
     else:
         sql_op = '=='
         output_table = [row for row in input_table if row[key_col] == target_key]
-    query = 'select * where c{} {} "{}"'.format(key_col + 1, sql_op, target_key)
+    query = 'select * where a{} {} "{}"'.format(key_col + 1, sql_op, target_key)
     return (input_table, query, output_table)
 
 
+#FIXME remove all generated test scripts at the beginning of unit tests!
 
 class TestEverything(unittest.TestCase):
     def compare_tables(self, canonic_table, test_table):
@@ -764,7 +771,7 @@ class TestEverything(unittest.TestCase):
         self.assertEqual(canonic_table, test_table)
 
     #TODO add tests with weird binary data and in different encodings
-        
+
     #TODO write many tests with multiple random-generated (and binary) tables and queries.
     #if you use simple query you can find out what the result should be and use it to compare
 
@@ -772,12 +779,12 @@ class TestEverything(unittest.TestCase):
 
 
 
-    #def test_random_bin_tables(self):
-    #    test_name = 'test_random_bin_tables'
-    #    for subtest in xrange6(10): #FIXME increase num iterations
-    #        input_table, query, output_table = generate_random_scenario(12, 12, ['\t', ',', ';'])
-    #        test_table = run_conversion_test(query, input_table, test_name, use_random_module_name=False)
-    #        self.compare_tables(canonic_table, test_table)
+    def test_random_bin_tables(self):
+        test_name = 'test_random_bin_tables'
+        for subtest in xrange6(10): #FIXME increase num iterations
+            input_table, query, canonic_table = generate_random_scenario(12, 12, ['\t', ',', ';'])
+            test_table = run_conversion_test(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
 
 
     def test_run1(self):
