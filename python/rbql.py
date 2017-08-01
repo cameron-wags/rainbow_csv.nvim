@@ -695,12 +695,13 @@ def table_to_stream(array2d):
     return io.StringIO(table_to_string(array2d))
 
 
+rainbow_ut_prefix = 'ut_rbconvert_'
 
 def run_conversion_test(query, input_table, testname, import_modules=None, csv_encoding=default_csv_encoding):
     tmp_dir = tempfile.gettempdir()
     if not len(sys.path) or sys.path[0] != tmp_dir:
         sys.path.insert(0, tmp_dir)
-    module_name = 'ut_rbconvert_{}_{}_{}'.format(time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
+    module_name = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
     module_filename = '{}.py'.format(module_name)
     tmp_path = os.path.join(tmp_dir, module_filename)
     src = table_to_stream(input_table) #FIXME? encoding?
@@ -760,9 +761,17 @@ def generate_random_scenario(max_num_rows, max_num_cols, delims):
     return (input_table, query, output_table)
 
 
-#FIXME remove all generated test scripts at the beginning of unit tests!
-
 class TestEverything(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        tmp_dir = tempfile.gettempdir()
+        old_unused = [f for f in os.listdir(tmp_dir) if f.startswith(rainbow_ut_prefix)]
+        for name in old_unused:
+            script_path = os.path.join(tmp_dir, name)
+            os.remove(script_path)
+
+
     def compare_tables(self, canonic_table, test_table):
         self.assertEqual(len(canonic_table), len(test_table))
         for i in xrange6(len(canonic_table)):
@@ -776,7 +785,6 @@ class TestEverything(unittest.TestCase):
     #if you use simple query you can find out what the result should be and use it to compare
 
     #TODO add degraded tests: empty table, one row table, empty result set etc
-
 
 
     def test_random_bin_tables(self):
