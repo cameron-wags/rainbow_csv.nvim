@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from __future__ import print_function
 
@@ -696,7 +697,7 @@ def table_to_stream(array2d, delim):
 
 rainbow_ut_prefix = 'ut_rbconvert_'
 
-def run_conversion_test(query, input_table, testname, import_modules=None, csv_encoding=default_csv_encoding, delim='\t'):
+def run_conversion_test(query, input_table, testname, import_modules=None, join_csv_encoding=default_csv_encoding, delim='\t'):
     tmp_dir = tempfile.gettempdir()
     if not len(sys.path) or sys.path[0] != tmp_dir:
         sys.path.insert(0, tmp_dir)
@@ -705,7 +706,7 @@ def run_conversion_test(query, input_table, testname, import_modules=None, csv_e
     tmp_path = os.path.join(tmp_dir, module_filename)
     src = table_to_stream(input_table, delim)
     dst = io.StringIO()
-    parse_to_py([query], tmp_path, delim, csv_encoding, import_modules)
+    parse_to_py([query], tmp_path, delim, join_csv_encoding, import_modules)
     assert os.path.isfile(tmp_path) and os.access(tmp_path, os.R_OK)
     rbconvert = dynamic_import(module_name)
     rbconvert.rb_transform(src, dst)
@@ -1028,6 +1029,24 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['50', 'haha', 'dfdf'])
 
         test_table = run_conversion_test(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+
+
+    def test_run11(self):
+        test_name = 'test11'
+        query = 'select * where a2== "Наполеон" '
+
+        input_table = list()
+        input_table.append(['5', 'Петр Первый', 'hoho'])
+        input_table.append(['-20', 'Екатерина Великая', 'hioho'])
+        input_table.append(['50', 'Наполеон', 'dfdf'])
+        input_table.append(['20', 'Наполеон', ''])
+
+        canonic_table = list()
+        canonic_table.append(['50', 'Наполеон', 'dfdf'])
+        canonic_table.append(['20', 'Наполеон', ''])
+
+        test_table = run_conversion_test(query, input_table, test_name, join_csv_encoding='utf-8')
         self.compare_tables(canonic_table, test_table)
 
 
