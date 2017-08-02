@@ -43,11 +43,13 @@ Minimalistic SQL-like language that supports "select" queries with python expres
 * `flen` - number of columns in current line/entry
 * `b1`, `b2`, ... , `bN` - column names in right table B in join operations
 
-### Join queries
-`inner join` and `left join` work exactly like their sql equivalents with only difference that join key in right table "B" must be unique.  
-Join statement must have the following form:  
-`<join> /path/to/table.tsv on ai == bj` i.e. you can't use python expressions inside join statement.  
-`left join strict` is like `left join`, but it fails with an error if some keys in left table "A" don't have matching key in right table "B".
+### Join queries rules
+* `inner join` and `left join` work exactly like their sql equivalents with only difference that join key in right table "B" must be unique.  
+* `left join strict` is like `left join`, but it fails with an error if some keys in left table "A" don't have matching key in right table "B".
+* Join statement must have the following form:  
+```
+<join> /path/to/table.tsv on ai == bj
+```
 
 ### Query examples
 
