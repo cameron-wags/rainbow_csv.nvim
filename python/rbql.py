@@ -608,7 +608,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--delim', help='Delimiter', default=r'\t')
     parser.add_argument('--query', help='Query string in rbql')
-    parser.add_argument('--query_path', metavar='FILE', help='Read rbql query from FILE')
+    parser.add_argument('--query_file', metavar='FILE', help='Read rbql query from FILE')
     parser.add_argument('--input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
     parser.add_argument('--output_table_path', metavar='FILE', help='Write output table to FILE instead of stdout')
     parser.add_argument('--convert_only', action='store_true', help='Only generate python script do not run query on csv table')
@@ -618,7 +618,7 @@ def main():
 
     delim = args.delim
     query = args.query
-    query_path = args.query_path
+    query_path = args.query_file
     convert_only = args.convert_only
     input_path = args.input_table_path
     output_path = args.output_table_path
