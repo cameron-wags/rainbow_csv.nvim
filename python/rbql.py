@@ -260,7 +260,7 @@ def separate_actions(tokens):
     prev_action = None
     k = 0
     i = 0
-    patterns = ['LEFT JOIN STRICT', 'LEFT JOIN', 'INNER JOIN', 'SELECT DISTINCT', 'SELECT', 'ORDER BY', 'WHERE']
+    patterns = ['STRICT LEFT JOIN', 'LEFT JOIN', 'INNER JOIN', 'SELECT DISTINCT', 'SELECT', 'ORDER BY', 'WHERE']
     patterns = sorted(patterns, key=len, reverse=True)
     patterns = [Pattern(p) for p in patterns]
     while i < len(tokens):
@@ -398,13 +398,13 @@ class LeftJoiner:
         return self.join_data.get(lhs_key, [None] * self.fields_max_len)
 
 
-class LeftStrictJoiner:
+class StrictLeftJoiner:
     def __init__(self, join_table_path):
         self.join_data, self.fields_max_len = read_join_table(join_table_path)
     def get(self, lhs_key):
         result = self.join_data.get(lhs_key, None)
         if result is None:
-            raise RbqlRuntimeError('In "LEFT JOIN STRICT" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found')
+            raise RbqlRuntimeError('In "STRICT LEFT JOIN" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found')
         return result
 
 
@@ -517,7 +517,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     rhs_table_path = None
     lhs_join_var = None
     rhs_join_var = None
-    join_ops = {'INNER JOIN': 'InnerJoiner', 'LEFT JOIN': 'LeftJoiner', 'LEFT JOIN STRICT': 'LeftStrictJoiner'}
+    join_ops = {'INNER JOIN': 'InnerJoiner', 'LEFT JOIN': 'LeftJoiner', 'STRICT LEFT JOIN': 'StrictLeftJoiner'}
     for k, v in join_ops.items():
         if k in rb_actions:
             join_op = k
@@ -970,7 +970,7 @@ class TestEverything(unittest.TestCase):
 
         table_to_file(join_table, join_table_path)
 
-        query = r'select b1,b2,   a1 left join strict {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
+        query = r'select b1,b2,   a1 strict left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
 
         input_table = list()
         input_table.append(['5', 'car', 'lada'])

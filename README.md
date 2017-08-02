@@ -34,7 +34,7 @@ Minimalistic SQL-like language that supports "select" queries with python expres
 * distinct
 * inner join
 * left join
-* left join strict
+* strict left join
 
 ### Special variables
 * `a1`, `a2`, ... , `aN` - column names
@@ -45,7 +45,7 @@ Minimalistic SQL-like language that supports "select" queries with python expres
 
 ### Join query rules
 * keywords `inner join` and `left join` work exactly like their SQL equivalents with only difference that join key in right table "B" must be unique.  
-* keyword `left join strict` is like `left join`, but generates error if some keys in left table "A" don't have matching key in right table "B".
+* keyword `strict left join` is like `left join`, but generates error if some keys in left table "A" don't have matching key in right table "B".
 * Join statement must have the following form: `<join_keyword> /path/to/table.tsv on ai == bj`
 
 ### Query examples

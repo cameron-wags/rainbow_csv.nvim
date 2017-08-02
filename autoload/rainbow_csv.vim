@@ -482,8 +482,8 @@ func! rainbow_csv#generate_microlang_syntax(nlines)
     syntax match RbCmd "inner join"
     syntax match RbCmd "LEFT JOIN"
     syntax match RbCmd "left join"
-    syntax match RbCmd "LEFT JOIN STRICT"
-    syntax match RbCmd "left join strict"
+    syntax match RbCmd "STRICT LEFT JOIN"
+    syntax match RbCmd "strict left join"
 endfunc
 
 func! rainbow_csv#generate_syntax(delim)
