@@ -44,9 +44,9 @@ Minimalistic SQL-like language that supports "select" queries with python expres
 * `b1`, `b2`, ... , `bN` - column names in right table B in join operations
 
 ### Join queries
-`inner join` and `left join` work exactly like their sql equivalents with only difference that join key in right table "B" must be unique.
-Join statement must have the following form:
-`<join> /path/to/table.tsv on ai == bj` i.e. you can't use python expressions inside join statement.
+`inner join` and `left join` work exactly like their sql equivalents with only difference that join key in right table "B" must be unique.  
+Join statement must have the following form:  
+`<join> /path/to/table.tsv on ai == bj` i.e. you can't use python expressions inside join statement.  
 `left join strict` is like `left join`, but it fails with an error if some keys in left table "A" don't have matching key in right table "B".
 
 ### Query examples
@@ -61,6 +61,22 @@ Join statement must have the following form:
 * `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
 * `select * where a1 == "Добрый вечер"` - you can use utf-8 in queries
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1` - an example of join query
+
+
+### rbql.py script
+rainbow_csv comes with rbql.py script which is located in ~/.vim extension folder.  
+You can use it in standalone mode to execute RBQL queries from command line. Example:
+```
+./rbql.py --query "select a1, a2 order by a1" < input.tsv
+```
+To find out more about rbql.py and available options, execute:
+```
+./rbql.py -h
+```
+
+
+### How does it work?
+Python script rbql.py parses RBQL query, creates a new .py module, then imports and executes it.
 
 
 ## Mappings
