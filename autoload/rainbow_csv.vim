@@ -272,10 +272,13 @@ func! rainbow_csv#select_mode()
         return
     endif
     let num_fields = len(split(lines[0], delim))
+
+    let select_line = 'select'
     let new_rows = []
     for nf in range(1, num_fields)
-        call add(new_rows, 'a' . nf . ',')
+        let select_line = select_line . ' a' . nf . ','
     endfor
+    let select_line = select_line . ' #  <- modify!'
 
     execute "noswapfile e " . rb_script_path
 
@@ -295,11 +298,8 @@ func! rainbow_csv#select_mode()
     call add(help_before, '# To run the query press F5')
     call add(help_before, '# For more info visit https://github.com/mechatroner/rainbow_csv')
     call add(help_before, '')
-    call add(help_before, 'select')
+    call add(help_before, select_line)
     call setline(1, help_before)
-    for nf in range(num_fields)
-        call setline(nf + 1 + len(help_before), new_rows[nf])
-    endfor
     let help_after = []
     call add(help_after, '')
     call add(help_after, '')
@@ -312,7 +312,7 @@ func! rainbow_csv#select_mode()
     call add(help_after, '# To sort result set, modify this:')
     call add(help_after, '#order by a2 desc')
     call add(help_after, '')
-    call add(help_after, '# Examples of rbql queries:')
+    call add(help_after, '# Examples of RBQL queries:')
     call add(help_after, '# select * where a1 == "SELL"')
     call add(help_after, '# select * where a3 in ["car", "plane", "boat"] and int(a1) >= 100')
     call add(help_after, '# select * where lnum <= 10 # this is an equivalent of bash command "head -n 10", lnum is 1-based')
@@ -323,13 +323,8 @@ func! rainbow_csv#select_mode()
     call add(help_after, '# select * where re.match(".*ab.*", a1) is not None # select entries where first column has "ab" pattern')
     call add(help_after, '# select * where flike(a1, "%ab%") # same as previous, but using "flike()" function (equivalent of SQL "LIKE" operator)')
     call add(help_after, '# select distinct a1, *, 200, int(a2) + 5, "hello world" where lnum > 100 and int(a5) < -7 order by a3 ASC')
-    call add(help_after, '')
-    call add(help_after, '')
-    call add(help_after, '# Did you know? You have rbql.py script in the .vim extension folder which you can run from command line like this:')
-    call add(help_after, '# ./rbql.py --query "select a1, a2 order by a1" < input.tsv')
-    call add(help_after, '# run ./rbql.py -h for more info')
-    call setline(num_fields + 1 + len(help_before), help_after)
-    call cursor(1 + len(help_before), 1)
+    call setline(1 + len(help_before), help_after)
+    call cursor(len(help_before), 1)
     w
     call s:create_recurrent_tip("Press F5 to run the query")
 endfunc
