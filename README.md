@@ -85,7 +85,6 @@ Python script rbql.py parses RBQL query, creates a new .py module, then imports 
 |`<leader>d`   | Print info about current column (under the cursor)          |
 |`F5`          | Start "select" query editing for the current csv file       |
 |`F5`          | Execute currently edited "select" query                     |
-|`F5`          | Replace the original csv file content with "select" results |
 
 
 ## Commands
