@@ -394,11 +394,16 @@ func! rainbow_csv#run_select()
     let b:root_table_buf_number = table_buf_number
     let b:self_buf_number = bufnr("%")
     call setbufvar(table_buf_number, 'selected_buf', b:self_buf_number)
+    
+    let root_delim = getbufvar(b:root_table_buf_number, "rainbow_csv_delim")
+    call rainbow_csv#generate_syntax(root_delim)
+
     nnoremap <buffer> <silent> <F4> :bd!<cr>
-    nnoremap <buffer> <silent> <F5> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
     nnoremap <buffer> <silent> <F6> :call rainbow_csv#create_save_dialog(b:self_buf_number, b:self_path)<cr>
+    nnoremap <buffer> <silent> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
     setlocal nomodifiable
-    call s:create_recurrent_tip("Press F4 to close, F5 to replace " . table_name . " with this table or F6 to save as a new file" )
+    "TODO use filename and buf number of the root table (not immediate parent), you can do a recursive buffers list traversal
+    call s:create_recurrent_tip("F4: Close; F5: Recursive query; F6: Save...; F7: Copy to " . table_name)
 endfunc
 
 
