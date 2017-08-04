@@ -78,7 +78,7 @@ endfunction
 
 
 func! rainbow_csv#create_save_dialog(table_buf_nr, table_path)
-    noswapfile enew
+    enew
     setlocal buftype=nofile
     setlocal modifiable
     setlocal noswapfile
@@ -280,7 +280,8 @@ func! rainbow_csv#select_mode()
     endfor
     let select_line = select_line . ' #  <- modify!'
 
-    execute "noswapfile e " . rb_script_path
+    execute "e " . rb_script_path
+    setlocal noswapfile
 
     nnoremap <buffer> <F5> :RbRun<cr>
     call rainbow_csv#generate_microlang_syntax(num_fields)
@@ -389,7 +390,8 @@ func! rainbow_csv#run_select()
         return
     endif
     bd!
-    execute "noswapfile e " . dst_table_path
+    execute "e " . dst_table_path
+    setlocal noswapfile
     let b:self_path = dst_table_path
     let b:root_table_buf_number = table_buf_number
     let b:self_buf_number = bufnr("%")
