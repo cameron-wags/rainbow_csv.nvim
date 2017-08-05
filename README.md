@@ -3,7 +3,7 @@ Rainbow CSV: minimalistic but powerful vim plugin for viewing csv/tsv files and 
 * The plugin highlights csv columns in different rainbow colors. 
 * Rainbow csv also allows user to run simple "select" queries in SQL-like RBQL language e.g. `select a1, int(a2) + int(a3) * 10 where a4 != 'car' order by a1 desc`
 
-To enter a "select" query, press `F5`. To execute the query press `F5` again. If you want to replace the source table with select results, press `F5` again.
+To enter a "select" query, press `F5`. To execute the query press `F5` again.
 
 There are 2 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
@@ -129,4 +129,4 @@ Install with your favorite plugin manager.
 
 
 ## Requirements
-vim compiled with "python" or "python3".
+vim compiled with python 2.7 or python 3.

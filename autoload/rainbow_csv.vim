@@ -63,7 +63,6 @@ function! s:ListExistingBufDirs()
     return result
 endfunction
 
-
 func! rainbow_csv#save_and_swap(dst_path)
     execute "bd " . b:parent_buf_nr
     call rename(b:parent_path, a:dst_path)
@@ -223,7 +222,7 @@ endfunc
 func! s:do_run_select(table_path, rb_script_path, py_script_path, dst_table_path, delim)
     let query_status = 'Unknown error'
     let report = 'Something went wrong'
-    let py_call = 'rbql.vim_execute("' . a:table_path. '", "' . a:rb_script_path . '", "' . a:py_script_path . '", "' . a:dst_table_path . '", "' . a:delim . '")'
+    let py_call = 'rbql.vim_execute("' . a:table_path . '", "' . a:rb_script_path . '", "' . a:py_script_path . '", "' . a:dst_table_path . '", "' . a:delim . '")'
     if has("python3")
         exe 'python3 ' . py_call
     elseif has("python")
@@ -239,6 +238,18 @@ func! rainbow_csv#clear_current_buf_content()
     let nl = line("$")
     call cursor(1, 1)
     execute "delete " . nl
+endfunc
+
+
+func! s:get_rb_script_path_for_this_table()
+    let rb_script_name = expand("%:t") . ".rb"
+    call s:ensure_storage_exists()
+    let rb_script_path = s:rainbowStorage . '/' . rb_script_name
+    let already_exists = filereadable(rb_script_path)
+    if already_exists
+        call delete(rb_script_path)
+    fi
+    return rb_script_path
 endfunc
 
 
@@ -260,11 +271,7 @@ func! rainbow_csv#select_mode()
     let buf_number = bufnr("%")
     let buf_path = expand("%")
 
-    let rb_script_name = expand("%:t") . ".rb"
-    call s:ensure_storage_exists()
-    let rb_script_path = s:rainbowStorage . '/' . rb_script_name
-
-    let already_exists = filereadable(rb_script_path)
+    let rb_script_path = s:get_rb_script_path_for_this_table()
 
     let lines = getline(1, 10)
     if !len(lines)
@@ -290,7 +297,6 @@ func! rainbow_csv#select_mode()
     let b:rainbow_select = 1
     let b:table_csv_delim = delim
 
-    call rainbow_csv#clear_current_buf_content()
     let help_before = []
     call add(help_before, '# Welcome to RBQL: SQL with python expressions')
     call add(help_before, "")
@@ -342,32 +348,23 @@ func! rainbow_csv#copy_file_content_to_buf(src_file_path, dst_buf_no)
 endfunc
 
 
-
-func! rainbow_csv#run_select()
-    if !exists("b:rainbow_select")
-        echoerr "Execute from rainbow query buffer"
-        return
-    endif
-
-    w
-    let rb_script_path = expand("%")
-
+func! s:run_select(table_buf_number, rb_script_path)
     if !s:EnsurePythonInitialization()
         return
     endif
 
-    let py_module_name = "vim_rb_convert_" .  strftime("%Y_%m_%d_%H_%M_%S") . ".py"
+    let root_delim = getbufvar(a:table_buf_number, "rainbow_csv_delim")
 
-    let cache_dir = expand("%:p:h")
-    let py_script_path = cache_dir . "/" . py_module_name
-    let table_name = fnamemodify(b:table_path, ":t")
-    let table_buf_number = b:table_buf_number
-    let dst_table_path = cache_dir . "/" . table_name . ".rbselected"
+    let table_path = expand("#" . a:table_buf_number . ":p")
+    let py_module_name = "vim_rb_convert_" .  strftime("%Y_%m_%d_%H_%M_%S") . ".py"
+    let table_name = fnamemodify(table_path, ":t")
+    let py_script_path = s:rainbowStorage . "/" . py_module_name
+    let dst_table_path = s:rainbowStorage . "/" . table_name . ".rbselected"
 
     redraw
     echo "executing..."
 
-    let [query_status, report] = s:do_run_select(b:table_path, rb_script_path, py_script_path, dst_table_path, b:table_csv_delim)
+    let [query_status, report] = s:do_run_select(table_path, a:rb_script_path, py_script_path, dst_table_path, root_delim)
     if query_status == "Parsing Error"
         echohl ErrorMsg
         echo "Parsing Error"
@@ -389,15 +386,14 @@ func! rainbow_csv#run_select()
         echohl None
         return
     endif
-    bd!
     execute "e " . dst_table_path
     setlocal noswapfile
     let b:self_path = dst_table_path
-    let b:root_table_buf_number = table_buf_number
+    let b:root_table_buf_number = a:table_buf_number
     let b:self_buf_number = bufnr("%")
-    call setbufvar(table_buf_number, 'selected_buf', b:self_buf_number)
+    let table_name = fnamemodify(table_path, ":t")
+    call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
     
-    let root_delim = getbufvar(b:root_table_buf_number, "rainbow_csv_delim")
     call rainbow_csv#generate_syntax(root_delim)
 
     nnoremap <buffer> <silent> <F4> :bd!<cr>
@@ -407,6 +403,35 @@ func! rainbow_csv#run_select()
     "TODO use filename and buf number of the root table (not immediate parent), you can do a recursive buffers list traversal
     call s:create_recurrent_tip("F4: Close; F5: Recursive query; F6: Save...; F7: Copy to " . table_name)
 endfunc
+
+
+func! rainbow_csv#run_cmd_query(...)
+    let fargs = a:000
+    let query = 'select ' . join(fargs, ' ')
+    if !s:is_rainbow_table()
+        echomsg "Error: rainbow_csv is disabled for this buffer"
+        return
+    endif
+    let rb_script_path = s:get_rb_script_path_for_this_table()
+    call writefile([query], rb_script_path)
+    let table_buf_number = bufnr("%")
+    call s:run_select(table_buf_number, rb_script_path)
+endfunction
+
+
+func! rainbow_csv#select_from_file()
+    if !exists("b:rainbow_select")
+        echoerr "Execute from rainbow query buffer"
+        return
+    endif
+    w
+    let rb_script_path = expand("%")
+    let query_buf_nr = bufnr("%")
+    let table_buf_number = b:table_buf_number
+    call s:run_select(table_buf_number, rb_script_path)
+    execute "bd! " . query_buf_nr
+endfunc
+
 
 
 func! s:read_settings()
