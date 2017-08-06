@@ -19,9 +19,8 @@ import io
 #This module must be both python2 and python3 compatible
 #TODO add other languages for functions: java, node js, cpp, perl
 
-#config_path = os.path.join(os.path.expanduser('~'), '.rbql_config')
-
 #TODO if query contains non-ascii symbols, read input files in utf-8 encoding (in other cases use latin-1 as usual)
+
 
 default_csv_encoding = 'latin-1'
 
@@ -51,24 +50,24 @@ def get_encoded_stdout(encoding_name):
         return codecs.getwriter(encoding_name)(sys.stdout)
 
 
-sp4 = '    '
-sp8 = sp4 + sp4
-sp12 = sp4 + sp4 + sp4
-
 column_var_regex = re.compile(r'^a([1-9][0-9]*)$')
 bcolumn_var_regex = re.compile(r'^b([1-9][0-9]*)$')
-field_var_regex = re.compile(r'^fields\[([0-9][0-9]*)\]$')
-bfield_var_regex = re.compile(r'^bfields\[([0-9][0-9]*)\]$')
+
+
+def replace_rbql_var(text):
+    mtobj = column_var_regex.match(text)
+    if mtobj is not None:
+        column_number = int(mtobj.group(1))
+        return 'fields[{}]'.format(column_number - 1)
+    mtobj = bcolumn_var_regex.match(text)
+    if mtobj is not None:
+        column_number = int(mtobj.group(1))
+        return 'bfields[{}]'.format(column_number - 1)
+    return None
+
 
 class RBParsingError(Exception):
     pass
-
-
-class RbAction:
-    def __init__(self, action_type):
-        self.action_type = action_type
-        self.meta_code = None
-
 
 def xrange6(x):
     if PY3:
@@ -126,7 +125,7 @@ class TokenType:
     STRING_LITERAL = 2
     WHITESPACE = 3
     ALPHANUM_RAW = 4
-    SYMBOLS_RAW = 5
+    SYMBOL_RAW = 5
 
 class Token:
     def __init__(self, ttype, content):
@@ -167,31 +166,29 @@ def tokenize_terms(tokens):
             result.append(token)
             continue
         content = token.content
-        read_type = None
-        k = 0
+
         i = 0
-        for i in xrange6(len(content)):
+        k = 0
+        in_alphanumeric = False 
+        while i < len(content):
             c = content[i]
-            if c == ' ':
+            if c == ' ' or is_boundary(c):
                 if k < i:
-                    assert read_type in [TokenType.ALPHANUM_RAW, TokenType.SYMBOLS_RAW]
-                    result.append(Token(read_type, content[k:i]))
+                    assert in_alphanumeric
+                    result.append(Token(TokenType.ALPHANUM_RAW, content[k:i]))
                 k = i + 1
-                read_type = None
-                result.append(Token(TokenType.WHITESPACE, ' '))
-                continue
-            new_read_type = TokenType.SYMBOLS_RAW if is_boundary(c) else TokenType.ALPHANUM_RAW
-            if read_type == new_read_type:
-                continue
-            if k < i:
-                assert read_type is not None
-                result.append(Token(read_type, content[k:i]))
-            k = i
-            read_type = new_read_type
-        i = len(content)
+                in_alphanumeric = False
+                if c == ' ':
+                    result.append(Token(TokenType.WHITESPACE, ' '))
+                else:
+                    result.append(Token(TokenType.SYMBOL_RAW, c))
+            elif not in_alphanumeric:
+                in_alphanumeric = True
+                k = i
+            i += 1
         if k < i:
-            assert read_type is not None
-            result.append(Token(read_type, content[k:i]))
+            assert in_alphanumeric
+            result.append(Token(TokenType.ALPHANUM_RAW, content[k:i]))
     return result
 
 
@@ -211,16 +208,32 @@ def replace_column_vars(tokens):
     for i in xrange6(len(tokens)):
         if tokens[i].ttype == TokenType.STRING_LITERAL:
             continue
-        mtobj = column_var_regex.match(tokens[i].content)
-        if mtobj is not None:
-            column_number = int(mtobj.group(1))
-            tokens[i].content = 'fields[{}]'.format(column_number - 1)
+        replaced_py_var = replace_rbql_var(tokens[i].content)
+        if replaced_py_var is not None:
+            tokens[i].content = replaced_py_var
+    return tokens
+
+def replace_star_vars(tokens):
+    for i in xrange6(len(tokens)):
+        if tokens[i].ttype == TokenType.STRING_LITERAL:
             continue
-        mtobj = bcolumn_var_regex.match(tokens[i].content)
-        if mtobj is not None:
-            column_number = int(mtobj.group(1))
-            tokens[i].content = 'bfields[{}]'.format(column_number - 1)
+        if tokens[i].content != '*':
             continue
+        j = i - 1
+        if j >= 0 and tokens[j].content == ' ':
+            j -= 1
+        if j >= 0:
+            assert tokens[j].content != ' '
+            if not tokens[j].content.endswith(','):
+                continue
+        j = i + 1
+        if j < len(tokens) and tokens[j].content == ' ':
+            j += 1
+        if j < len(tokens):
+            assert tokens[j].content != ' '
+            if not tokens[j].content.startswith(','):
+                continue
+        tokens[i].content = 'star_line'
     return tokens
 
 
@@ -251,8 +264,16 @@ def consume_action(patterns, tokens, idx):
             continue
         if [t.ttype for t in input_slice] != [t.ttype for t in pattern.tokens]:
             continue
-        return (RbAction(pattern.text), idx + pattern.size)
+        return (pattern.text, idx + pattern.size)
     return (None, idx + 1)
+
+
+def strip_tokens(tokens):
+    while len(tokens) and tokens[0].content == ' ':
+        tokens = tokens[1:]
+    while len(tokens) and tokens[-1].content == ' ':
+        tokens = tokens[:-1]
+    return tokens
 
 
 def separate_actions(tokens):
@@ -269,22 +290,20 @@ def separate_actions(tokens):
             i = i_next
             continue
         if prev_action is not None:
-            prev_action.meta_code = join_tokens(tokens[k:i])
-            result[prev_action.action_type] = prev_action
-        if action.action_type in result:
-            raise RBParsingError('More than one "{}" statements found'.format(action.action_type))
+            result[prev_action] = strip_tokens(tokens[k:i])
+        if action in result:
+            raise RBParsingError('More than one "{}" statements found'.format(action))
         prev_action = action
         i = i_next
         k = i
     if prev_action is not None:
-        prev_action.meta_code = join_tokens(tokens[k:i])
-        result[prev_action.action_type] = prev_action
+        result[prev_action] = strip_tokens(tokens[k:i])
     return result
 
 
 
 
-spart_0 = r'''#!/usr/bin/env python
+py_script_body = r'''#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import sys
@@ -293,9 +312,8 @@ import random #for random sort
 import datetime #for date manipulations
 import re #for regexes
 import codecs
-'''
 
-spart_1 = r'''
+{import_expression}
 
 PY3 = sys.version_info[0] == 3
 
@@ -426,36 +444,25 @@ def rb_transform(source, destination):
             if bfields is None:
                 continue
             star_line = DLM.join([line] + [str6(f) for f in bfields])
-'''
-
-spart_2 = r'''
-        out_fields = [
-'''
-
-spart_3 = r'''        ]
-'''
-
-spart_simple_print = r'''
-        writer.write(DLM.join([str6(f) for f in out_fields]))
-'''
-
-spart_sort_add= r'''
-        sort_key_value = ({})
-        unsorted_entries.append((sort_key_value, DLM.join([str6(f) for f in out_fields])))
-'''
-
-spart_sort_print = r'''
+        if not ({where_expression}):
+            continue
+        out_fields = [{select_expression}]
+        if {sort_flag}:
+            sort_key_value = ({sort_key_expression})
+            unsorted_entries.append((sort_key_value, DLM.join([str6(f) for f in out_fields])))
+        else:
+            writer.write(DLM.join([str6(f) for f in out_fields]))
     if len(unsorted_entries):
-        unsorted_entries = sorted(unsorted_entries, reverse = {})
+        unsorted_entries = sorted(unsorted_entries, reverse = {reverse_flag})
         for e in unsorted_entries:
             writer.write(e[1])
 
-'''
 
-spart_final = r'''
 if __name__ == '__main__':
     main()
+
 '''
+
 
 def vim_sanitize(obj):
     return str(obj).replace("'", '"')
@@ -470,16 +477,16 @@ def normalize_delim(delim):
     return delim
 
 
-def parse_join_expression(meta_code):
-    tokens = meta_code.split(' ')
+def parse_join_expression(tokens):
     syntax_err_msg = 'Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"'
+    tokens = join_tokens(tokens).split(' ')
     if len(tokens) != 5 or tokens[1].upper() != 'ON' or tokens[3] != '==':
         raise RBParsingError(syntax_err_msg)
-    if field_var_regex.match(tokens[4]) is not None:
+    if column_var_regex.match(tokens[4]) is not None:
         tokens[2], tokens[4] = tokens[4], tokens[2]
-    if field_var_regex.match(tokens[2]) is None or bfield_var_regex.match(tokens[4]) is None:
+    if column_var_regex.match(tokens[2]) is None or bcolumn_var_regex.match(tokens[4]) is None:
         raise RBParsingError(syntax_err_msg)
-    return (tokens[0], tokens[2], tokens[4])
+    return (tokens[0], replace_rbql_var(tokens[2]), replace_rbql_var(tokens[4]))
 
 
 def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encoding, import_modules=None):
@@ -496,9 +503,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
 
     tokens = tokenize_string_literals(rbql_lines)
     tokens = tokenize_terms(tokens)
-    #you have to keep whitespace tokens, because otherwise you won't be able to e.g. distinguish between floats "3.14" and "a1,a2"
     tokens = remove_consecutive_whitespaces(tokens)
-    tokens = replace_column_vars(tokens)
     rb_actions = separate_actions(tokens)
 
     select_op = None
@@ -524,46 +529,50 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
             joiner_name = v
 
     if join_op is not None:
-        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op].meta_code)
+        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op])
 
-    select_items = rb_actions[select_op].meta_code.split(',')
-    select_items = [l.strip() for l in select_items]
-    select_items = [l for l in select_items if len(l)]
-    if not len(select_items):
+    py_meta_params = dict()
+    import_expression = ''
+    if import_modules is not None:
+        for mdl in import_modules:
+            import_expression += 'import {}\n'.format(mdl)
+    py_meta_params['import_expression'] = import_expression
+    py_meta_params['dlm'] = normalize_delim(delim)
+    py_meta_params['join_encoding'] = join_csv_encoding
+    py_meta_params['rhs_join_var'] = rhs_join_var
+    py_meta_params['writer_type'] = writer_name
+    py_meta_params['joiner_type'] = joiner_name
+    py_meta_params['rhs_table_path'] = rhs_table_path
+    py_meta_params['lhs_join_var'] = lhs_join_var
+    py_meta_params['where_expression'] = 'True'
+    if 'WHERE' in rb_actions:
+        py_meta_params['where_expression'] = join_tokens(replace_column_vars(rb_actions['WHERE']))
+    select_tokens = replace_column_vars(rb_actions[select_op])
+    select_tokens = replace_star_vars(select_tokens)
+    if not len(select_tokens):
         raise RBParsingError('"SELECT" expression is empty')
+    select_expression= join_tokens(select_tokens)
+    py_meta_params['select_expression'] = select_expression
+
+    py_meta_params['sort_flag'] = 'False'
+    py_meta_params['reverse_flag'] = 'False'
+    py_meta_params['sort_key_expression'] = 'None'
+    if 'ORDER BY' in rb_actions:
+        py_meta_params['sort_flag'] = 'True'
+        order_expression = join_tokens(replace_column_vars(rb_actions['ORDER BY']))
+        direction_marker = ' DESC'
+        if order_expression.upper().endswith(direction_marker):
+            order_expression = order_expression[:-len(direction_marker)].rstrip()
+            py_meta_params['reverse_flag'] = 'True'
+        direction_marker = ' ASC'
+        if order_expression.upper().endswith(direction_marker):
+            order_expression = order_expression[:-len(direction_marker)].rstrip()
+        py_meta_params['sort_key_expression'] = order_expression
 
     with codecs.open(py_dst, 'w', encoding='utf-8') as dst:
-        dst.write(spart_0)
-        if import_modules is not None:
-            for mdl in import_modules:
-                dst.write('import {}\n'.format(mdl))
-        dst.write(spart_1.format(dlm=normalize_delim(delim), join_encoding=join_csv_encoding, rhs_join_var=rhs_join_var, writer_type=writer_name, joiner_type=joiner_name, rhs_table_path=rhs_table_path, lhs_join_var=lhs_join_var))
-        if 'WHERE' in rb_actions:
-            dst.write('{}if not ({}):\n'.format(sp8, rb_actions['WHERE'].meta_code))
-            dst.write('{}continue\n'.format(sp12))
-        dst.write(spart_2)
-        for l in select_items:
-            if l == '*':
-                dst.write('{}star_line,\n'.format(sp12, l))
-            else:
-                dst.write('{}{},\n'.format(sp12, l))
-        dst.write(spart_3)
-        reverse_sort = 'False'
-        if 'ORDER BY' in rb_actions:
-            order_expression = rb_actions['ORDER BY'].meta_code
-            direction_marker = ' DESC'
-            if order_expression.upper().endswith(direction_marker):
-                order_expression = order_expression[:-len(direction_marker)].rstrip()
-                reverse_sort = 'True'
-            direction_marker = ' ASC'
-            if order_expression.upper().endswith(direction_marker):
-                order_expression = order_expression[:-len(direction_marker)].rstrip()
-            dst.write(spart_sort_add.format(order_expression))
-        else:
-            dst.write(spart_simple_print)
+        dst.write(py_script_body.format(**py_meta_params))
 
-        dst.write(spart_sort_print.format(reverse_sort))
-        dst.write(spart_final)
+
 
 
 def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, delim, csv_encoding=default_csv_encoding):
@@ -777,13 +786,7 @@ class TestEverything(unittest.TestCase):
             self.assertEqual(canonic_table[i], test_table[i])
         self.assertEqual(canonic_table, test_table)
 
-    #TODO add tests with weird binary data and in different encodings
-
-    #TODO write many tests with multiple random-generated (and binary) tables and queries.
-    #if you use simple query you can find out what the result should be and use it to compare
-
     #TODO add degraded tests: empty table, one row table, empty result set etc
-
 
     def test_random_bin_tables(self):
         test_name = 'test_random_bin_tables'
@@ -1048,6 +1051,9 @@ class TestEverything(unittest.TestCase):
 
         test_table = run_conversion_test(query, input_table, test_name, join_csv_encoding='utf-8')
         self.compare_tables(canonic_table, test_table)
+
+
+    #FIXME add test cases with commas, variable names and * in string literals and comments
 
 
 class TestStringMethods(unittest.TestCase):
