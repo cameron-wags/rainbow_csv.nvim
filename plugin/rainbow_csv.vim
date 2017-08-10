@@ -25,3 +25,5 @@ command! RainbowRun call rainbow_csv#select_from_file()
 command! -complete=file -nargs=1 RainbowSetHeader call rainbow_csv#set_header_manually(<f-args>)
 command! -complete=file -nargs=1 RbSaveAndSwap call rainbow_csv#save_and_swap(<f-args>)
 command! -nargs=+ Select call rainbow_csv#run_cmd_query(<f-args>)
+"FIXME you must not publish the next command:
+command! RbStatus call rainbow_csv#set_statusline_columns()

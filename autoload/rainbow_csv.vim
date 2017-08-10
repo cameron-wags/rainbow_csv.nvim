@@ -22,7 +22,7 @@ func! s:create_recurrent_tip(tip_text)
         autocmd! CursorHold <buffer>
         autocmd CursorHold <buffer> echo b:rb_tip_text
     augroup END
-    redraw
+    redraw!
     echo a:tip_text
 endfunc
 
@@ -100,7 +100,7 @@ func! rainbow_csv#create_save_dialog(table_buf_nr, table_path)
     endfor
     call cursor(3, 1)
     echo "Select target directory and press Enter"
-    redraw
+    redraw!
     setlocal nomodifiable
     nnoremap <silent> <buffer> <CR> :call <SID>SelectDirectory()<CR>
 endfunction
@@ -240,6 +240,104 @@ func! rainbow_csv#clear_current_buf_content()
     execute "delete " . nl
 endfunc
 
+"func! s:int_mod(a_val, b_val)
+"    return a_val - (a_val / b_val) * b_val
+"endfunc
+
+
+func! s:single_char_sring(string_len, string_char)
+    let result = ''
+    for ii in range(a:string_len)
+        let result = result . a:string_char
+    endfor
+    return result
+endfunc
+
+"func! s:generate_tab_statusline(indent, tabstop_val, template_fields)
+"    let result = a:indent
+"    "FIXME limit statusline length
+"    "XXX you can use the same functions for non-tab delimiters if you set tabstop_val to 1
+"    "But you have to accumulate space_deficit value in case when fields are too small < 2 chars
+"    let space_deficit = 0
+"    for nf in range(len(a:template_fields))
+"        let available_space = (1 + len(a:template_fields[nf]) / a:tabstop_val) * a:tabstop_val
+"        echomsg available_space
+"        let column_name = 'a' . nf
+"        let space_filled_len = max([1, available_space - len(column_name)])
+"        let space_filling = s:single_char_sring(space_filled_len, ' ')
+"        let result = result . column_name . space_filling
+"    endfor
+"    return result
+"endfunc
+
+
+func! s:generate_tab_statusline(indent, tabstop_val, template_fields)
+    "FIXME limit statusline length
+    "XXX you can use the same functions for non-tab delimiters if you set tabstop_val to 1
+    "But you have to accumulate space_deficit value in case when fields are too small < 2 chars
+    let result = a:indent
+    let space_deficit = 0
+    for nf in range(len(a:template_fields))
+        let available_space = (1 + len(a:template_fields[nf]) / a:tabstop_val) * a:tabstop_val
+        let column_name = 'a' . nf
+        let extra_len = available_space - len(column_name) - 1
+        if extra_len < 0
+            let space_deficit -= extra_len
+            let extra_len = 0
+        else
+            let regained = min([space_deficit, extra_len])
+            let space_deficit -= regained
+            let extra_len -= regained
+        endif
+        let space_filling = s:single_char_sring(1 + extra_len, ' ')
+        let result = result . column_name . space_filling
+    endfor
+    return result
+endfunc
+
+
+func! rainbow_csv#run_unit_tests()
+
+
+endfunc
+
+
+func! s:status_escape_string(src)
+    let result = substitute(a:src, ' ', '\\ ', 'g')
+    let result = substitute(result, '"', '\\"', 'g')
+    return result
+endfunc
+
+"func! s:set_statusline_columns()
+func! rainbow_csv#set_statusline_columns()
+    " http://vim.wikia.com/wiki/Writing_a_valid_statusline
+    "FIXME make sure that your text will not overfill the statusline, otherwise only last columns would be shown
+    if !s:is_rainbow_table()
+        return
+    endif
+    let b:statusline_before = &statusline 
+    let delim = b:rainbow_csv_delim
+    let has_number_column = &number
+    "TODO take "sign" column into account too. You can use :sign place buffer={nr}
+    let indent = ''
+    if has_number_column
+        let indent_len = len(string(line('$'))) + 1
+        let indent = s:single_char_sring(indent_len, ' ')
+    endif
+    let bottom_line = getline(line('w$'))
+    let bottom_fields = split(bottom_line, delim, 1)
+    let rb_statusline = ""
+    if delim == "\t"
+        let rb_statusline = s:generate_tab_statusline(indent, &tabstop, bottom_fields)
+    else
+        let rb_statusline = s:generate_tab_statusline(indent, 1, bottom_fields)
+    endif
+    let rb_statusline = s:status_escape_string(rb_statusline)
+    execute "set statusline=" . rb_statusline
+
+    redraw!
+endfunc
+
 
 func! s:get_rb_script_path_for_this_table()
     let rb_script_name = expand("%:t") . ".rb"
@@ -339,7 +437,7 @@ endfunc
 
 func! rainbow_csv#copy_file_content_to_buf(src_file_path, dst_buf_no)
     bd!
-    redraw
+    redraw!
     echo "executing..."
     execute "buffer " . a:dst_buf_no
     call rainbow_csv#clear_current_buf_content()
@@ -361,7 +459,7 @@ func! s:run_select(table_buf_number, rb_script_path)
     let py_script_path = s:rainbowStorage . "/" . py_module_name
     let dst_table_path = s:rainbowStorage . "/" . table_name . ".rbselected"
 
-    redraw
+    redraw!
     echo "executing..."
 
     let [query_status, report] = s:do_run_select(table_path, a:rb_script_path, py_script_path, dst_table_path, root_delim)
