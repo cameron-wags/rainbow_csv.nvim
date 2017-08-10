@@ -256,7 +256,7 @@ func! s:generate_tab_statusline(indent, tabstop_val, template_fields)
     let space_deficit = 0
     for nf in range(len(a:template_fields))
         let available_space = (1 + len(a:template_fields[nf]) / a:tabstop_val) * a:tabstop_val
-        let column_name = 'a' . nf
+        let column_name = 'a' . string(nf + 1)
         let extra_len = available_space - len(column_name) - 1
         if extra_len < 0
             let space_deficit -= extra_len
@@ -267,15 +267,31 @@ func! s:generate_tab_statusline(indent, tabstop_val, template_fields)
             let extra_len -= regained
         endif
         let space_filling = s:single_char_sring(1 + extra_len, ' ')
+        if nf + 1 == len(a:template_fields)
+            let space_filling = ''
+        endif
         let result = result . column_name . space_filling
     endfor
     return result
 endfunc
 
 
+func! s:assert_equal(lhs, rhs)
+    if a:lhs != a:rhs
+        echoerr 'equal assertion failed: "' . a:lhs . '" != "' . a:rhs '"'
+    endif
+endfunc
+
 func! rainbow_csv#run_unit_tests()
+    echomsg "Running unit tests..."
+    "10,a,b,20000,5
+    "a1 a2 a3 a4  a5
+    let test_stln = s:generate_tab_statusline('   ', 1, ['10', 'a', 'b', '20000', '5'])
+    let canonic_stln = '   a1 a2 a3 a4  a5'
+    call s:assert_equal(canonic_stln, test_stln)
 
 
+    echomsg "Finished"
 endfunc
 
 

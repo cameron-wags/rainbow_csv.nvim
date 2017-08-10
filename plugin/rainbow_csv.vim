@@ -27,3 +27,4 @@ command! -complete=file -nargs=1 RbSaveAndSwap call rainbow_csv#save_and_swap(<f
 command! -nargs=+ Select call rainbow_csv#run_cmd_query(<f-args>)
 "FIXME you must not publish the next command:
 command! RbStatus call rainbow_csv#set_statusline_columns()
+command! UnitTestRainbow call rainbow_csv#run_unit_tests()
