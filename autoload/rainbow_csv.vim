@@ -250,9 +250,9 @@ func! s:single_char_sring(string_len, string_char)
 endfunc
 
 
-func! s:generate_tab_statusline(indent, tabstop_val, template_fields)
+func! s:generate_tab_statusline(tabstop_val, template_fields)
     "FIXME limit statusline length
-    let result = a:indent
+    let result = ''
     let space_deficit = 0
     for nf in range(len(a:template_fields))
         let available_space = (1 + len(a:template_fields[nf]) / a:tabstop_val) * a:tabstop_val
@@ -286,14 +286,14 @@ func! rainbow_csv#run_unit_tests()
     echomsg "Running unit tests..."
     "10,a,b,20000,5
     "a1 a2 a3 a4  a5
-    let test_stln = s:generate_tab_statusline('   ', 1, ['10', 'a', 'b', '20000', '5'])
-    let canonic_stln = '   a1 a2 a3 a4  a5'
+    let test_stln = s:generate_tab_statusline(1, ['10', 'a', 'b', '20000', '5'])
+    let canonic_stln = 'a1 a2 a3 a4  a5'
     call s:assert_equal(canonic_stln, test_stln)
 
     "10  a   b   20000   5
     "a1  a2  a3  a4      a5
-    let test_stln = s:generate_tab_statusline('  ', 4, ['10', 'a', 'b', '20000', '5'])
-    let canonic_stln = '  a1  a2  a3  a4      a5'
+    let test_stln = s:generate_tab_statusline(4, ['10', 'a', 'b', '20000', '5'])
+    let canonic_stln = 'a1  a2  a3  a4      a5'
     call s:assert_equal(canonic_stln, test_stln)
 
     echomsg "Finished"
@@ -326,9 +326,9 @@ func! rainbow_csv#set_statusline_columns()
     let bottom_fields = split(bottom_line, delim, 1)
     let rb_statusline = ""
     if delim == "\t"
-        let rb_statusline = s:generate_tab_statusline(indent, &tabstop, bottom_fields)
+        let rb_statusline = indent . s:generate_tab_statusline(&tabstop, bottom_fields)
     else
-        let rb_statusline = s:generate_tab_statusline(indent, 1, bottom_fields)
+        let rb_statusline = indent . s:generate_tab_statusline(1, bottom_fields)
     endif
     let rb_statusline = s:status_escape_string(rb_statusline)
     execute "set statusline=" . rb_statusline
