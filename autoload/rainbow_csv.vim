@@ -248,7 +248,7 @@ func! s:get_rb_script_path_for_this_table()
     let already_exists = filereadable(rb_script_path)
     if already_exists
         call delete(rb_script_path)
-    fi
+    endif
     return rb_script_path
 endfunc
 
