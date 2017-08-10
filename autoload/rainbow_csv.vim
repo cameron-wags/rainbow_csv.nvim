@@ -290,6 +290,11 @@ func! rainbow_csv#run_unit_tests()
     let canonic_stln = '   a1 a2 a3 a4  a5'
     call s:assert_equal(canonic_stln, test_stln)
 
+    "10  a   b   20000   5
+    "a1  a2  a3  a4      a5
+    let test_stln = s:generate_tab_statusline('  ', 4, ['10', 'a', 'b', '20000', '5'])
+    let canonic_stln = '  a1  a2  a3  a4      a5'
+    call s:assert_equal(canonic_stln, test_stln)
 
     echomsg "Finished"
 endfunc
