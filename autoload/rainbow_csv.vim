@@ -240,10 +240,6 @@ func! rainbow_csv#clear_current_buf_content()
     execute "delete " . nl
 endfunc
 
-"func! s:int_mod(a_val, b_val)
-"    return a_val - (a_val / b_val) * b_val
-"endfunc
-
 
 func! s:single_char_sring(string_len, string_char)
     let result = ''
@@ -253,28 +249,9 @@ func! s:single_char_sring(string_len, string_char)
     return result
 endfunc
 
-"func! s:generate_tab_statusline(indent, tabstop_val, template_fields)
-"    let result = a:indent
-"    "FIXME limit statusline length
-"    "XXX you can use the same functions for non-tab delimiters if you set tabstop_val to 1
-"    "But you have to accumulate space_deficit value in case when fields are too small < 2 chars
-"    let space_deficit = 0
-"    for nf in range(len(a:template_fields))
-"        let available_space = (1 + len(a:template_fields[nf]) / a:tabstop_val) * a:tabstop_val
-"        echomsg available_space
-"        let column_name = 'a' . nf
-"        let space_filled_len = max([1, available_space - len(column_name)])
-"        let space_filling = s:single_char_sring(space_filled_len, ' ')
-"        let result = result . column_name . space_filling
-"    endfor
-"    return result
-"endfunc
-
 
 func! s:generate_tab_statusline(indent, tabstop_val, template_fields)
     "FIXME limit statusline length
-    "XXX you can use the same functions for non-tab delimiters if you set tabstop_val to 1
-    "But you have to accumulate space_deficit value in case when fields are too small < 2 chars
     let result = a:indent
     let space_deficit = 0
     for nf in range(len(a:template_fields))
