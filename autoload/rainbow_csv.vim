@@ -102,7 +102,7 @@ func! rainbow_csv#create_save_dialog(table_buf_nr, table_path)
     echo "Select target directory and press Enter"
     redraw!
     setlocal nomodifiable
-    nnoremap <silent> <buffer> <CR> :call <SID>SelectDirectory()<CR>
+    nnoremap <buffer> <CR> :call <SID>SelectDirectory()<CR>
 endfunction
 
 
@@ -309,13 +309,14 @@ func! s:status_escape_string(src)
     return result
 endfunc
 
-"func! s:set_statusline_columns()
 func! rainbow_csv#set_statusline_columns()
     " http://vim.wikia.com/wiki/Writing_a_valid_statusline
     if !s:is_rainbow_table()
         return
     endif
-    let b:statusline_before = &statusline 
+    if !exists("b:statusline_before") || !len(b:statusline_before)
+        let b:statusline_before = &statusline 
+    endif
     let delim = b:rainbow_csv_delim
     let has_number_column = &number
     "TODO take "sign" column into account too. You can use :sign place buffer={nr}
@@ -349,6 +350,25 @@ func! rainbow_csv#set_statusline_columns()
     let rb_statusline = s:status_escape_string(rb_statusline)
     execute "set statusline=" . rb_statusline
     redraw!
+endfunc
+
+
+func! rainbow_csv#try_set_statusline_columns()
+    let cmd_type = getcmdtype()
+    "if cmd_type != ':'
+    "    return
+    "endif
+    call rainbow_csv#set_statusline_columns()
+endfunc
+
+
+func! rainbow_csv#restore_statusline()
+    if !exists("b:statusline_before") || !len(b:statusline_before)
+        return
+    endif
+    let escaped_statusline = s:status_escape_string(b:statusline_before)
+    execute "set statusline=" . escaped_statusline
+    let b:statusline_before=''
 endfunc
 
 
@@ -505,11 +525,11 @@ func! s:run_select(table_buf_number, rb_script_path)
     let table_name = fnamemodify(table_path, ":t")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
     
-    call rainbow_csv#generate_syntax(root_delim)
+    call rainbow_csv#enable_syntax(root_delim)
 
-    nnoremap <buffer> <silent> <F4> :bd!<cr>
-    nnoremap <buffer> <silent> <F6> :call rainbow_csv#create_save_dialog(b:self_buf_number, b:self_path)<cr>
-    nnoremap <buffer> <silent> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
+    nnoremap <buffer> <F4> :bd!<cr>
+    nnoremap <buffer> <F6> :call rainbow_csv#create_save_dialog(b:self_buf_number, b:self_path)<cr>
+    nnoremap <buffer> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
     setlocal nomodifiable
     "TODO use filename and buf number of the root table (not immediate parent), you can do a recursive buffers list traversal
     call s:create_recurrent_tip("F4: Close; F5: Recursive query; F6: Save...; F7: Copy to " . table_name)
@@ -588,7 +608,7 @@ func! rainbow_csv#run_autodetection()
     if (!len(delim))
         return
     endif
-    call rainbow_csv#generate_syntax(delim)
+    call rainbow_csv#enable_syntax(delim)
 endfunc
 
 
@@ -624,7 +644,7 @@ func! rainbow_csv#generate_microlang_syntax(nlines)
     syntax match RbCmd "strict left join"
 endfunc
 
-func! rainbow_csv#generate_syntax(delim)
+func! rainbow_csv#enable_syntax(delim)
     if (len(s:pairs) < 2)
         return
     endif
@@ -633,8 +653,8 @@ func! rainbow_csv#generate_syntax(delim)
         return
     endif
 
-    nnoremap <buffer> <silent> <F5> :RbSelect<cr>
-    nnoremap <buffer> <silent> <Leader>d :RbGetColumn<cr>
+    nnoremap <buffer> <F5> :RbSelect<cr>
+    nnoremap <buffer> <Leader>d :RbGetColumn<cr>
 
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
@@ -648,6 +668,11 @@ func! rainbow_csv#generate_syntax(delim)
         exe printf(cmd, statusline_hl_group, s:pairs[groupid][0], s:pairs[groupid][1])
     endfor
     highlight status_line_default_hl ctermbg=black guibg=black
+
+    nnoremap <buffer> : :call rainbow_csv#try_set_statusline_columns()<CR>:
+    "nnoremap <buffer> : :call rainbow_csv#try_set_statusline_columns()<CR>:
+    "autocmd CmdwinEnter <buffer> call rainbow_csv#try_set_statusline_columns()
+    "autocmd CmdwinLeave <buffer> call rainbow_csv#restore_statusline()
 
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=column1'
     exe printf(cmd, a:delim)
@@ -697,7 +722,7 @@ endfunc
 func! rainbow_csv#manual_load()
     let delim = getline('.')[col('.') - 1]  
     call s:disable_syntax()
-    call rainbow_csv#generate_syntax(delim)
+    call rainbow_csv#enable_syntax(delim)
     call s:save_file_delim(delim)
 endfunc
 
