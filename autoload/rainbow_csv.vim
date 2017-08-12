@@ -349,17 +349,18 @@ func! rainbow_csv#set_statusline_columns()
     endfor
     let rb_statusline = s:status_escape_string(rb_statusline)
     execute "set statusline=" . rb_statusline
+    "augroup StatusDisableGrp
+    "    autocmd CursorHold <buffer>
+    "    autocmd CursorHoldI <buffer>
+    "    autocmd CursorMoved <buffer>
+    "    autocmd CursorMovedI <buffer>
+    "    autocmd WinEnter <buffer>
+    "    autocmd WinLeave <buffer>
+    "    autocmd InsertCharPre <buffer>
+    "augroup END
     redraw!
 endfunc
 
-
-func! rainbow_csv#try_set_statusline_columns()
-    let cmd_type = getcmdtype()
-    "if cmd_type != ':'
-    "    return
-    "endif
-    call rainbow_csv#set_statusline_columns()
-endfunc
 
 
 func! rainbow_csv#restore_statusline()
@@ -669,7 +670,8 @@ func! rainbow_csv#enable_syntax(delim)
     endfor
     highlight status_line_default_hl ctermbg=black guibg=black
 
-    nnoremap <buffer> : :call rainbow_csv#try_set_statusline_columns()<CR>:
+    cnoreabbrev <expr> <buffer> Select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
+    "nnoremap <buffer> : :call rainbow_csv#set_statusline_columns()<CR>:
     "nnoremap <buffer> : :call rainbow_csv#try_set_statusline_columns()<CR>:
     "autocmd CmdwinEnter <buffer> call rainbow_csv#try_set_statusline_columns()
     "autocmd CmdwinLeave <buffer> call rainbow_csv#restore_statusline()
@@ -715,6 +717,7 @@ func! s:disable_syntax()
     augroup END
     unmap <buffer> <F5>
     unmap <buffer> <Leader>d
+    "unmap <buffer> :
     let b:rainbow_csv_delim = ''
 endfunc
 
