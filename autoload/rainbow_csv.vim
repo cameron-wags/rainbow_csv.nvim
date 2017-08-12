@@ -250,9 +250,9 @@ func! s:single_char_sring(string_len, string_char)
 endfunc
 
 
+
 func! s:generate_tab_statusline(tabstop_val, template_fields)
-    "FIXME limit statusline length
-    let result = ''
+    let result = []
     let space_deficit = 0
     for nf in range(len(a:template_fields))
         let available_space = (1 + len(a:template_fields[nf]) / a:tabstop_val) * a:tabstop_val
@@ -270,7 +270,8 @@ func! s:generate_tab_statusline(tabstop_val, template_fields)
         if nf + 1 == len(a:template_fields)
             let space_filling = ''
         endif
-        let result = result . column_name . space_filling
+        call add(result, column_name)
+        call add(result, space_filling)
     endfor
     return result
 endfunc
@@ -287,12 +288,14 @@ func! rainbow_csv#run_unit_tests()
     "10,a,b,20000,5
     "a1 a2 a3 a4  a5
     let test_stln = s:generate_tab_statusline(1, ['10', 'a', 'b', '20000', '5'])
+    let test_stln = join(test_stln, '')
     let canonic_stln = 'a1 a2 a3 a4  a5'
     call s:assert_equal(canonic_stln, test_stln)
 
     "10  a   b   20000   5
     "a1  a2  a3  a4      a5
     let test_stln = s:generate_tab_statusline(4, ['10', 'a', 'b', '20000', '5'])
+    let test_stln = join(test_stln, '')
     let canonic_stln = 'a1  a2  a3  a4      a5'
     call s:assert_equal(canonic_stln, test_stln)
 
@@ -309,7 +312,6 @@ endfunc
 "func! s:set_statusline_columns()
 func! rainbow_csv#set_statusline_columns()
     " http://vim.wikia.com/wiki/Writing_a_valid_statusline
-    "FIXME make sure that your text will not overfill the statusline, otherwise only last columns would be shown
     if !s:is_rainbow_table()
         return
     endif
@@ -324,15 +326,28 @@ func! rainbow_csv#set_statusline_columns()
     endif
     let bottom_line = getline(line('w$'))
     let bottom_fields = split(bottom_line, delim, 1)
-    let rb_statusline = ""
+    let status_labels = []
     if delim == "\t"
-        let rb_statusline = indent . s:generate_tab_statusline(&tabstop, bottom_fields)
+        let status_labels = s:generate_tab_statusline(&tabstop, bottom_fields)
     else
-        let rb_statusline = indent . s:generate_tab_statusline(1, bottom_fields)
+        let status_labels =  s:generate_tab_statusline(1, bottom_fields)
     endif
+    let max_len = winwidth(0)
+    let cur_len = len(indent)
+    let rb_statusline = '%#status_line_default_hl#' . indent
+    let num_columns = len(status_labels) / 2
+    for nf in range(num_columns)
+        let color_id = nf % 10
+        let column_name = status_labels[nf * 2]
+        let space_filling = status_labels[nf * 2 + 1]
+        let cur_len += len(column_name) + len(space_filling)
+        if cur_len + 1 >= max_len 
+            break
+        endif
+        let rb_statusline = rb_statusline . '%#status_color' . color_id . '#' . column_name . '%#status_line_default_hl#' . space_filling
+    endfor
     let rb_statusline = s:status_escape_string(rb_statusline)
     execute "set statusline=" . rb_statusline
-
     redraw!
 endfunc
 
@@ -628,7 +643,11 @@ func! rainbow_csv#generate_syntax(delim)
         exe printf(cmd, match, a:delim, a:delim, nextgroup)
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
         exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
+        let statusline_hl_group = 'status_color' . groupid
+        let cmd = 'highlight %s ctermfg=%s guifg=%s ctermbg=black guibg=black'
+        exe printf(cmd, statusline_hl_group, s:pairs[groupid][0], s:pairs[groupid][1])
     endfor
+    highlight status_line_default_hl ctermbg=black guibg=black
 
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=column1'
     exe printf(cmd, a:delim)
