@@ -388,7 +388,7 @@ def read_join_table(join_table_path):
     result = dict()
     with codecs.open(join_table_path, encoding='{join_encoding}') as src_text:
         for line in src_text:
-            line = line.rstrip('\n')
+            line = line.rstrip('\r\n')
             bfields = line.split(DLM)
             fields_max_len = max(fields_max_len, len(bfields))
             key = {rhs_join_var}
@@ -434,7 +434,7 @@ def rb_transform(source, destination):
     writer = {writer_type}(destination)
     joiner = {joiner_type}('{rhs_table_path}')
     for lnum, line in enumerate(source, 1):
-        line = line.rstrip('\n')
+        line = line.rstrip('\r\n')
         star_line = line
         fields = line.split(DLM)
         flen = len(fields)
