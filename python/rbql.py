@@ -433,11 +433,13 @@ def rb_transform(source, destination):
     unsorted_entries = list()
     writer = {writer_type}(destination)
     joiner = {joiner_type}('{rhs_table_path}')
-    for lnum, line in enumerate(source, 1):
+    for NR, line in enumerate(source, 1):
+        lnum = NR #TODO remove
         line = line.rstrip('\r\n')
         star_line = line
         fields = line.split(DLM)
-        flen = len(fields)
+        NF = len(fields)
+        flen = NF #TODO remove
         bfields = None
         if joiner is not None:
             bfields = joiner.get({lhs_join_var})
@@ -746,7 +748,7 @@ def generate_random_scenario(max_num_rows, max_num_cols, delims):
     delim = random.choice(delims)
     restricted_chars = ['\r', '\n'] + [delim]
     key_col = random.randint(0, num_cols - 1)
-    good_keys = ['Hello', 'Avada Kedavra ', ' ??????', '128', '3q295 fa#(@*$*)', ' abcdefg ', 'lnum', 'a1', 'a2']
+    good_keys = ['Hello', 'Avada Kedavra ', ' ??????', '128', '3q295 fa#(@*$*)', ' abcdefg ', 'NR', 'a1', 'a2']
     input_table = list()
     for r in xrange6(num_rows):
         input_table.append(list())
@@ -798,7 +800,7 @@ class TestEverything(unittest.TestCase):
 
     def test_run1(self):
         test_name = 'test1'
-        query = 'select lnum, a1, len(a3) where int(a1) > 5'
+        query = 'select NR, a1, len(a3) where int(a1) > 5'
 
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
@@ -904,7 +906,7 @@ class TestEverything(unittest.TestCase):
 
         table_to_file(join_table, join_table_path)
 
-        query = r'select lnum, * inner join {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
+        query = r'select NR, * inner join {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
 
         input_table = list()
         input_table.append(['5', 'car', 'lada'])

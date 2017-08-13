@@ -21,7 +21,7 @@ Minimalistic SQL-like language that supports "select" queries with python expres
 * Use python expressions inside "select", "where" and "order by" statements
 * Use "a1", "a2", ... , "aN" as column names to write select queries
 * Output entries appear in the same order as in input unless "ORDER BY" is provided.
-* "lnum" variable holds entry line number
+* "NR" variable holds current record's line number and "NF" holds number of fields in the record (awk has the same variables)
 * Use double equality "==" instead of single "=" to check for equality
 * Use one of the "join" keywords to run join query
 * Input csv/tsv table may contain varying number of entries (but select query must be written in a way that prevents output of missing values)
@@ -41,8 +41,8 @@ Minimalistic SQL-like language that supports "select" queries with python expres
 ### Special variables
 * `a1`, `a2`, ... , `aN` - column names
 * `*` - whole line/entry
-* `lnum` - line number (1-based)
-* `flen` - number of columns in current line/entry
+* `NR` - line (record) number (1-based)
+* `NF` - number of fields in the current line/record
 * `b1`, `b2`, ... , `bN` - column names in right table B in join operations
 
 ### Join query rules
@@ -54,11 +54,11 @@ Minimalistic SQL-like language that supports "select" queries with python expres
 
 * `select * where a1 == "Buy"` - use double equality "==" instead of single equality "="
 * `select a1, a2 where a2 in ["car", "plane", "boat"]` - use python's "in" to emulate SQL's "in"
-* `select * where lnum <= 10` - this is an equivalent of bash command "head -n 10", lnum is 1-based')
+* `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
 * `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
 * `select * order by int(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
 * `select * order by random.random()` - random sort, this is an equivalent of bash command "sort -R"
-* `select lnum, *` - enumerate lines, lnum is 1-based
+* `select NR, *` - enumerate lines, NR is 1-based
 * `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
 * `select * where a1 == "Добрый вечер"` - you can use utf-8 in queries
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1` - an example of join query
