@@ -309,8 +309,21 @@ func! s:status_escape_string(src)
     return result
 endfunc
 
+
+func! rainbow_csv#restore_statusline()
+    if !exists("b:statusline_before") || !len(b:statusline_before)
+        return
+    endif
+    augroup StatusDisableGrp
+        autocmd!
+    augroup END
+    let escaped_statusline = s:status_escape_string(b:statusline_before)
+    execute "set statusline=" . escaped_statusline
+    let b:statusline_before=''
+endfunc
+
+
 func! rainbow_csv#set_statusline_columns()
-    " http://vim.wikia.com/wiki/Writing_a_valid_statusline
     if !s:is_rainbow_table()
         return
     endif
@@ -349,28 +362,15 @@ func! rainbow_csv#set_statusline_columns()
     endfor
     let rb_statusline = s:status_escape_string(rb_statusline)
     execute "set statusline=" . rb_statusline
-    "augroup StatusDisableGrp
-    "    autocmd CursorHold <buffer>
-    "    autocmd CursorHoldI <buffer>
-    "    autocmd CursorMoved <buffer>
-    "    autocmd CursorMovedI <buffer>
-    "    autocmd WinEnter <buffer>
-    "    autocmd WinLeave <buffer>
-    "    autocmd InsertCharPre <buffer>
-    "augroup END
+    augroup StatusDisableGrp
+        autocmd CursorHold <buffer> call rainbow_csv#restore_statusline()
+        autocmd CursorMoved <buffer> call rainbow_csv#restore_statusline()
+        autocmd WinEnter <buffer> call rainbow_csv#restore_statusline()
+        autocmd WinLeave <buffer> call rainbow_csv#restore_statusline()
+    augroup END
     redraw!
 endfunc
 
-
-
-func! rainbow_csv#restore_statusline()
-    if !exists("b:statusline_before") || !len(b:statusline_before)
-        return
-    endif
-    let escaped_statusline = s:status_escape_string(b:statusline_before)
-    execute "set statusline=" . escaped_statusline
-    let b:statusline_before=''
-endfunc
 
 
 func! s:get_rb_script_path_for_this_table()
@@ -544,6 +544,7 @@ func! rainbow_csv#run_cmd_query(...)
         echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
+    call rainbow_csv#restore_statusline()
     let rb_script_path = s:get_rb_script_path_for_this_table()
     call writefile([query], rb_script_path)
     let table_buf_number = bufnr("%")
@@ -671,10 +672,8 @@ func! rainbow_csv#enable_syntax(delim)
     highlight status_line_default_hl ctermbg=black guibg=black
 
     cnoreabbrev <expr> <buffer> Select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
-    "nnoremap <buffer> : :call rainbow_csv#set_statusline_columns()<CR>:
-    "nnoremap <buffer> : :call rainbow_csv#try_set_statusline_columns()<CR>:
-    "autocmd CmdwinEnter <buffer> call rainbow_csv#try_set_statusline_columns()
-    "autocmd CmdwinLeave <buffer> call rainbow_csv#restore_statusline()
+    cnoreabbrev <expr> <buffer> select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
+    cnoreabbrev <expr> <buffer> SELECT rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
 
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=column1'
     exe printf(cmd, a:delim)
@@ -717,7 +716,6 @@ func! s:disable_syntax()
     augroup END
     unmap <buffer> <F5>
     unmap <buffer> <Leader>d
-    "unmap <buffer> :
     let b:rainbow_csv_delim = ''
 endfunc
 
