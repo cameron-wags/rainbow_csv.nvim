@@ -4,6 +4,7 @@ Rainbow CSV: minimalistic but powerful vim plugin for viewing csv/tsv files and 
 * Rainbow csv also allows user to run simple "select" queries in SQL-like RBQL language e.g. `select a1, int(a2) + int(a3) * 10 where a4 != 'car' order by a1 desc`
 
 To enter a "select" query, press `F5`. To execute the query press `F5` again.
+You can also enter the query in vim command line e.g. `:Select a1`
 
 There are 2 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
@@ -25,6 +26,7 @@ Minimalistic SQL-like language that supports "select" queries with python expres
 * Use one of the "join" keywords to run join query
 * Input csv/tsv table may contain varying number of entries (but select query must be written in a way that prevents output of missing values)
 * UTF-8 and unicode are supported
+* you can enter select query in vim command line 
 
 ### Supported SQL Keywords (Keywords are case insensitive)
 * select 
@@ -88,6 +90,10 @@ Python script rbql.py parses RBQL query, creates a new .py module, then imports 
 
 
 ## Commands
+
+#### :Select ...
+Insteaf of pressing F5 you can enter your query in the vim command line.
+the query must start with `:Select` command e.g. `:Select a1, a2 order by a1`
 
 #### :RainbowDelim
 

@@ -462,6 +462,8 @@ func! rainbow_csv#select_mode()
     call add(help_after, '# select * where re.match(".*ab.*", a1) is not None # select entries where first column has "ab" pattern')
     call add(help_after, '# select * where flike(a1, "%ab%") # same as previous, but using "flike()" function (equivalent of SQL "LIKE" operator)')
     call add(help_after, '# select distinct a1, *, 200, int(a2) + 5, "hello world" where lnum > 100 and int(a5) < -7 order by a3 ASC')
+    call add(help_after, '')
+    call add(help_after, '# Next time you can run another query by entering it into vim command line starting with ":Select" command')
     call setline(1 + len(help_before), help_after)
     call cursor(len(help_before), 1)
     w
