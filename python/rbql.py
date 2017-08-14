@@ -315,6 +315,7 @@ import codecs
 
 {import_expression}
 
+
 PY3 = sys.version_info[0] == 3
 
 def str6(obj):
@@ -326,8 +327,22 @@ def str6(obj):
 
 DLM = '{dlm}'
 
+
+class BadFieldError(Exception):
+    def __init__(self, bad_idx):
+        self.bad_idx = bad_idx
+
 class RbqlRuntimeError(Exception):
     pass
+
+
+class rbql_list(list):
+    def __getitem__(self, idx):
+        try:
+            v = super(rbql_list, self).__getitem__(idx)
+        except IndexError as e:
+            raise BadFieldError(idx)
+        return v
 
 
 class Flike:
@@ -387,11 +402,15 @@ def read_join_table(join_table_path):
         raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
     result = dict()
     with codecs.open(join_table_path, encoding='{join_encoding}') as src_text:
-        for line in src_text:
+        for il, line in enumerate(src_text, 1):
             line = line.rstrip('\r\n')
-            bfields = line.split(DLM)
+            bfields = rbql_list(line.split(DLM))
             fields_max_len = max(fields_max_len, len(bfields))
-            key = {rhs_join_var}
+            try:
+                key = {rhs_join_var}
+            except BadFieldError as e:
+                bad_idx = e.bad_idx
+                raise RbqlRuntimeError('No "b' + str(bad_idx + 1) + '" column at line: ' + str(il) + ' in "B" table')
             if key in result:
                 raise RbqlRuntimeError('Join column must be unique in right-hand-side "B" table')
             result[key] = bfields
@@ -429,6 +448,7 @@ class StrictLeftJoiner:
 def main():
     rb_transform(sys.stdin, sys.stdout)
 
+
 def rb_transform(source, destination):
     unsorted_entries = list()
     writer = {writer_type}(destination)
@@ -437,23 +457,27 @@ def rb_transform(source, destination):
         lnum = NR #TODO remove
         line = line.rstrip('\r\n')
         star_line = line
-        fields = line.split(DLM)
+        fields = rbql_list(line.split(DLM))
         NF = len(fields)
         flen = NF #TODO remove
         bfields = None
-        if joiner is not None:
-            bfields = joiner.get({lhs_join_var})
-            if bfields is None:
+        try:
+            if joiner is not None:
+                bfields = joiner.get({lhs_join_var})
+                if bfields is None:
+                    continue
+                star_line = DLM.join([line] + [str6(f) for f in bfields])
+            if not ({where_expression}):
                 continue
-            star_line = DLM.join([line] + [str6(f) for f in bfields])
-        if not ({where_expression}):
-            continue
-        out_fields = [{select_expression}]
-        if {sort_flag}:
-            sort_key_value = ({sort_key_expression})
-            unsorted_entries.append((sort_key_value, DLM.join([str6(f) for f in out_fields])))
-        else:
-            writer.write(DLM.join([str6(f) for f in out_fields]))
+            out_fields = [{select_expression}]
+            if {sort_flag}:
+                sort_key_value = ({sort_key_expression})
+                unsorted_entries.append((sort_key_value, DLM.join([str6(f) for f in out_fields])))
+            else:
+                writer.write(DLM.join([str6(f) for f in out_fields]))
+        except BadFieldError as e:
+            bad_idx = e.bad_idx
+            raise RbqlRuntimeError('No "a' + str(bad_idx + 1) + '" column at line: ' + str(NR))
     if len(unsorted_entries):
         unsorted_entries = sorted(unsorted_entries, reverse = {reverse_flag})
         for e in unsorted_entries:
@@ -889,8 +913,10 @@ class TestEverything(unittest.TestCase):
         input_table.append(['81', 'haha', 'dfdf'])
         input_table.append(['4', 'haha', 'dfdf', 'asdfa', '111'])
 
-        with self.assertRaises(IndexError):
+        with self.assertRaises(Exception) as cm:
             run_conversion_test(query, input_table, test_name, ['math', 'os'])
+        e = cm.exception
+        self.assertTrue(str(e).find('No "a2" column at line: 2') != -1)
 
 
     def test_run6(self):
