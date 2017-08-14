@@ -335,7 +335,7 @@ func! rainbow_csv#set_statusline_columns()
     "TODO take "sign" column into account too. You can use :sign place buffer={nr}
     let indent = ''
     if has_number_column
-        let indent_len = len(string(line('$'))) + 1
+        let indent_len = max([len(string(line('$'))) + 1, 4])
         let indent = s:single_char_sring(indent_len, ' ')
     endif
     let bottom_line = getline(line('w$'))
