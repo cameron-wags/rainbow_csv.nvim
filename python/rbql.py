@@ -327,6 +327,29 @@ def str6(obj):
 
 DLM = '{dlm}'
 
+def rows(f, chunksize=1024, sep='\n'):
+    incomplete_row = None
+    while True:
+        chunk = f.read(chunksize)
+        if not chunk:
+            if incomplete_row is not None and len(incomplete_row):
+                yield incomplete_row
+            return
+        while True:
+            i = chunk.find(sep)
+            if i == -1:
+                break
+            if incomplete_row is not None:
+                yield incomplete_row + chunk[:i]
+                incomplete_row = None
+            else:
+                yield chunk[:i]
+            chunk = chunk[i+1:]
+        if incomplete_row is not None:
+            incomplete_row += chunk
+        else:
+            incomplete_row = chunk
+
 
 class BadFieldError(Exception):
     def __init__(self, bad_idx):
@@ -402,7 +425,7 @@ def read_join_table(join_table_path):
         raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
     result = dict()
     with codecs.open(join_table_path, encoding='{join_encoding}') as src_text:
-        for il, line in enumerate(src_text, 1):
+        for il, line in enumerate(rows(src_text), 1):
             line = line.rstrip('\r\n')
             bfields = rbql_list(line.split(DLM))
             fields_max_len = max(fields_max_len, len(bfields))
@@ -453,7 +476,7 @@ def rb_transform(source, destination):
     unsorted_entries = list()
     writer = {writer_type}(destination)
     joiner = {joiner_type}('{rhs_table_path}')
-    for NR, line in enumerate(source, 1):
+    for NR, line in enumerate(rows(source), 1):
         lnum = NR #TODO remove
         line = line.rstrip('\r\n')
         star_line = line
