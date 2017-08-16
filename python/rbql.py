@@ -477,12 +477,12 @@ def rb_transform(source, destination):
     writer = {writer_type}(destination)
     joiner = {joiner_type}('{rhs_table_path}')
     for NR, line in enumerate(rows(source), 1):
-        lnum = NR #TODO remove
+        lnum = NR #TODO remove, backcompatibility
         line = line.rstrip('\r\n')
         star_line = line
         fields = rbql_list(line.split(DLM))
         NF = len(fields)
-        flen = NF #TODO remove
+        flen = NF #TODO remove, backcompatibility
         bfields = None
         try:
             if joiner is not None:
@@ -501,6 +501,8 @@ def rb_transform(source, destination):
         except BadFieldError as e:
             bad_idx = e.bad_idx
             raise RbqlRuntimeError('No "a' + str(bad_idx + 1) + '" column at line: ' + str(NR))
+        except Exception as e:
+            raise RbqlRuntimeError('Error at line: ' + str(NR) + ', Details: ' + str(e))
     if len(unsorted_entries):
         unsorted_entries = sorted(unsorted_entries, reverse = {reverse_flag})
         for e in unsorted_entries:
