@@ -755,6 +755,23 @@ def table_to_stream(array2d, delim):
     return io.StringIO(table_to_string(array2d, delim))
 
 
+def run_file_query_test(query, input_path, testname, import_modules=None, csv_encoding=default_csv_encoding, delim='\t'):
+    tmp_dir = tempfile.gettempdir()
+    if not len(sys.path) or sys.path[0] != tmp_dir:
+        sys.path.insert(0, tmp_dir)
+    module_name = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
+    module_filename = '{}.py'.format(module_name)
+    tmp_path = os.path.join(tmp_dir, module_filename)
+    dst_table_filename = '{}.tsv'.format(module_name)
+    output_path = os.path.join(tmp_dir, dst_table_filename)
+    parse_to_py([query], tmp_path, delim, csv_encoding, import_modules)
+    rbconvert = dynamic_import(module_name)
+    with codecs.open(input_path, encoding=csv_encoding) as src, codecs.open(output_path, 'w', encoding=csv_encoding) as dst:
+        rbconvert.rb_transform(src, dst)
+    return output_path
+
+
+
 rainbow_ut_prefix = 'ut_rbconvert_'
 
 def run_conversion_test(query, input_table, testname, import_modules=None, join_csv_encoding=default_csv_encoding, delim='\t'):
@@ -1106,7 +1123,45 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
 
 
-    #FIXME add test cases with commas, variable names and * in string literals and comments
+
+def calc_file_md5(fname):
+    import hashlib
+    hash_md5 = hashlib.md5()
+    with open(fname, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
+
+class TestFiles(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.old_dir = os.getcwd()
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        ut_dir = os.path.join(script_dir, 'unit_tests')
+        os.chdir(ut_dir)
+
+    @classmethod
+    def tearDownClass(cls):
+        os.chdir(cls.old_dir)
+
+    def test_all(self):
+        import json
+        ut_config_path = 'unit_tests.cfg'
+        with codecs.open(ut_config_path, encoding='utf-8') as src:
+            for test_no, line in enumerate(src, 1):
+                config = json.loads(line)
+                src_path = config['src_table']
+                canonic_table = config['canonic_table']
+                query = config['query']
+                result_table = run_file_query_test(query, src_path, str(test_no))
+                canonic_md5 = calc_file_md5(canonic_table)
+                test_md5 = calc_file_md5(result_table)
+                canonic_path = os.path.abspath(canonic_table)
+                test_path = os.path.abspath(result_table) 
+                self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
+
 
 
 class TestStringMethods(unittest.TestCase):
