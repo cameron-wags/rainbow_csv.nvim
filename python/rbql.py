@@ -1156,7 +1156,10 @@ class TestFiles(unittest.TestCase):
                 canonic_table = config['canonic_table']
                 query = config['query']
                 encoding = config.get('encoding', default_csv_encoding)
-                result_table = run_file_query_test(query, src_path, str(test_no), csv_encoding=encoding)
+                delim = config.get('delim', 'TAB')
+                if delim == 'TAB':
+                    delim = '\t'
+                result_table = run_file_query_test(query, src_path, str(test_no), csv_encoding=encoding, delim=delim)
                 canonic_md5 = calc_file_md5(canonic_table)
                 test_md5 = calc_file_md5(result_table)
                 canonic_path = os.path.abspath(canonic_table)
