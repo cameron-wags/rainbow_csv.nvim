@@ -1155,7 +1155,8 @@ class TestFiles(unittest.TestCase):
                 src_path = config['src_table']
                 canonic_table = config['canonic_table']
                 query = config['query']
-                result_table = run_file_query_test(query, src_path, str(test_no))
+                encoding = config.get('encoding', default_csv_encoding)
+                result_table = run_file_query_test(query, src_path, str(test_no), csv_encoding=encoding)
                 canonic_md5 = calc_file_md5(canonic_table)
                 test_md5 = calc_file_md5(result_table)
                 canonic_path = os.path.abspath(canonic_table)
