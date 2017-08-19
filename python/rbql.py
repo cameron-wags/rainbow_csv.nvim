@@ -17,9 +17,11 @@ import io
 
 
 #This module must be both python2 and python3 compatible
-#TODO add other languages for functions: java, node js, cpp, perl
 
-#TODO if query contains non-ascii symbols, read input files in utf-8 encoding (in other cases use latin-1 as usual)
+
+SELECT = 'SELECT'
+SELECT_TOP = 'SELECT TOP'
+SELECT_DISTINCT = 'SELECT DISTINCT'
 
 
 default_csv_encoding = 'latin-1'
@@ -281,7 +283,7 @@ def separate_actions(tokens):
     prev_action = None
     k = 0
     i = 0
-    patterns = ['STRICT LEFT JOIN', 'LEFT JOIN', 'INNER JOIN', 'SELECT DISTINCT', 'SELECT', 'ORDER BY', 'WHERE']
+    patterns = ['STRICT LEFT JOIN', 'LEFT JOIN', 'INNER JOIN', SELECT_DISTINCT, SELECT, SELECT_TOP, 'ORDER BY', 'WHERE']
     patterns = sorted(patterns, key=len, reverse=True)
     patterns = [Pattern(p) for p in patterns]
     while i < len(tokens):
@@ -400,10 +402,12 @@ flike = Flike()
 class SimpleWriter:
     def __init__(self, dst):
         self.dst = dst
+        self.NW = 0
 
     def write(self, record):
         self.dst.write(record)
         self.dst.write('\n')
+        self.NW += 1
 
 
 class UniqWriter:
@@ -497,6 +501,8 @@ def rb_transform(source, destination):
                 sort_key_value = ({sort_key_expression})
                 unsorted_entries.append((sort_key_value, DLM.join([str6(f) for f in out_fields])))
             else:
+                if {top_count} != -1 and writer.NW >= {top_count}:
+                    break
                 writer.write(DLM.join([str6(f) for f in out_fields]))
         except BadFieldError as e:
             bad_idx = e.bad_idx
@@ -506,6 +512,8 @@ def rb_transform(source, destination):
     if len(unsorted_entries):
         unsorted_entries = sorted(unsorted_entries, reverse = {reverse_flag})
         for e in unsorted_entries:
+            if {top_count} != -1 and writer.NW >= {top_count}:
+                break
             writer.write(e[1])
 
 
@@ -559,7 +567,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
 
     select_op = None
     writer_name = None
-    select_ops = {'SELECT': 'SimpleWriter', 'SELECT DISTINCT': 'UniqWriter'}
+    select_ops = {SELECT: 'SimpleWriter', SELECT_TOP: 'SimpleWriter', SELECT_DISTINCT: 'UniqWriter'}
     for k, v in select_ops.items():
         if k in rb_actions:
             select_op = k
@@ -598,6 +606,14 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     py_meta_params['where_expression'] = 'True'
     if 'WHERE' in rb_actions:
         py_meta_params['where_expression'] = join_tokens(replace_column_vars(rb_actions['WHERE']))
+    py_meta_params['top_count'] = -1
+    if select_op == SELECT_TOP:
+        try:
+            py_meta_params['top_count'] = int(rb_actions[select_op][0].content)
+            assert rb_actions[select_op][1].content == ' '
+            rb_actions[select_op] = rb_actions[select_op][2:]
+        except Exception:
+            raise RBParsingError('Unable to parse "TOP" expression')
     select_tokens = replace_column_vars(rb_actions[select_op])
     select_tokens = replace_star_vars(select_tokens)
     if not len(select_tokens):
