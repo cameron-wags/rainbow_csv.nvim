@@ -34,6 +34,7 @@ Minimalistic SQL-like language that supports "select" queries with python expres
 * order by
 * desc/asc
 * distinct
+* top
 * inner join
 * left join
 * strict left join
