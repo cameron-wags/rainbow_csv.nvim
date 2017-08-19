@@ -22,6 +22,12 @@ import io
 SELECT = 'SELECT'
 SELECT_TOP = 'SELECT TOP'
 SELECT_DISTINCT = 'SELECT DISTINCT'
+JOIN = 'JOIN'
+INNER_JOIN = 'INNER JOIN'
+LEFT_JOIN = 'LEFT JOIN'
+STRICT_LEFT_JOIN = 'STRICT LEFT JOIN'
+ORDER_BY = 'ORDER BY'
+WHERE = 'WHERE'
 
 
 default_csv_encoding = 'latin-1'
@@ -283,7 +289,7 @@ def separate_actions(tokens):
     prev_action = None
     k = 0
     i = 0
-    patterns = ['STRICT LEFT JOIN', 'LEFT JOIN', 'INNER JOIN', SELECT_DISTINCT, SELECT, SELECT_TOP, 'ORDER BY', 'WHERE']
+    patterns = [STRICT_LEFT_JOIN, LEFT_JOIN, INNER_JOIN, JOIN, SELECT_DISTINCT, SELECT, SELECT_TOP, ORDER_BY, WHERE]
     patterns = sorted(patterns, key=len, reverse=True)
     patterns = [Pattern(p) for p in patterns]
     while i < len(tokens):
@@ -468,7 +474,7 @@ class StrictLeftJoiner:
     def get(self, lhs_key):
         result = self.join_data.get(lhs_key, None)
         if result is None:
-            raise RbqlRuntimeError('In "STRICT LEFT JOIN" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found')
+            raise RbqlRuntimeError('In "strict left join" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found')
         return result
 
 
@@ -581,7 +587,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     rhs_table_path = None
     lhs_join_var = None
     rhs_join_var = None
-    join_ops = {'INNER JOIN': 'InnerJoiner', 'LEFT JOIN': 'LeftJoiner', 'STRICT LEFT JOIN': 'StrictLeftJoiner'}
+    join_ops = {JOIN: 'InnerJoiner', INNER_JOIN: 'InnerJoiner', LEFT_JOIN: 'LeftJoiner', STRICT_LEFT_JOIN: 'StrictLeftJoiner'}
     for k, v in join_ops.items():
         if k in rb_actions:
             join_op = k
@@ -604,8 +610,8 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     py_meta_params['rhs_table_path'] = rhs_table_path
     py_meta_params['lhs_join_var'] = lhs_join_var
     py_meta_params['where_expression'] = 'True'
-    if 'WHERE' in rb_actions:
-        py_meta_params['where_expression'] = join_tokens(replace_column_vars(rb_actions['WHERE']))
+    if WHERE in rb_actions:
+        py_meta_params['where_expression'] = join_tokens(replace_column_vars(rb_actions[WHERE]))
     py_meta_params['top_count'] = -1
     if select_op == SELECT_TOP:
         try:
@@ -624,9 +630,9 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     py_meta_params['sort_flag'] = 'False'
     py_meta_params['reverse_flag'] = 'False'
     py_meta_params['sort_key_expression'] = 'None'
-    if 'ORDER BY' in rb_actions:
+    if ORDER_BY in rb_actions:
         py_meta_params['sort_flag'] = 'True'
-        order_expression = join_tokens(replace_column_vars(rb_actions['ORDER BY']))
+        order_expression = join_tokens(replace_column_vars(rb_actions[ORDER_BY]))
         direction_marker = ' DESC'
         if order_expression.upper().endswith(direction_marker):
             order_expression = order_expression[:-len(direction_marker)].rstrip()
@@ -1136,6 +1142,42 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['20', 'Наполеон', ''])
 
         test_table = run_conversion_test(query, input_table, test_name, join_csv_encoding='utf-8')
+        self.compare_tables(canonic_table, test_table)
+
+
+    def test_run12(self):
+        test_name = 'test12'
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas'])
+        join_table.append(['plane', 'wings'])
+        join_table.append(['boat', 'wind'])
+        join_table.append(['rocket', 'some stuff'])
+
+        table_to_file(join_table, join_table_path)
+
+        query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
+
+        input_table = list()
+        input_table.append(['5', 'car', 'lada'])
+        input_table.append(['-20', 'car', 'Ferrari'])
+        input_table.append(['50', 'plane', 'tu-134'])
+        input_table.append(['20', 'boat', 'destroyer'])
+        input_table.append(['10', 'boat', 'yacht'])
+        input_table.append(['200', 'plane', 'boeing 737'])
+        input_table.append(['80', 'train', 'Thomas'])
+
+        canonic_table = list()
+        canonic_table.append(['5', '10', 'boat', 'yacht', 'boat', 'wind'])
+        canonic_table.append(['4', '20', 'boat', 'destroyer', 'boat', 'wind'])
+        canonic_table.append(['2', '-20', 'car', 'Ferrari', 'car', 'gas'])
+        canonic_table.append(['1', '5', 'car', 'lada', 'car', 'gas'])
+        canonic_table.append(['3', '50', 'plane', 'tu-134', 'plane', 'wings'])
+        canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings'])
+
+        test_table = run_conversion_test(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
 
