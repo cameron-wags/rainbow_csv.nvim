@@ -529,6 +529,9 @@ if __name__ == '__main__':
 '''
 
 
+
+
+
 def vim_sanitize(obj):
     return str(obj).replace("'", '"')
 
@@ -646,6 +649,252 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
         dst.write(py_script_body.format(**py_meta_params))
 
 
+js_script_body = r'''
+
+readline = require('readline');
+
+var csv_encoding = '{csv_encoding}';
+var DLM = '{dlm}';
+var src_table_path = '{src_table_path}';
+var dst_table_path = '{dst_table_path}';
+var join_table_path = {rhs_table_path};
+var top_count = {top_count};
+
+var lineReader = readline.createInterface({ input: fs.createReadStream(src_table_path, {encoding: csv_encoding}) });
+dst_stream = fs.createWriteStream(dst_table_path, {defaultEncoding: csv_encoding});
+
+var NR = 0;
+
+function exit_with_error_msg(error_msg) {
+    error_msg = error_msg.replace(/\n/g, '\t');
+    console.error('error\t' + error_msg);
+    process.exit(1);
+}
+
+function SimpleWriter(dst) {
+    this.dst = dst;
+    this.NW = 0;
+    this.write = function(record) {
+        this.dst.write(record);
+        this.dst.write('\n');
+        this.NW += 1;
+    }
+}
+
+function UniqWriter(dst) {
+    this.dst = dst;
+    this.seen = new Set();
+    this.write = function(record) {
+        if (!this.seen.has(record)) {
+            this.seen.add(record);
+            this.dst.write(record);
+            this.dst.write('\n');
+        }
+    }
+}
+
+
+function read_join_table(table_path) {
+    var fields_max_len = 0;
+    //FIXME handle path not exists, maybe with try/except
+    content = fs.readFileSync(table_path, {encoding: csv_encoding});
+    lines = content.split('\n');
+    result = new Map();
+    for (var i = 0; i < content.length; i++) {
+        line = lines[i];
+        //FIXME strip last '\r'
+        fields = line.split(DLM);
+        fields_max_len = Math.max(fields_max_len, fields.length);
+        key = fields[{rhs_join_var}];
+        if (result.has(key)) {
+            exit_with_error_msg('Join column must be unique in right-hand-side "B" table');
+        }
+        result.set(key, fields);
+    }
+    return [result, fields_max_len];
+}
+
+function null_join(join_map, max_join_fields, lhs_key) {
+    return null;
+}
+
+function inner_join(join_map, max_join_fields, lhs_key) {
+    return join_map.get(lhs_key);
+}
+
+
+function left_join(join_map, max_join_fields, lhs_key) {
+    var result = join_map.get(lhs_key);
+    if (result == null) {
+        result = Array(max_join_fields).fill(null);
+    }
+    return result;
+}
+
+
+function strict_left_join(join_map, max_join_fields, lhs_key) {
+    var result = join_map.get(lhs_key);
+    if (result == null) {
+        exit_with_error_msg('In "strict left join" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found');
+    }
+    return result;
+}
+
+
+function stable_compare(a, b) {
+    for (var i = 0; i < a.length; i++) {
+        if (a[i] !== b[i])
+            return a[i] < b[i] ? -1 : 1;
+    }
+}
+
+
+var join_map = null;
+var max_join_fields = null;
+if (join_table_path !== null) {
+    join_params = read_join_table(join_table_path);
+    join_map = join_params[0];
+    max_join_fields = join_params[1];
+}
+
+
+var writer = new {writer_type}(dst_stream);
+var unsorted_entries = [];
+
+lineReader.on('line', function (line) {
+    NR += 1;
+    //FIXME strip last '\r'
+    var fields = line.split(DLM);
+    var NF = fields.length;
+    bfields = null;
+    star_line = line;
+    if (join_map != null) {
+        bfields = {join_function}(join_map, max_join_fields, {lhs_join_var});
+        if (bfields == null)
+            continue;
+        star_line = line + DLM + bfields.join(DLM);
+    }
+    if (!{where_expression})
+        continue;
+    out_fields = [{select_expression}]
+    if {sort_flag} {
+        sort_entry = [{sort_key_expression}, NR, out_fields.join(DLM)];
+        unsorted_entries.push(sort_entry);
+    } else {
+        if (top_count != -1 && writer.NW >= top_count)
+            break;
+        writer.write(out_fields.join(DLM));
+    }
+
+});
+
+
+lineReader.on('close', function () {
+    if (unsorted_entries.length) {
+        unsorted_entries.sort(stable_compare);
+        if ({reverse_flag})
+            unsorted_entries.reverse();
+        for (var i = 0; i < unsorted_entries.length; i++) {
+            if (top_count != -1 && writer.NW >= top_count)
+                break;
+            writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]);
+        }
+    }
+});
+
+'''
+
+
+def strip_js_comments(cline):
+    cline = cline.rstrip()
+    cline = cline.replace('\t', ' ')
+    #FIXME strip comments!
+    return cline
+
+
+def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_encoding=default_csv_encoding, import_modules=None):
+    for il in xrange6(len(rbql_lines)):
+        cline = rbql_lines[il]
+        rbql_lines[il] = strip_js_comments(cline)
+
+    rbql_lines = [l for l in rbql_lines if len(l)]
+
+    tokens = tokenize_string_literals(rbql_lines)
+    tokens = tokenize_terms(tokens)
+    tokens = remove_consecutive_whitespaces(tokens)
+    rb_actions = separate_actions(tokens)
+
+    select_op = None
+    writer_name = None
+    select_ops = {SELECT: 'SimpleWriter', SELECT_TOP: 'SimpleWriter', SELECT_DISTINCT: 'UniqWriter'}
+    for k, v in select_ops.items():
+        if k in rb_actions:
+            select_op = k
+            writer_name = v
+
+    if select_op is None:
+        raise RBParsingError('"SELECT" statement not found')
+
+    join_function = 'null_join'
+    join_op = None
+    rhs_table_path = None
+    lhs_join_var = None
+    rhs_join_var = None
+    join_funcs = {JOIN: 'inner_join', INNER_JOIN: 'inner_join', LEFT_JOIN: 'left_join', STRICT_LEFT_JOIN: 'strict_left_join'}
+    for k, v in join_funcs.items():
+        if k in rb_actions:
+            join_op = k
+            join_function = v
+
+    if join_op is not None:
+        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op])
+
+    js_meta_params = dict()
+    #FIXME require modules feature
+    js_meta_params['dlm'] = normalize_delim(delim)
+    js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
+    js_meta_params['rhs_join_var'] = rhs_join_var
+    js_meta_params['writer_type'] = writer_name
+    js_meta_params['join_function'] = join_function
+    js_meta_params['src_table_path'] = src_table_path
+    js_meta_params['dst_table_path'] = dst_table_path
+    js_meta_params['rhs_table_path'] = rhs_table_path
+    js_meta_params['lhs_join_var'] = lhs_join_var
+    js_meta_params['where_expression'] = 'true'
+    if WHERE in rb_actions:
+        js_meta_params['where_expression'] = join_tokens(replace_column_vars(rb_actions[WHERE]))
+    js_meta_params['top_count'] = -1
+    if select_op == SELECT_TOP:
+        try:
+            js_meta_params['top_count'] = int(rb_actions[select_op][0].content)
+            assert rb_actions[select_op][1].content == ' '
+            rb_actions[select_op] = rb_actions[select_op][2:]
+        except Exception:
+            raise RBParsingError('Unable to parse "TOP" expression')
+    select_tokens = replace_column_vars(rb_actions[select_op])
+    select_tokens = replace_star_vars(select_tokens)
+    if not len(select_tokens):
+        raise RBParsingError('"SELECT" expression is empty')
+    select_expression= join_tokens(select_tokens)
+    js_meta_params['select_expression'] = select_expression
+
+    js_meta_params['sort_flag'] = 'false'
+    js_meta_params['reverse_flag'] = 'false'
+    js_meta_params['sort_key_expression'] = 'None'
+    if ORDER_BY in rb_actions:
+        js_meta_params['sort_flag'] = 'true'
+        order_expression = join_tokens(replace_column_vars(rb_actions[ORDER_BY]))
+        direction_marker = ' DESC'
+        if order_expression.upper().endswith(direction_marker):
+            order_expression = order_expression[:-len(direction_marker)].rstrip()
+            js_meta_params['reverse_flag'] = 'true'
+        direction_marker = ' ASC'
+        if order_expression.upper().endswith(direction_marker):
+            order_expression = order_expression[:-len(direction_marker)].rstrip()
+        js_meta_params['sort_key_expression'] = order_expression
+
+    with codecs.open(py_dst, 'w', encoding='utf-8') as dst:
+        dst.write(py_script_body.format(**js_meta_params))
 
 
 def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, delim, csv_encoding=default_csv_encoding):
@@ -693,9 +942,10 @@ def main():
     parser.add_argument('--query_file', metavar='FILE', help='Read rbql query from FILE')
     parser.add_argument('--input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
     parser.add_argument('--output_table_path', metavar='FILE', help='Write output table to FILE instead of stdout')
-    parser.add_argument('--convert_only', action='store_true', help='Only generate python script do not run query on csv table')
+    parser.add_argument('--meta_language', metavar='LANG', help='script language to use in query', default='python', choices=['python', 'js'])
+    parser.add_argument('--convert_only', action='store_true', help='Only generate script do not run query on csv table')
     parser.add_argument('--csv_encoding', help='Manually set csv table encoding', default=default_csv_encoding, choices=['latin-1', 'utf-8'])
-    parser.add_argument('-I', dest='libs', action='append', help='Import module to use in the result conversion script. Can be used multiple times')
+    parser.add_argument('-I', dest='libs', action='append', help='Import module to use in the result conversion script')
     args = parser.parse_args()
 
     delim = args.delim
@@ -757,3 +1007,6 @@ def main():
         eprint(error_msg)
         sys.exit(1)
 
+
+if __name__ == '__main__':
+    main()
