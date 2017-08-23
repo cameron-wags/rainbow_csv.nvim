@@ -757,3 +757,7 @@ def main():
         eprint(error_msg)
         sys.exit(1)
 
+
+if __name__ == '__main__':
+    main()
+

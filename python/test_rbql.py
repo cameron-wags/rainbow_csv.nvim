@@ -510,8 +510,3 @@ class TestStringMethods(unittest.TestCase):
         a_strp = rbql.strip_comments(a)
         self.assertEqual(a_strp, '')
 
-
-if __name__ == '__main__':
-    main()
-
-
