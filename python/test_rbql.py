@@ -511,7 +511,3 @@ class TestStringMethods(unittest.TestCase):
         self.assertEqual(a_strp, '')
 
 
-if __name__ == '__main__':
-    main()
-
-
