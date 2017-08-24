@@ -650,7 +650,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
 
 
 js_script_body = r'''
-
+fs = require('fs')
 readline = require('readline');
 
 var csv_encoding = '{csv_encoding}';
@@ -660,147 +660,148 @@ var dst_table_path = '{dst_table_path}';
 var join_table_path = {rhs_table_path};
 var top_count = {top_count};
 
-var lineReader = readline.createInterface({ input: fs.createReadStream(src_table_path, {encoding: csv_encoding}) });
-dst_stream = fs.createWriteStream(dst_table_path, {defaultEncoding: csv_encoding});
+var lineReader = readline.createInterface({{ input: fs.createReadStream(src_table_path, {{encoding: csv_encoding}}) }});
+dst_stream = fs.createWriteStream(dst_table_path, {{defaultEncoding: csv_encoding}});
 
 var NR = 0;
 
-function exit_with_error_msg(error_msg) {
+function exit_with_error_msg(error_msg) {{
     error_msg = error_msg.replace(/\n/g, '\t');
-    console.error('error\t' + error_msg);
+    console.log('error\t' + error_msg);
     process.exit(1);
-}
+}}
 
-function SimpleWriter(dst) {
+function SimpleWriter(dst) {{
     this.dst = dst;
     this.NW = 0;
-    this.write = function(record) {
+    this.write = function(record) {{
         this.dst.write(record);
         this.dst.write('\n');
         this.NW += 1;
-    }
-}
+    }}
+}}
 
-function UniqWriter(dst) {
+function UniqWriter(dst) {{
     this.dst = dst;
     this.seen = new Set();
-    this.write = function(record) {
-        if (!this.seen.has(record)) {
+    this.write = function(record) {{
+        if (!this.seen.has(record)) {{
             this.seen.add(record);
             this.dst.write(record);
             this.dst.write('\n');
-        }
-    }
-}
+        }}
+    }}
+}}
 
 
-function read_join_table(table_path) {
+function read_join_table(table_path) {{
     var fields_max_len = 0;
     //FIXME handle path not exists, maybe with try/except
-    content = fs.readFileSync(table_path, {encoding: csv_encoding});
+    content = fs.readFileSync(table_path, {{encoding: csv_encoding}});
     lines = content.split('\n');
     result = new Map();
-    for (var i = 0; i < content.length; i++) {
+    for (var i = 0; i < content.length; i++) {{
         line = lines[i];
         //FIXME strip last '\r'
         fields = line.split(DLM);
         fields_max_len = Math.max(fields_max_len, fields.length);
         key = fields[{rhs_join_var}];
-        if (result.has(key)) {
+        if (result.has(key)) {{
             exit_with_error_msg('Join column must be unique in right-hand-side "B" table');
-        }
+        }}
         result.set(key, fields);
-    }
+    }}
     return [result, fields_max_len];
-}
+}}
 
-function null_join(join_map, max_join_fields, lhs_key) {
+function null_join(join_map, max_join_fields, lhs_key) {{
     return null;
-}
+}}
 
-function inner_join(join_map, max_join_fields, lhs_key) {
+function inner_join(join_map, max_join_fields, lhs_key) {{
     return join_map.get(lhs_key);
-}
+}}
 
 
-function left_join(join_map, max_join_fields, lhs_key) {
+function left_join(join_map, max_join_fields, lhs_key) {{
     var result = join_map.get(lhs_key);
-    if (result == null) {
+    if (result == null) {{
         result = Array(max_join_fields).fill(null);
-    }
+    }}
     return result;
-}
+}}
 
 
-function strict_left_join(join_map, max_join_fields, lhs_key) {
+function strict_left_join(join_map, max_join_fields, lhs_key) {{
     var result = join_map.get(lhs_key);
-    if (result == null) {
+    if (result == null) {{
         exit_with_error_msg('In "strict left join" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found');
-    }
+    }}
     return result;
-}
+}}
 
 
-function stable_compare(a, b) {
-    for (var i = 0; i < a.length; i++) {
+function stable_compare(a, b) {{
+    for (var i = 0; i < a.length; i++) {{
         if (a[i] !== b[i])
             return a[i] < b[i] ? -1 : 1;
-    }
-}
+    }}
+}}
 
 
 var join_map = null;
 var max_join_fields = null;
-if (join_table_path !== null) {
+if (join_table_path !== null) {{
     join_params = read_join_table(join_table_path);
     join_map = join_params[0];
     max_join_fields = join_params[1];
-}
+}}
 
 
 var writer = new {writer_type}(dst_stream);
 var unsorted_entries = [];
 
-lineReader.on('line', function (line) {
+lineReader.on('line', function (line) {{
     NR += 1;
     //FIXME strip last '\r'
     var fields = line.split(DLM);
     var NF = fields.length;
     bfields = null;
     star_line = line;
-    if (join_map != null) {
+    if (join_map != null) {{
         bfields = {join_function}(join_map, max_join_fields, {lhs_join_var});
         if (bfields == null)
-            continue;
+            return;
         star_line = line + DLM + bfields.join(DLM);
-    }
+    }}
     if (!{where_expression})
-        continue;
+        return;
     out_fields = [{select_expression}]
-    if {sort_flag} {
+    if ({sort_flag}) {{
         sort_entry = [{sort_key_expression}, NR, out_fields.join(DLM)];
         unsorted_entries.push(sort_entry);
-    } else {
+    }} else {{
         if (top_count != -1 && writer.NW >= top_count)
-            break;
+            lineReader.close();
         writer.write(out_fields.join(DLM));
-    }
+    }}
 
-});
+}});
 
 
-lineReader.on('close', function () {
-    if (unsorted_entries.length) {
+lineReader.on('close', function () {{
+    if (unsorted_entries.length) {{
         unsorted_entries.sort(stable_compare);
         if ({reverse_flag})
             unsorted_entries.reverse();
-        for (var i = 0; i < unsorted_entries.length; i++) {
+        for (var i = 0; i < unsorted_entries.length; i++) {{
             if (top_count != -1 && writer.NW >= top_count)
                 break;
             writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]);
-        }
-    }
-});
+        }}
+    }}
+    console.log('ok\tok');
+}});
 
 '''
 
@@ -837,7 +838,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
 
     join_function = 'null_join'
     join_op = None
-    rhs_table_path = None
+    rhs_table_path = 'null'
     lhs_join_var = None
     rhs_join_var = None
     join_funcs = {JOIN: 'inner_join', INNER_JOIN: 'inner_join', LEFT_JOIN: 'left_join', STRICT_LEFT_JOIN: 'strict_left_join'}
@@ -848,6 +849,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
 
     if join_op is not None:
         rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op])
+        rhs_table_path = "'{}'".format(rhs_table_path)
 
     js_meta_params = dict()
     #FIXME require modules feature
@@ -893,8 +895,8 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
             order_expression = order_expression[:-len(direction_marker)].rstrip()
         js_meta_params['sort_key_expression'] = order_expression
 
-    with codecs.open(py_dst, 'w', encoding='utf-8') as dst:
-        dst.write(py_script_body.format(**js_meta_params))
+    with codecs.open(js_dst, 'w', encoding='utf-8') as dst:
+        dst.write(js_script_body.format(**js_meta_params))
 
 
 def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, delim, csv_encoding=default_csv_encoding):
@@ -935,19 +937,7 @@ def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, 
 
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--delim', help='Delimiter', default=r'\t')
-    parser.add_argument('--query', help='Query string in rbql')
-    parser.add_argument('--query_file', metavar='FILE', help='Read rbql query from FILE')
-    parser.add_argument('--input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
-    parser.add_argument('--output_table_path', metavar='FILE', help='Write output table to FILE instead of stdout')
-    parser.add_argument('--meta_language', metavar='LANG', help='script language to use in query', default='python', choices=['python', 'js'])
-    parser.add_argument('--convert_only', action='store_true', help='Only generate script do not run query on csv table')
-    parser.add_argument('--csv_encoding', help='Manually set csv table encoding', default=default_csv_encoding, choices=['latin-1', 'utf-8'])
-    parser.add_argument('-I', dest='libs', action='append', help='Import module to use in the result conversion script')
-    args = parser.parse_args()
-
+def run_with_python(args):
     delim = args.delim
     query = args.query
     query_path = args.query_file
@@ -1006,6 +996,68 @@ def main():
         error_msg += 'Original python exception:\n{}\n'.format(str(e))
         eprint(error_msg)
         sys.exit(1)
+
+
+def run_with_js(args):
+    import subprocess
+    #FIXME make sure that node exists and exit otherwise
+    delim = args.delim
+    query = args.query
+    query_path = args.query_file
+    convert_only = args.convert_only
+    input_path = args.input_table_path
+    output_path = args.output_table_path
+    import_modules = args.libs
+    csv_encoding = args.csv_encoding
+
+    rbql_lines = None
+    if query is None and query_path is None:
+        eprint('Error: provide either "--query" or "--query_path" option')
+        sys.exit(1)
+    if query is not None and query_path is not None:
+        eprint('Error: unable to use both "--query" and "--query_path" options')
+        sys.exit(1)
+    if query_path is not None:
+        assert query is None
+        rbql_lines = codecs.open(query_path, encoding='utf-8').readlines()
+    else:
+        assert query_path is None
+        rbql_lines = [query]
+
+    tmp_dir = tempfile.gettempdir()
+    script_filename = 'rbconvert_{}'.format(time.time()).replace('.', '_') + '.js'
+    tmp_path = os.path.join(tmp_dir, script_filename)
+    parse_to_js(input_path, output_path, rbql_lines, tmp_path, delim, csv_encoding, import_modules)
+    cmd = ['node', tmp_path]
+    pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    pobj.wait()
+    #error_code = pobj.returncode
+    out_data = pobj.stdout.read()
+    #err_data = pobj.stderr
+    fields = out_data.split('\t', 1)
+    if len(fields) < 2:
+        eprint('Unknown Error\nGenerated script location: {}'.format(tmp_path))
+    elif fields[0] != 'ok':
+        eprint('Error: {}\nGenerated script location: {}'.format(fields[1], tmp_path))
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--delim', help='Delimiter', default=r'\t')
+    parser.add_argument('--query', help='Query string in rbql')
+    parser.add_argument('--query_file', metavar='FILE', help='Read rbql query from FILE')
+    parser.add_argument('--input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
+    parser.add_argument('--output_table_path', metavar='FILE', help='Write output table to FILE instead of stdout')
+    parser.add_argument('--meta_language', metavar='LANG', help='script language to use in query', default='python', choices=['python', 'js'])
+    parser.add_argument('--convert_only', action='store_true', help='Only generate script do not run query on csv table')
+    parser.add_argument('--csv_encoding', help='Manually set csv table encoding', default=default_csv_encoding, choices=['latin-1', 'utf-8'])
+    parser.add_argument('-I', dest='libs', action='append', help='Import module to use in the result conversion script')
+    args = parser.parse_args()
+    if args.meta_language == 'python':
+        run_with_python(args)
+    else:
+        run_with_js(args)
+
 
 
 if __name__ == '__main__':
