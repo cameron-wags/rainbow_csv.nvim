@@ -936,6 +936,9 @@ def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, 
     set_vim_variable(vim, 'query_status', 'OK')
 
 
+def print_error_and_exit(error_msg):
+    eprint(error_msg)
+    sys.exit(1)
 
 def run_with_python(args):
     delim = args.delim
@@ -949,11 +952,9 @@ def run_with_python(args):
 
     rbql_lines = None
     if query is None and query_path is None:
-        eprint('Error: provide either "--query" or "--query_path" option')
-        sys.exit(1)
+        print_error_and_exit('Error: provide either "--query" or "--query_path" option')
     if query is not None and query_path is not None:
-        eprint('Error: unable to use both "--query" and "--query_path" options')
-        sys.exit(1)
+        print_error_and_exit('Error: unable to use both "--query" and "--query_path" options')
     if query_path is not None:
         assert query is None
         rbql_lines = codecs.open(query_path, encoding='utf-8').readlines()
@@ -971,11 +972,9 @@ def run_with_python(args):
     try:
         parse_to_py(rbql_lines, tmp_path, delim, csv_encoding, import_modules)
     except RBParsingError as e:
-        eprint('RBQL Parsing Error: \t{}'.format(e))
-        sys.exit(1)
+        print_error_and_exit('RBQL Parsing Error: \t{}'.format(e))
     if not os.path.isfile(tmp_path) or not os.access(tmp_path, os.R_OK):
-        eprint('Error: Unable to find generated python module at {}.'.format(tmp_path))
-        sys.exit(1)
+        print_error_and_exit('Error: Unable to find generated python module at {}.'.format(tmp_path))
     sys.path.insert(0, tmp_dir)
     try:
         rbconvert = dynamic_import(module_name)
@@ -994,13 +993,30 @@ def run_with_python(args):
         error_msg = 'Error: Unable to use generated python module.\n'
         error_msg += 'Location of the generated module: {}\n\n'.format(tmp_path)
         error_msg += 'Original python exception:\n{}\n'.format(str(e))
-        eprint(error_msg)
-        sys.exit(1)
+        print_error_and_exit(error_msg)
+
+
+def system_has_node_js():
+    import subprocess
+    error_code = 0
+    out_data = ''
+    try:
+        cmd = ['node', '--version']
+        pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        pobj.wait()
+        error_code = pobj.returncode
+        out_data = pobj.stdout.read()
+    except OSError as e:
+        if e.errno == 2:
+            return False
+        raise
+    return error_code == 0 and len(out_data)
 
 
 def run_with_js(args):
     import subprocess
-    #FIXME make sure that node exists and exit otherwise
+    if not system_has_node_js():
+        print_error_and_exit('Error: node is not found, test command: "node --version"')
     delim = args.delim
     query = args.query
     query_path = args.query_file
@@ -1012,11 +1028,9 @@ def run_with_js(args):
 
     rbql_lines = None
     if query is None and query_path is None:
-        eprint('Error: provide either "--query" or "--query_path" option')
-        sys.exit(1)
+        print_error_and_exit('Error: provide either "--query" or "--query_path" option')
     if query is not None and query_path is not None:
-        eprint('Error: unable to use both "--query" and "--query_path" options')
-        sys.exit(1)
+        print_error_and_exit('Error: unable to use both "--query" and "--query_path" options')
     if query_path is not None:
         assert query is None
         rbql_lines = codecs.open(query_path, encoding='utf-8').readlines()
@@ -1031,14 +1045,12 @@ def run_with_js(args):
     cmd = ['node', tmp_path]
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     pobj.wait()
-    #error_code = pobj.returncode
-    out_data = pobj.stdout.read()
-    #err_data = pobj.stderr
+    out_data = pobj.stdout.read().decode('ascii')
     fields = out_data.split('\t', 1)
     if len(fields) < 2:
-        eprint('Unknown Error\nGenerated script location: {}'.format(tmp_path))
-    elif fields[0] != 'ok':
-        eprint('Error: {}\nGenerated script location: {}'.format(fields[1], tmp_path))
+        print_error_and_exit('Unknown Error\nGenerated script location: {}'.format(tmp_path))
+    if fields[0] != 'ok':
+        print_error_and_exit('Error: {}\nGenerated script location: {}'.format(fields[1], tmp_path))
 
 
 def main():
