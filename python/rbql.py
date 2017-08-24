@@ -774,7 +774,7 @@ lineReader.on('line', function (line) {{
             return;
         star_line = line + DLM + bfields.join(DLM);
     }}
-    if (!{where_expression})
+    if (!({where_expression}))
         return;
     out_fields = [{select_expression}]
     if ({sort_flag}) {{
@@ -1051,6 +1051,7 @@ def run_with_js(args):
         print_error_and_exit('Unknown Error\nGenerated script location: {}'.format(tmp_path))
     if fields[0] != 'ok':
         print_error_and_exit('Error: {}\nGenerated script location: {}'.format(fields[1], tmp_path))
+    #print(tmp_path) #FOR_DEBUG
 
 
 def main():
