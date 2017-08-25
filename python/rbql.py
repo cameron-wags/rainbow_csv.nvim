@@ -445,7 +445,7 @@ def read_join_table(join_table_path):
                 bad_idx = e.bad_idx
                 raise RbqlRuntimeError('No "b' + str(bad_idx + 1) + '" column at line: ' + str(il) + ' in "B" table')
             if key in result:
-                raise RbqlRuntimeError('Join column must be unique in right-hand-side "B" table')
+                raise RbqlRuntimeError('Join column must be unique in right-hand-side "B" table. Found duplicate key: "' + key + '"')
             result[key] = bfields
     return (result, fields_max_len)
 
@@ -698,16 +698,16 @@ function read_join_table(table_path) {{
     content = fs.readFileSync(table_path, {{encoding: csv_encoding}});
     lines = content.split('\n');
     result = new Map();
-    for (var i = 0; i < content.length; i++) {{
-        line = lines[i];
+    for (var i = 0; i < lines.length; i++) {{
+        var line = lines[i];
         //FIXME strip last '\r'
-        fields = line.split(DLM);
-        fields_max_len = Math.max(fields_max_len, fields.length);
-        key = fields[{rhs_join_var}];
+        var bfields = line.split(DLM);
+        fields_max_len = Math.max(fields_max_len, bfields.length);
+        key = {rhs_join_var};
         if (result.has(key)) {{
-            exit_with_error_msg('Join column must be unique in right-hand-side "B" table');
+            exit_with_error_msg('Join column must be unique in right-hand-side "B" table. Found duplicate key: "' + key + '"')
         }}
-        result.set(key, fields);
+        result.set(key, bfields);
     }}
     return [result, fields_max_len];
 }}
