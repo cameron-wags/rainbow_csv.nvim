@@ -1001,9 +1001,8 @@ def system_has_node_js():
     try:
         cmd = ['node', '--version']
         pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        pobj.wait()
+        out_data, err_data = pobj.communicate()
         error_code = pobj.returncode
-        out_data = pobj.stdout.read()
     except OSError as e:
         if e.errno == 2:
             return False
