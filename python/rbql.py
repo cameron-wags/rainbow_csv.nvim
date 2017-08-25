@@ -666,8 +666,7 @@ dst_stream = fs.createWriteStream(dst_table_path, {{defaultEncoding: csv_encodin
 var NR = 0;
 
 function exit_with_error_msg(error_msg) {{
-    error_msg = error_msg.replace(/\n/g, '\t');
-    console.log('error\t' + error_msg);
+    process.stderr.write(error_msg);
     process.exit(1);
 }}
 
@@ -696,7 +695,6 @@ function UniqWriter(dst) {{
 
 function read_join_table(table_path) {{
     var fields_max_len = 0;
-    //FIXME handle path not exists, maybe with try/except
     content = fs.readFileSync(table_path, {{encoding: csv_encoding}});
     lines = content.split('\n');
     result = new Map();
@@ -800,7 +798,7 @@ lineReader.on('close', function () {{
             writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]);
         }}
     }}
-    console.log('ok\tok');
+    //console.log('ok\tok');
 }});
 
 '''
@@ -852,7 +850,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
         rhs_table_path = "'{}'".format(rhs_table_path)
 
     js_meta_params = dict()
-    #FIXME require modules feature
+    #TODO require modules feature
     js_meta_params['dlm'] = normalize_delim(delim)
     js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
     js_meta_params['rhs_join_var'] = rhs_join_var
@@ -1021,6 +1019,7 @@ def run_with_js(args):
     query = args.query
     query_path = args.query_file
     convert_only = args.convert_only
+    #FIXME make it possible to run with stdout/stdin
     input_path = args.input_table_path
     output_path = args.output_table_path
     import_modules = args.libs
@@ -1045,13 +1044,12 @@ def run_with_js(args):
     cmd = ['node', tmp_path]
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     pobj.wait()
-    out_data = pobj.stdout.read().decode('ascii')
-    fields = out_data.split('\t', 1)
-    if len(fields) < 2:
-        print_error_and_exit('Unknown Error\nGenerated script location: {}'.format(tmp_path))
-    if fields[0] != 'ok':
-        print_error_and_exit('Error: {}\nGenerated script location: {}'.format(fields[1], tmp_path))
-    #print(tmp_path) #FOR_DEBUG
+    err_data = pobj.stderr.read().decode('latin-1')
+    error_code = pobj.returncode
+    if len(err_data) or error_code != 0:
+        if not len(err_data):
+            err_data = 'Unknown Error'
+        print_error_and_exit('An error occured during js script execution:\n\n{}\n\n================================================\nGenerated script location: {}'.format(err_data, tmp_path))
 
 
 def main():
