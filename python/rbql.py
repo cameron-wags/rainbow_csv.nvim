@@ -1042,8 +1042,7 @@ def run_with_js(args):
     parse_to_js(input_path, output_path, rbql_lines, tmp_path, delim, csv_encoding, import_modules)
     cmd = ['node', tmp_path]
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    pobj.wait()
-    err_data = pobj.stderr.read().decode('latin-1')
+    out_data, err_data = pobj.communicate()
     error_code = pobj.returncode
     if len(err_data) or error_code != 0:
         if not len(err_data):

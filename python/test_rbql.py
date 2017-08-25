@@ -15,6 +15,7 @@ import importlib
 import codecs
 import io
 import rbql
+import subprocess
 
 #This module must be both python2 and python3 compatible
 
@@ -39,7 +40,7 @@ def table_to_stream(array2d, delim):
     return io.StringIO(table_to_string(array2d, delim))
 
 
-def run_file_query_test(query, input_path, testname, import_modules=None, csv_encoding=default_csv_encoding, delim='\t'):
+def run_file_query_test_py(query, input_path, testname, import_modules=None, csv_encoding=default_csv_encoding, delim='\t'):
     tmp_dir = tempfile.gettempdir()
     if not len(sys.path) or sys.path[0] != tmp_dir:
         sys.path.insert(0, tmp_dir)
@@ -55,8 +56,25 @@ def run_file_query_test(query, input_path, testname, import_modules=None, csv_en
     return output_path
 
 
+def run_file_query_test_js(query, input_path, testname, import_modules=None, csv_encoding=default_csv_encoding, delim='\t'):
+    tmp_dir = tempfile.gettempdir()
+    rnd_string = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
+    script_filename = '{}.js'.format(rnd_string)
+    tmp_path = os.path.join(tmp_dir, script_filename)
+    dst_table_filename = '{}.tsv'.format(rnd_string)
+    output_path = os.path.join(tmp_dir, dst_table_filename)
+    rbql.parse_to_js(input_path, output_path, [query], tmp_path, delim, csv_encoding, import_modules)
+    cmd = ['node', tmp_path]
+    pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out_data, err_data = pobj.communicate()
+    error_code = pobj.returncode
+    if len(err_data) or error_code != 0:
+        raise RuntimeError("Error in file test: {}.\nScript location: {}".format(testname, tmp_path))
+    return output_path
+
 
 rainbow_ut_prefix = 'ut_rbconvert_'
+
 
 def run_conversion_test(query, input_table, testname, import_modules=None, join_csv_encoding=default_csv_encoding, delim='\t'):
     tmp_dir = tempfile.gettempdir()
@@ -469,6 +487,9 @@ class TestFiles(unittest.TestCase):
     def test_all(self):
         import json
         ut_config_path = 'unit_tests.cfg'
+        has_node = rbql.system_has_node_js()
+        if not has_node:
+            rbql.eprint('unable to run js tests: node js is not found')
         with codecs.open(ut_config_path, encoding='utf-8') as src:
             for test_no, line in enumerate(src, 1):
                 config = json.loads(line)
@@ -479,12 +500,24 @@ class TestFiles(unittest.TestCase):
                 delim = config.get('delim', 'TAB')
                 if delim == 'TAB':
                     delim = '\t'
-                result_table = run_file_query_test(query, src_path, str(test_no), csv_encoding=encoding, delim=delim)
-                canonic_md5 = calc_file_md5(canonic_table)
-                test_md5 = calc_file_md5(result_table)
+                meta_language = config.get('meta_language', 'python')
                 canonic_path = os.path.abspath(canonic_table)
-                test_path = os.path.abspath(result_table) 
-                self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
+                canonic_md5 = calc_file_md5(canonic_table)
+
+                if meta_language == 'python':
+                    result_table = run_file_query_test_py(query, src_path, str(test_no), csv_encoding=encoding, delim=delim)
+                    test_path = os.path.abspath(result_table) 
+                    test_md5 = calc_file_md5(result_table)
+                    self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
+                
+                else:
+                    assert meta_language == 'js'
+                    if not has_node:
+                        continue
+                    result_table = run_file_query_test_js(query, src_path, str(test_no), csv_encoding=encoding, delim=delim)
+                    test_path = os.path.abspath(result_table) 
+                    test_md5 = calc_file_md5(result_table)
+                    self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
 
 
 
