@@ -516,8 +516,10 @@ def rb_transform(source, destination):
         except Exception as e:
             raise RbqlRuntimeError('Error at line: ' + str(NR) + ', Details: ' + str(e))
     if len(unsorted_entries):
-        unsorted_entries = sorted(unsorted_entries, reverse = {reverse_flag})
-        for e in unsorted_entries:
+        sorted_entries = sorted(unsorted_entries, key=lambda x: x[0])
+        if {reverse_flag}:
+            sorted_entries.reverse()
+        for e in sorted_entries:
             if {top_count} != -1 and writer.NW >= {top_count}:
                 break
             writer.write(e[1])
