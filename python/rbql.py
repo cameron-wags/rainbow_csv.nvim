@@ -657,13 +657,28 @@ readline = require('readline');
 
 var csv_encoding = '{csv_encoding}';
 var DLM = '{dlm}';
-var src_table_path = '{src_table_path}';
-var dst_table_path = '{dst_table_path}';
 var join_table_path = {rhs_table_path};
 var top_count = {top_count};
 
-var lineReader = readline.createInterface({{ input: fs.createReadStream(src_table_path, {{encoding: csv_encoding}}) }});
-dst_stream = fs.createWriteStream(dst_table_path, {{defaultEncoding: csv_encoding}});
+
+var lineReader = null;
+var src_table_path = {src_table_path};
+if (src_table_path != null) {{
+    lineReader = readline.createInterface({{ input: fs.createReadStream(src_table_path, {{encoding: csv_encoding}}) }});
+}} else {{
+    process.stdin.setEncoding(csv_encoding);
+    lineReader = readline.createInterface({{ input: process.stdin }});
+}}
+
+var dst_stream = null;
+var dst_table_path = {dst_table_path};
+if (dst_table_path != null) {{
+    dst_stream = fs.createWriteStream(dst_table_path, {{defaultEncoding: csv_encoding}});
+}} else {{
+    process.stdout.setDefaultEncoding(csv_encoding);
+    dst_stream = process.stdout;
+}}
+
 
 var NR = 0;
 
@@ -858,8 +873,8 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     js_meta_params['rhs_join_var'] = rhs_join_var
     js_meta_params['writer_type'] = writer_name
     js_meta_params['join_function'] = join_function
-    js_meta_params['src_table_path'] = src_table_path
-    js_meta_params['dst_table_path'] = dst_table_path
+    js_meta_params['src_table_path'] = "null" if src_table_path is None else "'{}'".format(src_table_path)
+    js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(dst_table_path)
     js_meta_params['rhs_table_path'] = rhs_table_path
     js_meta_params['lhs_join_var'] = lhs_join_var
     js_meta_params['where_expression'] = 'true'
@@ -1020,7 +1035,6 @@ def run_with_js(args):
     query = args.query
     query_path = args.query_file
     convert_only = args.convert_only
-    #FIXME make it possible to run with stdout/stdin
     input_path = args.input_table_path
     output_path = args.output_table_path
     import_modules = args.libs
@@ -1043,8 +1057,8 @@ def run_with_js(args):
     tmp_path = os.path.join(tmp_dir, script_filename)
     parse_to_js(input_path, output_path, rbql_lines, tmp_path, delim, csv_encoding, import_modules)
     cmd = ['node', tmp_path]
-    pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out_data, err_data = pobj.communicate()
+    pobj = subprocess.Popen(cmd, stderr=subprocess.PIPE)
+    err_data = pobj.communicate()[1]
     error_code = pobj.returncode
     if len(err_data) or error_code != 0:
         if not len(err_data):
