@@ -76,7 +76,7 @@ def run_file_query_test_js(query, input_path, testname, import_modules=None, csv
 rainbow_ut_prefix = 'ut_rbconvert_'
 
 
-def run_conversion_test(query, input_table, testname, import_modules=None, join_csv_encoding=default_csv_encoding, delim='\t'):
+def run_conversion_test_py(query, input_table, testname, import_modules=None, join_csv_encoding=default_csv_encoding, delim='\t'):
     tmp_dir = tempfile.gettempdir()
     if not len(sys.path) or sys.path[0] != tmp_dir:
         sys.path.insert(0, tmp_dir)
@@ -96,6 +96,26 @@ def run_conversion_test(query, input_table, testname, import_modules=None, join_
     else:
         out_table = []
     return out_table
+
+
+def run_conversion_test_js(query, input_table, testname, import_modules=None, join_csv_encoding=default_csv_encoding, delim='\t'):
+    tmp_dir = tempfile.gettempdir()
+    script_name = '{}{}_{}_{}.js'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
+    tmp_path = os.path.join(tmp_dir, script_name)
+    rbql.parse_to_js(None, None, [query], tmp_path, delim, join_csv_encoding, None)
+    src = table_to_string(input_table, delim)
+    cmd = ['node', tmp_path]
+    pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+    out_data, err_data = pobj.communicate(src)
+    error_code = pobj.returncode
+    assert len(err_data) == 0 and error_code == 0
+    if len(out_data):
+        out_lines = out_data[:-1].split('\n')
+        out_table = [ln.split(delim) for ln in out_lines]
+    else:
+        out_table = []
+    return out_table
+
 
 
 def make_random_csv_entry(min_len, max_len, restricted_chars):
@@ -162,13 +182,12 @@ class TestEverything(unittest.TestCase):
         test_name = 'test_random_bin_tables'
         for subtest in rbql.xrange6(50):
             input_table, query, canonic_table, delim = generate_random_scenario(12, 12, ['\t', ',', ';'])
-            test_table = run_conversion_test(query, input_table, test_name, delim=delim)
+            test_table = run_conversion_test_py(query, input_table, test_name, delim=delim)
             self.compare_tables(canonic_table, test_table)
 
 
     def test_run1(self):
         test_name = 'test1'
-        query = 'select NR, a1, len(a3) where int(a1) > 5'
 
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
@@ -180,7 +199,11 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['3', '50', '4'])
         canonic_table.append(['4', '20', '0'])
 
-        test_table = run_conversion_test(query, input_table, test_name)
+        query = 'select NR, a1, len(a3) where int(a1) > 5'
+        test_table = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        query = 'select NR, a1, a3.length where a1 > 5'
+        test_table = run_conversion_test_js(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
 
@@ -203,7 +226,7 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['haha'])
         canonic_table.append(['hoho'])
 
-        test_table = run_conversion_test(query, input_table, test_name)
+        test_table = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
     def test_run3(self):
@@ -226,7 +249,7 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['-20', 'haha', 'hioho'])
 
 
-        test_table = run_conversion_test(query, input_table, test_name)
+        test_table = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
     def test_run4(self):
@@ -244,7 +267,7 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['9', r"\'\"a   bc"])
         canonic_table.append(['2', r"\'\"a   bc"])
 
-        test_table = run_conversion_test(query, input_table, test_name, ['math', 'os'])
+        test_table = run_conversion_test_py(query, input_table, test_name, ['math', 'os'])
         self.compare_tables(canonic_table, test_table)
 
 
@@ -258,7 +281,7 @@ class TestEverything(unittest.TestCase):
         input_table.append(['4', 'haha', 'dfdf', 'asdfa', '111'])
 
         with self.assertRaises(Exception) as cm:
-            run_conversion_test(query, input_table, test_name, ['math', 'os'])
+            run_conversion_test_py(query, input_table, test_name, ['math', 'os'])
         e = cm.exception
         self.assertTrue(str(e).find('No "a2" column at line: 2') != -1)
 
@@ -295,7 +318,7 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['3', '50', 'plane', 'tu-134', 'plane', 'wings'])
         canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings'])
 
-        test_table = run_conversion_test(query, input_table, test_name)
+        test_table = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
 
@@ -329,7 +352,7 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['None', 'None', '20'])
         canonic_table.append(['None', 'None', '10'])
 
-        test_table = run_conversion_test(query, input_table, test_name)
+        test_table = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
 
@@ -357,7 +380,7 @@ class TestEverything(unittest.TestCase):
         input_table.append(['100', 'magic carpet', 'nimbus 3000'])
 
         with self.assertRaises(Exception) as cm:
-            test_table = run_conversion_test(query, input_table, test_name)
+            test_table = run_conversion_test_py(query, input_table, test_name)
         e = cm.exception
         self.assertTrue(str(e).find('all A table keys must be present in table B') != -1)
 
@@ -384,7 +407,7 @@ class TestEverything(unittest.TestCase):
         input_table.append(['200', 'plane', 'boeing 737'])
 
         with self.assertRaises(Exception) as cm:
-            test_table = run_conversion_test(query, input_table, test_name)
+            test_table = run_conversion_test_py(query, input_table, test_name)
         e = cm.exception
         self.assertTrue(str(e).find('Join column must be unique in right-hand-side "B" table') != -1)
 
@@ -403,7 +426,7 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['5', 'haha', 'hoho'])
         canonic_table.append(['50', 'haha', 'dfdf'])
 
-        test_table = run_conversion_test(query, input_table, test_name)
+        test_table = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
 
@@ -421,7 +444,7 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['50', 'Наполеон', 'dfdf'])
         canonic_table.append(['20', 'Наполеон', ''])
 
-        test_table = run_conversion_test(query, input_table, test_name, join_csv_encoding='utf-8')
+        test_table = run_conversion_test_py(query, input_table, test_name, join_csv_encoding='utf-8')
         self.compare_tables(canonic_table, test_table)
 
 
@@ -457,7 +480,7 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['3', '50', 'plane', 'tu-134', 'plane', 'wings'])
         canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings'])
 
-        test_table = run_conversion_test(query, input_table, test_name)
+        test_table = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
 
