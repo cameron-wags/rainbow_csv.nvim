@@ -98,15 +98,16 @@ def run_conversion_test_py(query, input_table, testname, import_modules=None, jo
     return out_table
 
 
-def run_conversion_test_js(query, input_table, testname, import_modules=None, join_csv_encoding=default_csv_encoding, delim='\t'):
+def run_conversion_test_js(query, input_table, testname, import_modules=None, csv_encoding=default_csv_encoding, delim='\t'):
     tmp_dir = tempfile.gettempdir()
     script_name = '{}{}_{}_{}.js'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
     tmp_path = os.path.join(tmp_dir, script_name)
-    rbql.parse_to_js(None, None, [query], tmp_path, delim, join_csv_encoding, None)
+    rbql.parse_to_js(None, None, [query], tmp_path, delim, csv_encoding, None)
     src = table_to_string(input_table, delim)
     cmd = ['node', tmp_path]
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
-    out_data, err_data = pobj.communicate(src)
+    out_data, err_data = pobj.communicate(src.encode(csv_encoding))
+    out_data = out_data.decode(csv_encoding)
     error_code = pobj.returncode
     assert len(err_data) == 0 and error_code == 0
     if len(out_data):
@@ -209,7 +210,6 @@ class TestEverything(unittest.TestCase):
 
     def test_run2(self):
         test_name = 'test2'
-        query = '\tselect    distinct\ta2 where int(a1) > 10 #some#\t comments "with #text" "#"" '
 
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
@@ -226,7 +226,11 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['haha'])
         canonic_table.append(['hoho'])
 
+        query = '\tselect    distinct\ta2 where int(a1) > 10 #some#\t comments "with #text" "#"" '
         test_table = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        query = '\tselect    distinct\ta2 where a1 > 10 //some#\t comments "with //text" "#"" '
+        test_table = run_conversion_test_js(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
     def test_run3(self):
@@ -548,22 +552,34 @@ class TestStringMethods(unittest.TestCase):
 
     def test_strip(self):
         a = 'v = "hello" #world  '
-        a_strp = rbql.strip_comments(a)
+        a_strp = rbql.strip_py_comments(a)
+        self.assertEqual(a_strp, 'v = "hello"')
+        a = 'v = "hello" //world  '
+        a_strp = rbql.strip_js_comments(a)
         self.assertEqual(a_strp, 'v = "hello"')
 
     def test_strip2(self):
         a = r'''v = "hel\"lo" #w'or"ld  '''
-        a_strp = rbql.strip_comments(a)
+        a_strp = rbql.strip_py_comments(a)
+        self.assertEqual(a_strp, r'''v = "hel\"lo"''')
+        a = r'''v = "hel\"lo" //w'or"ld  '''
+        a_strp = rbql.strip_js_comments(a)
         self.assertEqual(a_strp, r'''v = "hel\"lo"''')
 
     def test_strip3(self):
         a = r'''v = "hello\\" #w'or"ld  '''
-        a_strp = rbql.strip_comments(a)
+        a_strp = rbql.strip_py_comments(a)
+        self.assertEqual(a_strp, r'''v = "hello\\"''')
+        a = r'''v = "hello\\" //w'or"ld  '''
+        a_strp = rbql.strip_js_comments(a)
         self.assertEqual(a_strp, r'''v = "hello\\"''')
 
     def test_strip4(self):
         a = ''' # a comment'''
-        a_strp = rbql.strip_comments(a)
+        a_strp = rbql.strip_py_comments(a)
+        self.assertEqual(a_strp, '')
+        a = ''' // a comment'''
+        a_strp = rbql.strip_js_comments(a)
         self.assertEqual(a_strp, '')
 
 

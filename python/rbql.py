@@ -112,13 +112,29 @@ def is_escaped_quote(cline, i):
     return False
 
 
-def strip_comments(cline):
+def strip_py_comments(cline):
     cline = cline.rstrip()
     cline = cline.replace('\t', ' ')
     cur_quote_mark = None
     for i in xrange6(len(cline)):
         c = cline[i]
         if cur_quote_mark is None and c == '#':
+            return cline[:i].rstrip()
+        if cur_quote_mark is None and (c == "'" or c == '"'):
+            cur_quote_mark = c
+            continue
+        if cur_quote_mark is not None and c == cur_quote_mark and not is_escaped_quote(cline, i):
+            cur_quote_mark = None
+    return cline
+
+
+def strip_js_comments(cline):
+    cline = cline.rstrip()
+    cline = cline.replace('\t', ' ')
+    cur_quote_mark = None
+    for i in xrange6(len(cline)):
+        c = cline[i]
+        if cur_quote_mark is None and c == '/' and cline[i + 1] == '/':
             return cline[:i].rstrip()
         if cur_quote_mark is None and (c == "'" or c == '"'):
             cur_quote_mark = c
@@ -567,7 +583,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
         cline = rbql_lines[il]
         if cline.find("'''") != -1 or cline.find('"""') != -1: #TODO improve parsing to allow multiline strings/comments
             raise RBParsingError('In line {}. Multiline python comments and doc strings are not allowed in rbql'.format(il + 1))
-        rbql_lines[il] = strip_comments(cline)
+        rbql_lines[il] = strip_py_comments(cline)
 
     rbql_lines = [l for l in rbql_lines if len(l)]
 
@@ -819,13 +835,6 @@ lineReader.on('close', function () {{
 }});
 
 '''
-
-
-def strip_js_comments(cline):
-    cline = cline.rstrip()
-    cline = cline.replace('\t', ' ')
-    #FIXME strip comments!
-    return cline
 
 
 def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_encoding=default_csv_encoding, import_modules=None):
