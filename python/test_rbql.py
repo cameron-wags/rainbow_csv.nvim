@@ -185,6 +185,8 @@ class TestEverything(unittest.TestCase):
             input_table, query, canonic_table, delim = generate_random_scenario(12, 12, ['\t', ',', ';'])
             test_table = run_conversion_test_py(query, input_table, test_name, delim=delim)
             self.compare_tables(canonic_table, test_table)
+            test_table = run_conversion_test_js(query, input_table, test_name, delim=delim)
+            self.compare_tables(canonic_table, test_table)
 
 
     def test_run1(self):
