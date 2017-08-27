@@ -303,33 +303,35 @@ class TestEverything(unittest.TestCase):
 
         join_table = list()
         join_table.append(['bicycle', 'legs'])
-        join_table.append(['car', 'gas'])
-        join_table.append(['plane', 'wings'])
-        join_table.append(['boat', 'wind'])
+        join_table.append(['car', 'gas '])
+        join_table.append(['plane', 'wings  \r'])
+        join_table.append(['boat', 'wind\r'])
         join_table.append(['rocket', 'some stuff'])
 
         table_to_file(join_table, join_table_path)
-
-        query = r'select NR, * inner join {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
 
         input_table = list()
         input_table.append(['5', 'car', 'lada'])
         input_table.append(['-20', 'car', 'Ferrari'])
         input_table.append(['50', 'plane', 'tu-134'])
-        input_table.append(['20', 'boat', 'destroyer'])
-        input_table.append(['10', 'boat', 'yacht'])
+        input_table.append(['20', 'boat', 'destroyer\r'])
+        input_table.append(['10', 'boat', 'yacht '])
         input_table.append(['200', 'plane', 'boeing 737'])
         input_table.append(['80', 'train', 'Thomas'])
 
         canonic_table = list()
-        canonic_table.append(['5', '10', 'boat', 'yacht', 'boat', 'wind'])
+        canonic_table.append(['5', '10', 'boat', 'yacht ', 'boat', 'wind'])
         canonic_table.append(['4', '20', 'boat', 'destroyer', 'boat', 'wind'])
-        canonic_table.append(['2', '-20', 'car', 'Ferrari', 'car', 'gas'])
-        canonic_table.append(['1', '5', 'car', 'lada', 'car', 'gas'])
-        canonic_table.append(['3', '50', 'plane', 'tu-134', 'plane', 'wings'])
-        canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings'])
+        canonic_table.append(['2', '-20', 'car', 'Ferrari', 'car', 'gas '])
+        canonic_table.append(['1', '5', 'car', 'lada', 'car', 'gas '])
+        canonic_table.append(['3', '50', 'plane', 'tu-134', 'plane', 'wings  '])
+        canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings  '])
 
+        query = r'select NR, * inner join {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
         test_table = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        query = r'select NR, * inner join {} on a2 == b1 where   b2 !=  "haha" &&  a1 > -100 &&  b2.length >  1 order by a2, parseInt(a1)'.format(join_table_path)
+        test_table = run_conversion_test_js(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
 
@@ -443,19 +445,22 @@ class TestEverything(unittest.TestCase):
 
     def test_run11(self):
         test_name = 'test11'
-        query = 'select * where a2== "Наполеон" '
 
         input_table = list()
         input_table.append(['5', 'Петр Первый', 'hoho'])
-        input_table.append(['-20', 'Екатерина Великая', 'hioho'])
-        input_table.append(['50', 'Наполеон', 'dfdf'])
-        input_table.append(['20', 'Наполеон', ''])
+        input_table.append(['-20', 'Екатерина Великая', 'hioho\r'])
+        input_table.append(['50', 'Наполеон', 'dfdf\r'])
+        input_table.append(['20', 'Наполеон', '\r'])
 
         canonic_table = list()
         canonic_table.append(['50', 'Наполеон', 'dfdf'])
         canonic_table.append(['20', 'Наполеон', ''])
 
+        query = 'select * where a2== "Наполеон" '
         test_table = run_conversion_test_py(query, input_table, test_name, join_csv_encoding='utf-8')
+        self.compare_tables(canonic_table, test_table)
+        query = 'select * where a2== "Наполеон" '
+        test_table = run_conversion_test_js(query, input_table, test_name, csv_encoding='utf-8')
         self.compare_tables(canonic_table, test_table)
 
 

@@ -113,6 +113,7 @@ def is_escaped_quote(cline, i):
 
 
 def strip_py_comments(cline):
+    #TODO simplify this, don't remove comments from lines, but skip lines completely if they contain comments
     cline = cline.rstrip()
     cline = cline.replace('\t', ' ')
     cur_quote_mark = None
@@ -677,6 +678,13 @@ var DLM = '{dlm}';
 var join_table_path = {rhs_table_path};
 var top_count = {top_count};
 
+function strip_cr(line) {{
+    if (line.charAt(line.length - 1) === '\r') {{
+        return line.substring(0, line.length - 1);
+    }}
+    return line;
+}}
+
 
 var lineReader = null;
 var src_table_path = {src_table_path};
@@ -733,8 +741,7 @@ function read_join_table(table_path) {{
     lines = content.split('\n');
     result = new Map();
     for (var i = 0; i < lines.length; i++) {{
-        var line = lines[i];
-        //FIXME strip last '\r'
+        var line = strip_cr(lines[i]);
         var bfields = line.split(DLM);
         fields_max_len = Math.max(fields_max_len, bfields.length);
         key = {rhs_join_var};
@@ -795,7 +802,7 @@ var unsorted_entries = [];
 
 lineReader.on('line', function (line) {{
     NR += 1;
-    //FIXME strip last '\r'
+    //readline strips last '\r'
     var fields = line.split(DLM);
     var NF = fields.length;
     bfields = null;
