@@ -217,6 +217,7 @@ def tokenize_terms(tokens):
 
 
 def remove_consecutive_whitespaces(tokens):
+    #TODO/FIXME don't do this. may break some expressions. leave it to the parser
     result = list()
     for i in xrange6(len(tokens)):
         if (tokens[i].ttype != TokenType.WHITESPACE) or (i == 0) or (tokens[i - 1].ttype != TokenType.WHITESPACE):

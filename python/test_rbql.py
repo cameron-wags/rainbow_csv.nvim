@@ -233,9 +233,9 @@ class TestEverything(unittest.TestCase):
         test_table = run_conversion_test_js(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
 
+
     def test_run3(self):
         test_name = 'test3'
-        query = 'select \t  *  where flike(a2,\t"%a_a") order\tby int(a1)    desc   '
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
         input_table.append(['-20', 'haha', 'hioho'])
@@ -252,13 +252,14 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['5', 'haha', 'hoho'])
         canonic_table.append(['-20', 'haha', 'hioho'])
 
-
+        query = 'select \t  *  where flike(a2,\t"%a_a") order\tby int(a1)    desc   '
         test_table = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
+        #TODO implement flike() in js
+
 
     def test_run4(self):
         test_name = 'test4'
-        query = r'select int(math.sqrt(int(a1))), r"\'\"a   bc"'
         input_table = list()
         input_table.append(['0', 'haha', 'hoho'])
         input_table.append(['9'])
@@ -271,8 +272,14 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['9', r"\'\"a   bc"])
         canonic_table.append(['2', r"\'\"a   bc"])
 
+        query = r'select int(math.sqrt(int(a1))), r"\'\"a   bc"'
         test_table = run_conversion_test_py(query, input_table, test_name, ['math', 'os'])
         self.compare_tables(canonic_table, test_table)
+
+        #TODO do not strip consequent whitespaces durint rbql query parsing.
+        #query = r'select Math.floor(Math.sqrt(a1)), String.raw`\'\"a   bc`'
+        #test_table = run_conversion_test_js(query, input_table, test_name)
+        #self.compare_tables(canonic_table, test_table)
 
 
     def test_run5(self):
