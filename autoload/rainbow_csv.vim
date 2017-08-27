@@ -412,12 +412,15 @@ func! rainbow_csv#select_mode()
     endif
     let num_fields = len(split(lines[0], delim))
 
-    let select_line = 'select'
+    let select_line = 'select '
     let new_rows = []
     for nf in range(1, num_fields)
-        let select_line = select_line . ' a' . nf . ','
+        let select_line = select_line . 'a' . nf
+        if nf < num_fields
+            let select_line = select_line . ', '
+        endif
     endfor
-    let select_line = select_line . ' #  <- modify!'
+    let select_line = select_line
 
     execute "e " . rb_script_path
     setlocal noswapfile
@@ -437,13 +440,14 @@ func! rainbow_csv#select_mode()
     call add(help_before, '# To run the query press F5')
     call add(help_before, '# For more info visit https://github.com/mechatroner/rainbow_csv')
     call add(help_before, '')
+    call add(help_before, '')
+    call add(help_before, '# modify:')
     call add(help_before, select_line)
     call setline(1, help_before)
     let help_after = []
     call add(help_after, '')
-    call add(help_after, '')
     call add(help_after, '# To join with another table, modify this:')
-    call add(help_after, '#left join /path/to/another/table.tsv on a2 == b1')
+    call add(help_after, '#join /path/to/another/table.tsv on a2 == b1')
     call add(help_after, '')
     call add(help_after, '# To filter result set, modify this:')
     call add(help_after, '#where len(a1) > 10')
@@ -451,16 +455,16 @@ func! rainbow_csv#select_mode()
     call add(help_after, '# To sort result set, modify this:')
     call add(help_after, '#order by a2 desc')
     call add(help_after, '')
+    call add(help_after, '')
+    call add(help_after, '')
     call add(help_after, '# Examples of RBQL queries:')
     call add(help_after, '# select * where a1 == "SELL"')
     call add(help_after, '# select * where a3 in ["car", "plane", "boat"] and int(a1) >= 100')
-    call add(help_after, '# select * where NR <= 10 # this is an equivalent of bash command "head -n 10", NR is 1-based')
-    call add(help_after, '# select a1, a4 # this is an equivalent of bash command "cut -f 1,4"')
-    call add(help_after, '# select * order by int(a2) desc # this is an equivalent of bash command "sort -k2,2 -r -n"')
-    call add(help_after, '# select * order by random.random() # random sort, this is an equivalent of bash command "sort -R"')
-    call add(help_after, '# select NR, * # - enumerate lines, NR is 1-based')
-    call add(help_after, '# select * where re.match(".*ab.*", a1) is not None # select entries where first column has "ab" pattern')
-    call add(help_after, '# select * where flike(a1, "%ab%") # same as previous, but using "flike()" function (equivalent of SQL "LIKE" operator)')
+    call add(help_after, '# select a4, a1')
+    call add(help_after, '# select * order by int(a2) desc')
+    call add(help_after, '# select * order by random.random()')
+    call add(help_after, '# select NR, * where NR <= 100')
+    call add(help_after, '# select * where re.match(".*ab.*", a1) is not None')
     call add(help_after, '# select distinct a1, *, 200, int(a2) + 5, "hello world" where NR > 100 and int(a5) < -7 order by a3 ASC')
     call add(help_after, '')
     call add(help_after, '# Next time you can run another query by entering it into vim command line starting with ":Select" command')
