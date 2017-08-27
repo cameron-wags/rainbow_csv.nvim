@@ -109,7 +109,8 @@ def run_conversion_test_js(query, input_table, testname, import_modules=None, cs
     out_data, err_data = pobj.communicate(src.encode(csv_encoding))
     out_data = out_data.decode(csv_encoding)
     error_code = pobj.returncode
-    assert len(err_data) == 0 and error_code == 0
+    if len(err_data) or error_code != 0:
+        raise RuntimeError("Error in file test: {}.\nError text:\n{}\n\nScript location: {}".format(testname, err_data, tmp_path))
     if len(out_data):
         out_lines = out_data[:-1].split('\n')
         out_table = [ln.split(delim) for ln in out_lines]
@@ -297,6 +298,11 @@ class TestEverything(unittest.TestCase):
         e = cm.exception
         self.assertTrue(str(e).find('No "a2" column at line: 2') != -1)
 
+        with self.assertRaises(Exception) as cm:
+            run_conversion_test_js(query, input_table, test_name)
+        e = cm.exception
+        self.assertTrue(str(e).find('No "a2" column at line: 2') != -1)
+
 
     def test_run6(self):
         test_name = 'test6'
@@ -348,7 +354,6 @@ class TestEverything(unittest.TestCase):
 
         table_to_file(join_table, join_table_path)
 
-        query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
 
         input_table = list()
         input_table.append(['100', 'magic carpet', 'nimbus 3000'])
@@ -359,6 +364,7 @@ class TestEverything(unittest.TestCase):
         input_table.append(['10', 'boat', 'yacht'])
         input_table.append(['200', 'plane', 'boeing 737'])
 
+        #FIXME use special constang e.g. ##RBQL_NONE## to represent None/null/undefined values
         canonic_table = list()
         canonic_table.append(['None', 'None', '100'])
         canonic_table.append(['car', 'gas', '5'])
@@ -366,8 +372,12 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['None', 'None', '20'])
         canonic_table.append(['None', 'None', '10'])
 
+        query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
         test_table = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
+        #query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
+        #test_table = run_conversion_test_js(query, input_table, test_name)
+        #self.compare_tables(canonic_table, test_table)
 
 
     def test_run8(self):
