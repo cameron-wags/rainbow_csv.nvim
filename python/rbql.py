@@ -66,11 +66,11 @@ def replace_rbql_var(text):
     mtobj = column_var_regex.match(text)
     if mtobj is not None:
         column_number = int(mtobj.group(1))
-        return 'fields[{}]'.format(column_number - 1)
+        return 'safe_get(fields, {})'.format(column_number - 1)
     mtobj = bcolumn_var_regex.match(text)
     if mtobj is not None:
         column_number = int(mtobj.group(1))
-        return 'bfields[{}]'.format(column_number - 1)
+        return 'safe_get(bfields, {})'.format(column_number - 1)
     return None
 
 
@@ -385,13 +385,11 @@ class RbqlRuntimeError(Exception):
     pass
 
 
-class rbql_list(list):
-    def __getitem__(self, idx):
-        try:
-            v = super(rbql_list, self).__getitem__(idx)
-        except IndexError as e:
-            raise BadFieldError(idx)
-        return v
+def safe_get(record, idx):
+    try:
+        return record[idx]
+    except IndexError as e:
+        raise BadFieldError(idx)
 
 
 class Flike:
@@ -455,7 +453,7 @@ def read_join_table(join_table_path):
     with codecs.open(join_table_path, encoding='{join_encoding}') as src_text:
         for il, line in enumerate(rows(src_text), 1):
             line = line.rstrip('\r\n')
-            bfields = rbql_list(line.split(DLM))
+            bfields = line.split(DLM)
             fields_max_len = max(fields_max_len, len(bfields))
             try:
                 key = {rhs_join_var}
@@ -508,7 +506,7 @@ def rb_transform(source, destination):
         lnum = NR #TODO remove, backcompatibility
         line = line.rstrip('\r\n')
         star_line = line
-        fields = rbql_list(line.split(DLM))
+        fields = line.split(DLM)
         NF = len(fields)
         flen = NF #TODO remove, backcompatibility
         bfields = None
@@ -735,6 +733,20 @@ function UniqWriter(dst) {{
 }}
 
 
+function BadFieldError(idx) {{
+    this.idx = idx;
+    this.name = 'BadFieldError';
+}}
+
+
+function safe_get(record, idx) {{
+    if (idx < record.length) {{
+        return record[idx];
+    }}
+    throw new BadFieldError(idx);
+}}
+
+
 function read_join_table(table_path) {{
     var fields_max_len = 0;
     content = fs.readFileSync(table_path, {{encoding: csv_encoding}});
@@ -744,7 +756,14 @@ function read_join_table(table_path) {{
         var line = strip_cr(lines[i]);
         var bfields = line.split(DLM);
         fields_max_len = Math.max(fields_max_len, bfields.length);
-        key = {rhs_join_var};
+        key = null;
+        try {{
+            key = {rhs_join_var};
+        }} catch (e) {{
+            if (e instanceof BadFieldError) {{
+                exit_with_error_msg('No "b' + (e.idx + 1) + '" column at line: ' + (i + 1) + ' in "B" table')
+            }}
+        }}
         if (result.has(key)) {{
             exit_with_error_msg('Join column must be unique in right-hand-side "B" table. Found duplicate key: "' + key + '"')
         }}
@@ -815,7 +834,14 @@ lineReader.on('line', function (line) {{
     }}
     if (!({where_expression}))
         return;
-    out_fields = [{select_expression}]
+    out_fields = null;
+    try {{
+        out_fields = [{select_expression}]
+    }} catch (e) {{
+        if (e instanceof BadFieldError) {{
+            exit_with_error_msg('No "a' + (e.idx + 1) + '" column at line: ' + NR);
+        }}
+    }}
     if ({sort_flag}) {{
         sort_entry = [{sort_key_expression}, NR, out_fields.join(DLM)];
         unsorted_entries.push(sort_entry);
