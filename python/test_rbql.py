@@ -69,7 +69,7 @@ def run_file_query_test_js(query, input_path, testname, import_modules=None, csv
     out_data, err_data = pobj.communicate()
     error_code = pobj.returncode
     if len(err_data) or error_code != 0:
-        raise RuntimeError("Error in file test: {}.\nScript location: {}".format(testname, tmp_path))
+        raise RuntimeError("Error in file test: {}.\nError text:\n{}\n\nScript location: {}".format(testname, err_data, tmp_path))
     return output_path
 
 
@@ -177,7 +177,6 @@ class TestEverything(unittest.TestCase):
             self.assertEqual(canonic_table[i], test_table[i])
         self.assertEqual(canonic_table, test_table)
 
-    #TODO add degraded tests: empty table, one row table, empty result set etc
 
     def test_random_bin_tables(self):
         test_name = 'test_random_bin_tables'
@@ -535,18 +534,24 @@ class TestFiles(unittest.TestCase):
             for test_no, line in enumerate(src, 1):
                 config = json.loads(line)
                 src_path = config['src_table']
-                canonic_table = config['canonic_table']
+                canonic_table = config.get('canonic_table')
+                canonic_error_msg = config.get('canonic_error_msg')
                 query = config['query']
                 encoding = config.get('encoding', default_csv_encoding)
                 delim = config.get('delim', 'TAB')
                 if delim == 'TAB':
                     delim = '\t'
                 meta_language = config.get('meta_language', 'python')
-                canonic_path = os.path.abspath(canonic_table)
+                canonic_path = None if canonic_table is None else os.path.abspath(canonic_table)
                 canonic_md5 = calc_file_md5(canonic_table)
 
                 if meta_language == 'python':
-                    result_table = run_file_query_test_py(query, src_path, str(test_no), csv_encoding=encoding, delim=delim)
+                    try:
+                        result_table = run_file_query_test_py(query, src_path, str(test_no), csv_encoding=encoding, delim=delim)
+                    except Exception as e:
+                        if canonic_error_msg is None or str(e).find(canonic_error_msg) == -1:
+                            raise
+                        continue
                     test_path = os.path.abspath(result_table) 
                     test_md5 = calc_file_md5(result_table)
                     self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
@@ -555,7 +560,12 @@ class TestFiles(unittest.TestCase):
                     assert meta_language == 'js'
                     if not has_node:
                         continue
-                    result_table = run_file_query_test_js(query, src_path, str(test_no), csv_encoding=encoding, delim=delim)
+                    try:
+                        result_table = run_file_query_test_js(query, src_path, str(test_no), csv_encoding=encoding, delim=delim)
+                    except Exception as e:
+                        if canonic_error_msg is None or str(e).find(canonic_error_msg) == -1:
+                            raise
+                        continue
                     test_path = os.path.abspath(result_table) 
                     test_md5 = calc_file_md5(result_table)
                     self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
