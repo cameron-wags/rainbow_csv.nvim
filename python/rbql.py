@@ -581,7 +581,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
 
     for il in xrange6(len(rbql_lines)):
         cline = rbql_lines[il]
-        if cline.find("'''") != -1 or cline.find('"""') != -1: #TODO improve parsing to allow multiline strings/comments
+        if cline.find("'''") != -1 or cline.find('"""') != -1: #TODO remove this condition after improving column_vars replacement logic
             raise RBParsingError('In line {}. Multiline python comments and doc strings are not allowed in rbql'.format(il + 1))
         rbql_lines[il] = strip_py_comments(cline)
 
