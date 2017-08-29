@@ -6,8 +6,6 @@ from __future__ import print_function
 import sys
 import os
 import argparse
-import random
-import unittest
 import re
 import tempfile
 import time
@@ -114,7 +112,7 @@ def is_escaped_quote(cline, i):
 
 def strip_py_comments(cline):
     #TODO simplify this, don't remove comments from lines, but skip lines completely if they contain comments
-    cline = cline.rstrip()
+    cline = cline.strip()
     cline = cline.replace('\t', ' ')
     cur_quote_mark = None
     for i in xrange6(len(cline)):
@@ -130,18 +128,10 @@ def strip_py_comments(cline):
 
 
 def strip_js_comments(cline):
-    cline = cline.rstrip()
+    cline = cline.strip()
     cline = cline.replace('\t', ' ')
-    cur_quote_mark = None
-    for i in xrange6(len(cline)):
-        c = cline[i]
-        if cur_quote_mark is None and c == '/' and cline[i + 1] == '/':
-            return cline[:i].rstrip()
-        if cur_quote_mark is None and (c == "'" or c == '"'):
-            cur_quote_mark = c
-            continue
-        if cur_quote_mark is not None and c == cur_quote_mark and not is_escaped_quote(cline, i):
-            cur_quote_mark = None
+    if cline.startswith('//'):
+        return ''
     return cline
 
 
@@ -158,7 +148,7 @@ class Token:
         self.content = content
 
     def __str__(self):
-        return '{}\t{}'.join(self.ttype, self.content)
+        return '{}\t{}'.format(self.ttype, self.content)
 
 
 def tokenize_string_literals(lines):
@@ -194,7 +184,7 @@ def tokenize_terms(tokens):
 
         i = 0
         k = 0
-        in_alphanumeric = False 
+        in_alphanumeric = False
         while i < len(content):
             c = content[i]
             if c == ' ' or is_boundary(c):
@@ -550,13 +540,6 @@ if __name__ == '__main__':
 
 
 
-def vim_sanitize(obj):
-    return str(obj).replace("'", '"')
-
-def set_vim_variable(vim, var_name, value):
-    str_value = str(value).replace("'", '"')
-    vim.command("let {} = '{}'".format(var_name, str_value))
-
 def normalize_delim(delim):
     if delim == '\t':
         return r'\t'
@@ -645,7 +628,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     select_tokens = replace_star_vars(select_tokens)
     if not len(select_tokens):
         raise RBParsingError('"SELECT" expression is empty')
-    select_expression= join_tokens(select_tokens)
+    select_expression = join_tokens(select_tokens)
     py_meta_params['select_expression'] = select_expression
 
     py_meta_params['sort_flag'] = 'False'
@@ -935,7 +918,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     select_tokens = replace_star_vars(select_tokens)
     if not len(select_tokens):
         raise RBParsingError('"SELECT" expression is empty')
-    select_expression= join_tokens(select_tokens)
+    select_expression = join_tokens(select_tokens)
     js_meta_params['select_expression'] = select_expression
 
     js_meta_params['sort_flag'] = 'false'
@@ -957,52 +940,116 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
         dst.write(js_script_body.format(**js_meta_params))
 
 
-def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, delim, csv_encoding=default_csv_encoding):
-    if os.path.exists(py_script_path):
-        os.remove(py_script_path)
-    import vim
+def system_has_node_js():
+    import subprocess
+    error_code = 0
+    out_data = ''
     try:
-        src_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
-        parse_to_py(src_lines, py_script_path, delim, csv_encoding)
+        cmd = ['node', '--version']
+        pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out_data, err_data = pobj.communicate()
+        error_code = pobj.returncode
+    except OSError as e:
+        if e.errno == 2:
+            return False
+        raise
+    return error_code == 0 and len(out_data) and len(err_data) == 0
+
+
+def vim_sanitize(obj):
+    return str(obj).replace("'", '"')
+
+
+def set_vim_variable(vim, var_name, value):
+    str_value = value.replace("'", '"')
+    vim.command("let {} = '{}'".format(var_name, str_value))
+
+
+def report_to_vim(query_status, details=None):
+    set_vim_variable(vim, 'query_status', query_status)
+    if details is not None:
+        set_vim_variable(vim, 'report', details)
+
+
+def vim_execute_python(src_table_path, rb_script_path, meta_script_path, dst_table_path, delim, csv_encoding):
+    try:
+        rbql_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
+        parse_to_py(rbql_lines, meta_script_path, delim, csv_encoding)
     except RBParsingError as e:
-        set_vim_variable(vim, 'query_status', 'Parsing Error')
-        set_vim_variable(vim, 'report', e)
+        report_to_vim('Parsing Error', str(e))
         return
 
-    module_name = os.path.basename(py_script_path)
+    module_name = os.path.basename(meta_script_path)
     assert module_name.endswith('.py')
     module_name = module_name[:-3]
-    module_dir = os.path.dirname(py_script_path)
+    module_dir = os.path.dirname(meta_script_path)
     sys.path.insert(0, module_dir)
     try:
         rbconvert = dynamic_import(module_name)
-
-        src = codecs.open(src_table_path, encoding=csv_encoding)
-        with codecs.open(dst_table_path, 'w', encoding=csv_encoding) as dst:
+        with codecs.open(src_table_path, encoding=csv_encoding) as src, codecs.open(dst_table_path, 'w', encoding=csv_encoding) as dst:
             rbconvert.rb_transform(src, dst)
-        src.close()
     except Exception as e:
         error_msg = 'Error: Unable to use generated python module.\n'
         error_msg += 'Original python exception:\n{}\n'.format(str(e))
-        set_vim_variable(vim, 'query_status', 'Execution Error')
-        set_vim_variable(vim, 'report', error_msg)
+        report_to_vim('Execution Error', error_msg)
         tmp_dir = tempfile.gettempdir()
         import traceback
         with open(os.path.join(tmp_dir, 'last_exception'), 'w') as exc_dst:
             traceback.print_exc(file=exc_dst)
         return
-    set_vim_variable(vim, 'query_status', 'OK')
+    report_to_vim('OK')
+
+
+def vim_execute_js(src_table_path, rb_script_path, meta_script_path, dst_table_path, delim, csv_encoding):
+    import subprocess
+    if not system_has_node_js():
+        report_to_vim('Execution Error', 'Node.js is not found, test command: "node --version"')
+        return
+    try:
+        rbql_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
+        parse_to_js(src_table_path, dst_table_path, rbql_lines, meta_script_path, delim, csv_encoding)
+    except RBParsingError as e:
+        report_to_vim('Parsing Error', str(e))
+        return
+    cmd = ['node', meta_script_path]
+    pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out_data, err_data = pobj.communicate()
+    error_code = pobj.returncode
+    if len(err_data) or len(out_data) or error_code != 0:
+        if not len(err_data):
+            err_data = out_data
+        if not len(err_data):
+            err_data = 'Unknown Error'
+        report_to_vim('Execution Error', err_data)
+        return
+    report_to_vim('OK')
+
+
+
+def vim_execute(meta_language, src_table_path, rb_script_path, meta_script_path, dst_table_path, delim, csv_encoding=default_csv_encoding):
+    try:
+        if os.path.exists(meta_script_path):
+            os.remove(meta_script_path)
+        import vim
+        assert meta_language in ['python', 'js']
+        if meta_language == 'python':
+            vim_execute_python(src_table_path, rb_script_path, meta_script_path, dst_table_path, delim, csv_encoding)
+        else:
+            vim_execute_js(src_table_path, rb_script_path, meta_script_path, dst_table_path, delim, csv_encoding)
+    except Exception as e:
+        report_to_vim('Execution Error', str(e))
 
 
 def print_error_and_exit(error_msg):
     eprint(error_msg)
     sys.exit(1)
 
+
 def run_with_python(args):
     delim = args.delim
     query = args.query
     query_path = args.query_file
-    convert_only = args.convert_only
+    #convert_only = args.convert_only
     input_path = args.input_table_path
     output_path = args.output_table_path
     import_modules = args.libs
@@ -1024,8 +1071,8 @@ def run_with_python(args):
 
     module_name = 'rbconvert_{}'.format(time.time()).replace('.', '_')
     module_filename = '{}.py'.format(module_name)
-
     tmp_path = os.path.join(tmp_dir, module_filename)
+    sys.path.insert(0, tmp_dir)
 
     try:
         parse_to_py(rbql_lines, tmp_path, delim, csv_encoding, import_modules)
@@ -1033,7 +1080,6 @@ def run_with_python(args):
         print_error_and_exit('RBQL Parsing Error: \t{}'.format(e))
     if not os.path.isfile(tmp_path) or not os.access(tmp_path, os.R_OK):
         print_error_and_exit('Error: Unable to find generated python module at {}.'.format(tmp_path))
-    sys.path.insert(0, tmp_dir)
     try:
         rbconvert = dynamic_import(module_name)
         src = None
@@ -1054,30 +1100,14 @@ def run_with_python(args):
         print_error_and_exit(error_msg)
 
 
-def system_has_node_js():
-    import subprocess
-    error_code = 0
-    out_data = ''
-    try:
-        cmd = ['node', '--version']
-        pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out_data, err_data = pobj.communicate()
-        error_code = pobj.returncode
-    except OSError as e:
-        if e.errno == 2:
-            return False
-        raise
-    return error_code == 0 and len(out_data)
-
-
 def run_with_js(args):
     import subprocess
     if not system_has_node_js():
-        print_error_and_exit('Error: node is not found, test command: "node --version"')
+        print_error_and_exit('Error: Node.js is not found, test command: "node --version"')
     delim = args.delim
     query = args.query
     query_path = args.query_file
-    convert_only = args.convert_only
+    #convert_only = args.convert_only
     input_path = args.input_table_path
     output_path = args.output_table_path
     import_modules = args.libs
@@ -1117,7 +1147,7 @@ def main():
     parser.add_argument('--input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
     parser.add_argument('--output_table_path', metavar='FILE', help='Write output table to FILE instead of stdout')
     parser.add_argument('--meta_language', metavar='LANG', help='script language to use in query', default='python', choices=['python', 'js'])
-    parser.add_argument('--convert_only', action='store_true', help='Only generate script do not run query on csv table')
+    #parser.add_argument('--convert_only', action='store_true', help='Only generate script do not run query on csv table')
     parser.add_argument('--csv_encoding', help='Manually set csv table encoding', default=default_csv_encoding, choices=['latin-1', 'utf-8'])
     parser.add_argument('-I', dest='libs', action='append', help='Import module to use in the result conversion script')
     args = parser.parse_args()
