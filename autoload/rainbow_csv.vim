@@ -123,12 +123,12 @@ function! s:EnsurePythonInitialization()
         py3 import sys
         py3 import vim
         exe 'python3 sys.path.insert(0, "' . s:script_folder_path . '/../python")'
-        py3 import rbql
+        py3 import vim_rbql
     elseif has("python")
         py import sys
         py import vim
         exe 'python sys.path.insert(0, "' . s:script_folder_path . '/../python")'
-        py import rbql
+        py import vim_rbql
     else
         echoerr "vim must have 'python' or 'python3' feature installed to run in this mode"
         return 0
@@ -231,7 +231,7 @@ endfunc
 func! s:do_run_select(table_path, rb_script_path, meta_script_path, dst_table_path, delim, meta_language)
     let query_status = 'Unknown error'
     let report = 'Something went wrong'
-    let py_call = 'rbql.vim_execute("' . a:meta_language . '", "' . a:table_path . '", "' . a:rb_script_path . '", "' . a:meta_script_path . '", "' . a:dst_table_path . '", "' . a:delim . '")'
+    let py_call = 'vim_rbql.execute("' . a:meta_language . '", "' . a:table_path . '", "' . a:rb_script_path . '", "' . a:meta_script_path . '", "' . a:dst_table_path . '", "' . a:delim . '")'
     if has("python3")
         exe 'python3 ' . py_call
     elseif has("python")
@@ -453,7 +453,7 @@ func! s:make_javascript_demo(num_fields)
     call add(help_before, '// To use RBQL with Python expressions see instructions at the bottom.')
     call add(help_before, '')
     call add(help_before, '// "a1", "a2", etc are column names.')
-    call add(help_before, '// You can use them in python expression, e.g. "a1 * 20 + a2.length * Math.random()"')
+    call add(help_before, '// You can use them in JavaScript expressions, e.g. "a1 * 20 + a2.length * Math.random()"')
     call add(help_before, '// To run the query press F5.')
     call add(help_before, '// For more info visit https://github.com/mechatroner/rainbow_csv')
     call add(help_before, '')
@@ -506,7 +506,7 @@ func! s:make_python_demo(num_fields)
     call add(help_before, '# To use RBQL with JavaScript expressions see instructions at the bottom.')
     call add(help_before, '')
     call add(help_before, '# "a1", "a2", etc are column names.')
-    call add(help_before, '# You can use them in python expression, e.g. "int(a1) * 20 + len(a2) * random.randint(1, 10)"')
+    call add(help_before, '# You can use them in Python expressions, e.g. "int(a1) * 20 + len(a2) * random.randint(1, 10)"')
     call add(help_before, '# To run the query press F5.')
     call add(help_before, '# For more info visit https://github.com/mechatroner/rainbow_csv')
     call add(help_before, '')
@@ -859,6 +859,7 @@ func! s:read_column_name(colNo, numCols)
     endif
     return names[a:colNo]
 endfunc
+
 
 func! rainbow_csv#get_column()
     let line = getline('.')
