@@ -1,10 +1,10 @@
 ## Overview
-Rainbow CSV: minimalistic but powerful vim plugin for viewing csv/tsv files and executing SQL "select" queries.
+Rainbow CSV: minimalistic but powerful vim plugin for highlighting columns in csv/tsv files and executing SQL "select" queries.
 * The plugin highlights csv columns in different rainbow colors. 
-* Rainbow csv also allows user to run simple "select" queries in SQL-like RBQL language e.g. `select a1, int(a2) + int(a3) * 10 where a4 != 'car' order by a1 desc`
+* Rainbow csv also allows user to run simple "select" queries in SQL-like "RBQL" language e.g. `select a1, int(a2) + int(a3) * 10 where a4 != 'car' order by a1 desc`
 
 To enter a "select" query, press `F5`. To execute the query press `F5` again.
-You can also enter the query in vim command line e.g. `:Select a1`
+You can also enter the query in vim command line e.g. `:Select a1, a2`
 
 There are 2 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
@@ -14,11 +14,11 @@ There are 2 ways to enable csv columns highlighting:
 ![screenshot tsv](https://raw.githubusercontent.com/mechatroner/rainbow_csv/master/screenshot.png)
 
 
-## RBQL Description
-Minimalistic SQL-like language that supports "select" queries with python expressions.
+## RBQL (RainBow Query Language) Description
+Minimalistic SQL-like language that supports "select" queries with Python or JavaScript expressions.
 
 ### Main Features
-* Use python expressions inside "select", "where" and "order by" statements
+* Use Python or JavaScript expressions inside "select", "where" and "order by" statements
 * Use "a1", "a2", ... , "aN" as column names to write select queries
 * Output entries appear in the same order as in input unless "ORDER BY" is provided.
 * "NR" variable holds current record's line number and "NF" holds number of fields in the record (awk has the same variables)
@@ -51,19 +51,28 @@ Minimalistic SQL-like language that supports "select" queries with python expres
 * keyword `strict left join` is like `left join`, but generates error if some keys in left table "A" don't have matching key in right table "B".
 * Join statement must have the following form: `<join_keyword> /path/to/table.tsv on ai == bj`
 
-### Query examples
+### RBQL Query examples with Python expressions
 
 * `select * where a1 == "Buy"` - use double equality "==" instead of single equality "="
-* `select a1, a2 where a2 in ["car", "plane", "boat"]` - use python's "in" to emulate SQL's "in"
+* `select a1, a2 where a2 in ["car", "plane", "boat"]` - use Python's "in" to emulate SQL's "in"
 * `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
 * `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
 * `select * order by int(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
 * `select * order by random.random()` - random sort, this is an equivalent of bash command "sort -R"
 * `select NR, *` - enumerate lines, NR is 1-based
 * `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
-* `select * where a1 == "Добрый вечер"` - you can use utf-8 in queries
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1` - an example of join query
 
+### RBQL Query examples with JavaScript expressions
+
+* `select * where a1 == "Buy"` - use double equality "==" instead of single equality "="
+* `select a1, a2 where ["car", "plane", "boat"].indexOf(a2) > -1`
+* `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
+* `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
+* `select * order by parseInt(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
+* `select * order by Math.random()` - random sort, this is an equivalent of bash command "sort -R"
+* `select NR, *` - enumerate lines, NR is 1-based
+* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1` - an example of join query
 
 ### rbql.py script
 rainbow_csv comes with rbql.py script which is located in ~/.vim extension folder.  
@@ -111,6 +120,11 @@ this command also has an alias `:NoRainbowDelim`
 
 ## Configuration
 
+#### g:rbql_meta_language
+*Default: 'python'*
+Scripting language to use in RBQL expression. Either 'js' or 'python'
+To use JavaScript add `let g:rbql_meta_language = 'js'` to .vimrc
+
 #### g:rcsv_delimiters
 *Default: [	,]*
 By default plugin checks only TAB and comma characters during autodetection stage.
@@ -134,6 +148,17 @@ Rainbow csv allows you to create a special "header" file for your table files. I
 
 Install with your favorite plugin manager.
 
+If you want to use RBQL with JavaScript expressions, make sure you have Node.js installed
+
 
 ## Requirements
-vim compiled with python 2.7 or python 3.
+
+### Highlighting mode only
+* vim
+
+### RBQL queries with Python expressions
+* vim compiled with python 2.7 or python 3
+
+### RBQL queries with JavaScript expressions
+* vim compiled with python 2.7 or python 3
+* Node.js
