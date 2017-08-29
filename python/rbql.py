@@ -6,8 +6,6 @@ from __future__ import print_function
 import sys
 import os
 import argparse
-import random
-import unittest
 import re
 import tempfile
 import time
@@ -66,11 +64,11 @@ def replace_rbql_var(text):
     mtobj = column_var_regex.match(text)
     if mtobj is not None:
         column_number = int(mtobj.group(1))
-        return 'fields[{}]'.format(column_number - 1)
+        return 'safe_get(fields, {})'.format(column_number - 1)
     mtobj = bcolumn_var_regex.match(text)
     if mtobj is not None:
         column_number = int(mtobj.group(1))
-        return 'bfields[{}]'.format(column_number - 1)
+        return 'safe_get(bfields, {})'.format(column_number - 1)
     return None
 
 
@@ -112,8 +110,9 @@ def is_escaped_quote(cline, i):
     return False
 
 
-def strip_comments(cline):
-    cline = cline.rstrip()
+def strip_py_comments(cline):
+    #TODO simplify this, don't remove comments from lines, but skip lines completely if they contain comments
+    cline = cline.strip()
     cline = cline.replace('\t', ' ')
     cur_quote_mark = None
     for i in xrange6(len(cline)):
@@ -125,6 +124,14 @@ def strip_comments(cline):
             continue
         if cur_quote_mark is not None and c == cur_quote_mark and not is_escaped_quote(cline, i):
             cur_quote_mark = None
+    return cline
+
+
+def strip_js_comments(cline):
+    cline = cline.strip()
+    cline = cline.replace('\t', ' ')
+    if cline.startswith('//'):
+        return ''
     return cline
 
 
@@ -141,7 +148,7 @@ class Token:
         self.content = content
 
     def __str__(self):
-        return '{}\t{}'.join(self.ttype, self.content)
+        return '{}\t{}'.format(self.ttype, self.content)
 
 
 def tokenize_string_literals(lines):
@@ -177,7 +184,7 @@ def tokenize_terms(tokens):
 
         i = 0
         k = 0
-        in_alphanumeric = False 
+        in_alphanumeric = False
         while i < len(content):
             c = content[i]
             if c == ' ' or is_boundary(c):
@@ -201,6 +208,7 @@ def tokenize_terms(tokens):
 
 
 def remove_consecutive_whitespaces(tokens):
+    #TODO/FIXME don't do this. may break some expressions. leave it to the parser
     result = list()
     for i in xrange6(len(tokens)):
         if (tokens[i].ttype != TokenType.WHITESPACE) or (i == 0) or (tokens[i - 1].ttype != TokenType.WHITESPACE):
@@ -367,13 +375,11 @@ class RbqlRuntimeError(Exception):
     pass
 
 
-class rbql_list(list):
-    def __getitem__(self, idx):
-        try:
-            v = super(rbql_list, self).__getitem__(idx)
-        except IndexError as e:
-            raise BadFieldError(idx)
-        return v
+def safe_get(record, idx):
+    try:
+        return record[idx]
+    except IndexError as e:
+        raise BadFieldError(idx)
 
 
 class Flike:
@@ -437,7 +443,7 @@ def read_join_table(join_table_path):
     with codecs.open(join_table_path, encoding='{join_encoding}') as src_text:
         for il, line in enumerate(rows(src_text), 1):
             line = line.rstrip('\r\n')
-            bfields = rbql_list(line.split(DLM))
+            bfields = line.split(DLM)
             fields_max_len = max(fields_max_len, len(bfields))
             try:
                 key = {rhs_join_var}
@@ -445,7 +451,7 @@ def read_join_table(join_table_path):
                 bad_idx = e.bad_idx
                 raise RbqlRuntimeError('No "b' + str(bad_idx + 1) + '" column at line: ' + str(il) + ' in "B" table')
             if key in result:
-                raise RbqlRuntimeError('Join column must be unique in right-hand-side "B" table')
+                raise RbqlRuntimeError('Join column must be unique in right-hand-side "B" table. Found duplicate key: "' + key + '"')
             result[key] = bfields
     return (result, fields_max_len)
 
@@ -490,7 +496,7 @@ def rb_transform(source, destination):
         lnum = NR #TODO remove, backcompatibility
         line = line.rstrip('\r\n')
         star_line = line
-        fields = rbql_list(line.split(DLM))
+        fields = line.split(DLM)
         NF = len(fields)
         flen = NF #TODO remove, backcompatibility
         bfields = None
@@ -516,8 +522,10 @@ def rb_transform(source, destination):
         except Exception as e:
             raise RbqlRuntimeError('Error at line: ' + str(NR) + ', Details: ' + str(e))
     if len(unsorted_entries):
-        unsorted_entries = sorted(unsorted_entries, reverse = {reverse_flag})
-        for e in unsorted_entries:
+        sorted_entries = sorted(unsorted_entries, key=lambda x: x[0])
+        if {reverse_flag}:
+            sorted_entries.reverse()
+        for e in sorted_entries:
             if {top_count} != -1 and writer.NW >= {top_count}:
                 break
             writer.write(e[1])
@@ -529,12 +537,8 @@ if __name__ == '__main__':
 '''
 
 
-def vim_sanitize(obj):
-    return str(obj).replace("'", '"')
 
-def set_vim_variable(vim, var_name, value):
-    str_value = str(value).replace("'", '"')
-    vim.command("let {} = '{}'".format(var_name, str_value))
+
 
 def normalize_delim(delim):
     if delim == '\t':
@@ -560,9 +564,9 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
 
     for il in xrange6(len(rbql_lines)):
         cline = rbql_lines[il]
-        if cline.find("'''") != -1 or cline.find('"""') != -1: #TODO improve parsing to allow multiline strings/comments
+        if cline.find("'''") != -1 or cline.find('"""') != -1: #TODO remove this condition after improving column_vars replacement logic
             raise RBParsingError('In line {}. Multiline python comments and doc strings are not allowed in rbql'.format(il + 1))
-        rbql_lines[il] = strip_comments(cline)
+        rbql_lines[il] = strip_py_comments(cline)
 
     rbql_lines = [l for l in rbql_lines if len(l)]
 
@@ -624,7 +628,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     select_tokens = replace_star_vars(select_tokens)
     if not len(select_tokens):
         raise RBParsingError('"SELECT" expression is empty')
-    select_expression= join_tokens(select_tokens)
+    select_expression = join_tokens(select_tokens)
     py_meta_params['select_expression'] = select_expression
 
     py_meta_params['sort_flag'] = 'False'
@@ -646,62 +650,322 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
         dst.write(py_script_body.format(**py_meta_params))
 
 
+js_script_body = r'''
+fs = require('fs')
+readline = require('readline');
+
+var csv_encoding = '{csv_encoding}';
+var DLM = '{dlm}';
+var join_table_path = {rhs_table_path};
+var top_count = {top_count};
+
+function strip_cr(line) {{
+    if (line.charAt(line.length - 1) === '\r') {{
+        return line.substring(0, line.length - 1);
+    }}
+    return line;
+}}
 
 
-def vim_execute(src_table_path, rb_script_path, py_script_path, dst_table_path, delim, csv_encoding=default_csv_encoding):
-    if os.path.exists(py_script_path):
-        os.remove(py_script_path)
-    import vim
+var lineReader = null;
+var src_table_path = {src_table_path};
+if (src_table_path != null) {{
+    lineReader = readline.createInterface({{ input: fs.createReadStream(src_table_path, {{encoding: csv_encoding}}) }});
+}} else {{
+    process.stdin.setEncoding(csv_encoding);
+    lineReader = readline.createInterface({{ input: process.stdin }});
+}}
+
+var dst_stream = null;
+var dst_table_path = {dst_table_path};
+if (dst_table_path != null) {{
+    dst_stream = fs.createWriteStream(dst_table_path, {{defaultEncoding: csv_encoding}});
+}} else {{
+    process.stdout.setDefaultEncoding(csv_encoding);
+    dst_stream = process.stdout;
+}}
+
+
+var NR = 0;
+
+function exit_with_error_msg(error_msg) {{
+    process.stderr.write(error_msg);
+    process.exit(1);
+}}
+
+function SimpleWriter(dst) {{
+    this.dst = dst;
+    this.NW = 0;
+    this.write = function(record) {{
+        this.dst.write(record);
+        this.dst.write('\n');
+        this.NW += 1;
+    }}
+}}
+
+function UniqWriter(dst) {{
+    this.dst = dst;
+    this.seen = new Set();
+    this.write = function(record) {{
+        if (!this.seen.has(record)) {{
+            this.seen.add(record);
+            this.dst.write(record);
+            this.dst.write('\n');
+        }}
+    }}
+}}
+
+
+function BadFieldError(idx) {{
+    this.idx = idx;
+    this.name = 'BadFieldError';
+}}
+
+
+function safe_get(record, idx) {{
+    if (idx < record.length) {{
+        return record[idx];
+    }}
+    throw new BadFieldError(idx);
+}}
+
+
+function read_join_table(table_path) {{
+    var fields_max_len = 0;
+    content = fs.readFileSync(table_path, {{encoding: csv_encoding}});
+    lines = content.split('\n');
+    result = new Map();
+    for (var i = 0; i < lines.length; i++) {{
+        var line = strip_cr(lines[i]);
+        var bfields = line.split(DLM);
+        fields_max_len = Math.max(fields_max_len, bfields.length);
+        key = null;
+        try {{
+            key = {rhs_join_var};
+        }} catch (e) {{
+            if (e instanceof BadFieldError) {{
+                exit_with_error_msg('No "b' + (e.idx + 1) + '" column at line: ' + (i + 1) + ' in "B" table')
+            }}
+        }}
+        if (result.has(key)) {{
+            exit_with_error_msg('Join column must be unique in right-hand-side "B" table. Found duplicate key: "' + key + '"')
+        }}
+        result.set(key, bfields);
+    }}
+    return [result, fields_max_len];
+}}
+
+function null_join(join_map, max_join_fields, lhs_key) {{
+    return null;
+}}
+
+function inner_join(join_map, max_join_fields, lhs_key) {{
+    return join_map.get(lhs_key);
+}}
+
+
+function left_join(join_map, max_join_fields, lhs_key) {{
+    var result = join_map.get(lhs_key);
+    if (result == null) {{
+        result = Array(max_join_fields).fill(null);
+    }}
+    return result;
+}}
+
+
+function strict_left_join(join_map, max_join_fields, lhs_key) {{
+    var result = join_map.get(lhs_key);
+    if (result == null) {{
+        exit_with_error_msg('In "strict left join" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found');
+    }}
+    return result;
+}}
+
+
+function stable_compare(a, b) {{
+    for (var i = 0; i < a.length; i++) {{
+        if (a[i] !== b[i])
+            return a[i] < b[i] ? -1 : 1;
+    }}
+}}
+
+
+var join_map = null;
+var max_join_fields = null;
+if (join_table_path !== null) {{
+    join_params = read_join_table(join_table_path);
+    join_map = join_params[0];
+    max_join_fields = join_params[1];
+}}
+
+
+var writer = new {writer_type}(dst_stream);
+var unsorted_entries = [];
+
+lineReader.on('line', function (line) {{
+    NR += 1;
+    //readline strips last '\r'
+    var fields = line.split(DLM);
+    var NF = fields.length;
+    bfields = null;
+    star_line = line;
+    if (join_map != null) {{
+        bfields = {join_function}(join_map, max_join_fields, {lhs_join_var});
+        if (bfields == null)
+            return;
+        star_line = line + DLM + bfields.join(DLM);
+    }}
+    if (!({where_expression}))
+        return;
+    out_fields = null;
+    try {{
+        out_fields = [{select_expression}]
+    }} catch (e) {{
+        if (e instanceof BadFieldError) {{
+            exit_with_error_msg('No "a' + (e.idx + 1) + '" column at line: ' + NR);
+        }}
+    }}
+    if ({sort_flag}) {{
+        sort_entry = [{sort_key_expression}, NR, out_fields.join(DLM)];
+        unsorted_entries.push(sort_entry);
+    }} else {{
+        if (top_count != -1 && writer.NW >= top_count)
+            lineReader.close();
+        writer.write(out_fields.join(DLM));
+    }}
+
+}});
+
+
+lineReader.on('close', function () {{
+    if (unsorted_entries.length) {{
+        unsorted_entries.sort(stable_compare);
+        if ({reverse_flag})
+            unsorted_entries.reverse();
+        for (var i = 0; i < unsorted_entries.length; i++) {{
+            if (top_count != -1 && writer.NW >= top_count)
+                break;
+            writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]);
+        }}
+    }}
+    //console.log('ok\tok');
+}});
+
+'''
+
+
+def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_encoding=default_csv_encoding, import_modules=None):
+    for il in xrange6(len(rbql_lines)):
+        cline = rbql_lines[il]
+        rbql_lines[il] = strip_js_comments(cline)
+
+    rbql_lines = [l for l in rbql_lines if len(l)]
+
+    tokens = tokenize_string_literals(rbql_lines)
+    tokens = tokenize_terms(tokens)
+    tokens = remove_consecutive_whitespaces(tokens)
+    rb_actions = separate_actions(tokens)
+
+    select_op = None
+    writer_name = None
+    select_ops = {SELECT: 'SimpleWriter', SELECT_TOP: 'SimpleWriter', SELECT_DISTINCT: 'UniqWriter'}
+    for k, v in select_ops.items():
+        if k in rb_actions:
+            select_op = k
+            writer_name = v
+
+    if select_op is None:
+        raise RBParsingError('"SELECT" statement not found')
+
+    join_function = 'null_join'
+    join_op = None
+    rhs_table_path = 'null'
+    lhs_join_var = None
+    rhs_join_var = None
+    join_funcs = {JOIN: 'inner_join', INNER_JOIN: 'inner_join', LEFT_JOIN: 'left_join', STRICT_LEFT_JOIN: 'strict_left_join'}
+    for k, v in join_funcs.items():
+        if k in rb_actions:
+            join_op = k
+            join_function = v
+
+    if join_op is not None:
+        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op])
+        rhs_table_path = "'{}'".format(rhs_table_path)
+
+    js_meta_params = dict()
+    #TODO require modules feature
+    js_meta_params['dlm'] = normalize_delim(delim)
+    js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
+    js_meta_params['rhs_join_var'] = rhs_join_var
+    js_meta_params['writer_type'] = writer_name
+    js_meta_params['join_function'] = join_function
+    js_meta_params['src_table_path'] = "null" if src_table_path is None else "'{}'".format(src_table_path)
+    js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(dst_table_path)
+    js_meta_params['rhs_table_path'] = rhs_table_path
+    js_meta_params['lhs_join_var'] = lhs_join_var
+    js_meta_params['where_expression'] = 'true'
+    if WHERE in rb_actions:
+        js_meta_params['where_expression'] = join_tokens(replace_column_vars(rb_actions[WHERE]))
+    js_meta_params['top_count'] = -1
+    if select_op == SELECT_TOP:
+        try:
+            js_meta_params['top_count'] = int(rb_actions[select_op][0].content)
+            assert rb_actions[select_op][1].content == ' '
+            rb_actions[select_op] = rb_actions[select_op][2:]
+        except Exception:
+            raise RBParsingError('Unable to parse "TOP" expression')
+    select_tokens = replace_column_vars(rb_actions[select_op])
+    select_tokens = replace_star_vars(select_tokens)
+    if not len(select_tokens):
+        raise RBParsingError('"SELECT" expression is empty')
+    select_expression = join_tokens(select_tokens)
+    js_meta_params['select_expression'] = select_expression
+
+    js_meta_params['sort_flag'] = 'false'
+    js_meta_params['reverse_flag'] = 'false'
+    js_meta_params['sort_key_expression'] = 'None'
+    if ORDER_BY in rb_actions:
+        js_meta_params['sort_flag'] = 'true'
+        order_expression = join_tokens(replace_column_vars(rb_actions[ORDER_BY]))
+        direction_marker = ' DESC'
+        if order_expression.upper().endswith(direction_marker):
+            order_expression = order_expression[:-len(direction_marker)].rstrip()
+            js_meta_params['reverse_flag'] = 'true'
+        direction_marker = ' ASC'
+        if order_expression.upper().endswith(direction_marker):
+            order_expression = order_expression[:-len(direction_marker)].rstrip()
+        js_meta_params['sort_key_expression'] = order_expression
+
+    with codecs.open(js_dst, 'w', encoding='utf-8') as dst:
+        dst.write(js_script_body.format(**js_meta_params))
+
+
+def system_has_node_js():
+    import subprocess
+    error_code = 0
+    out_data = ''
     try:
-        src_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
-        parse_to_py(src_lines, py_script_path, delim, csv_encoding)
-    except RBParsingError as e:
-        set_vim_variable(vim, 'query_status', 'Parsing Error')
-        set_vim_variable(vim, 'report', e)
-        return
-
-    module_name = os.path.basename(py_script_path)
-    assert module_name.endswith('.py')
-    module_name = module_name[:-3]
-    module_dir = os.path.dirname(py_script_path)
-    sys.path.insert(0, module_dir)
-    try:
-        rbconvert = dynamic_import(module_name)
-
-        src = codecs.open(src_table_path, encoding=csv_encoding)
-        with codecs.open(dst_table_path, 'w', encoding=csv_encoding) as dst:
-            rbconvert.rb_transform(src, dst)
-        src.close()
-    except Exception as e:
-        error_msg = 'Error: Unable to use generated python module.\n'
-        error_msg += 'Original python exception:\n{}\n'.format(str(e))
-        set_vim_variable(vim, 'query_status', 'Execution Error')
-        set_vim_variable(vim, 'report', error_msg)
-        tmp_dir = tempfile.gettempdir()
-        import traceback
-        with open(os.path.join(tmp_dir, 'last_exception'), 'w') as exc_dst:
-            traceback.print_exc(file=exc_dst)
-        return
-    set_vim_variable(vim, 'query_status', 'OK')
+        cmd = ['node', '--version']
+        pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out_data, err_data = pobj.communicate()
+        error_code = pobj.returncode
+    except OSError as e:
+        if e.errno == 2:
+            return False
+        raise
+    return error_code == 0 and len(out_data) and len(err_data) == 0
 
 
+def print_error_and_exit(error_msg):
+    eprint(error_msg)
+    sys.exit(1)
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--delim', help='Delimiter', default=r'\t')
-    parser.add_argument('--query', help='Query string in rbql')
-    parser.add_argument('--query_file', metavar='FILE', help='Read rbql query from FILE')
-    parser.add_argument('--input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
-    parser.add_argument('--output_table_path', metavar='FILE', help='Write output table to FILE instead of stdout')
-    parser.add_argument('--convert_only', action='store_true', help='Only generate python script do not run query on csv table')
-    parser.add_argument('--csv_encoding', help='Manually set csv table encoding', default=default_csv_encoding, choices=['latin-1', 'utf-8'])
-    parser.add_argument('-I', dest='libs', action='append', help='Import module to use in the result conversion script. Can be used multiple times')
-    args = parser.parse_args()
 
+def run_with_python(args):
     delim = args.delim
     query = args.query
     query_path = args.query_file
-    convert_only = args.convert_only
+    #convert_only = args.convert_only
     input_path = args.input_table_path
     output_path = args.output_table_path
     import_modules = args.libs
@@ -709,11 +973,9 @@ def main():
 
     rbql_lines = None
     if query is None and query_path is None:
-        eprint('Error: provide either "--query" or "--query_path" option')
-        sys.exit(1)
+        print_error_and_exit('Error: provide either "--query" or "--query_path" option')
     if query is not None and query_path is not None:
-        eprint('Error: unable to use both "--query" and "--query_path" options')
-        sys.exit(1)
+        print_error_and_exit('Error: unable to use both "--query" and "--query_path" options')
     if query_path is not None:
         assert query is None
         rbql_lines = codecs.open(query_path, encoding='utf-8').readlines()
@@ -725,18 +987,15 @@ def main():
 
     module_name = 'rbconvert_{}'.format(time.time()).replace('.', '_')
     module_filename = '{}.py'.format(module_name)
-
     tmp_path = os.path.join(tmp_dir, module_filename)
+    sys.path.insert(0, tmp_dir)
 
     try:
         parse_to_py(rbql_lines, tmp_path, delim, csv_encoding, import_modules)
     except RBParsingError as e:
-        eprint('RBQL Parsing Error: \t{}'.format(e))
-        sys.exit(1)
+        print_error_and_exit('RBQL Parsing Error: \t{}'.format(e))
     if not os.path.isfile(tmp_path) or not os.access(tmp_path, os.R_OK):
-        eprint('Error: Unable to find generated python module at {}.'.format(tmp_path))
-        sys.exit(1)
-    sys.path.insert(0, tmp_dir)
+        print_error_and_exit('Error: Unable to find generated python module at {}.'.format(tmp_path))
     try:
         rbconvert = dynamic_import(module_name)
         src = None
@@ -754,10 +1013,66 @@ def main():
         error_msg = 'Error: Unable to use generated python module.\n'
         error_msg += 'Location of the generated module: {}\n\n'.format(tmp_path)
         error_msg += 'Original python exception:\n{}\n'.format(str(e))
-        eprint(error_msg)
-        sys.exit(1)
+        print_error_and_exit(error_msg)
+
+
+def run_with_js(args):
+    import subprocess
+    if not system_has_node_js():
+        print_error_and_exit('Error: Node.js is not found, test command: "node --version"')
+    delim = args.delim
+    query = args.query
+    query_path = args.query_file
+    #convert_only = args.convert_only
+    input_path = args.input_table_path
+    output_path = args.output_table_path
+    import_modules = args.libs
+    csv_encoding = args.csv_encoding
+
+    rbql_lines = None
+    if query is None and query_path is None:
+        print_error_and_exit('Error: provide either "--query" or "--query_path" option')
+    if query is not None and query_path is not None:
+        print_error_and_exit('Error: unable to use both "--query" and "--query_path" options')
+    if query_path is not None:
+        assert query is None
+        rbql_lines = codecs.open(query_path, encoding='utf-8').readlines()
+    else:
+        assert query_path is None
+        rbql_lines = [query]
+
+    tmp_dir = tempfile.gettempdir()
+    script_filename = 'rbconvert_{}'.format(time.time()).replace('.', '_') + '.js'
+    tmp_path = os.path.join(tmp_dir, script_filename)
+    parse_to_js(input_path, output_path, rbql_lines, tmp_path, delim, csv_encoding, import_modules)
+    cmd = ['node', tmp_path]
+    pobj = subprocess.Popen(cmd, stderr=subprocess.PIPE)
+    err_data = pobj.communicate()[1]
+    error_code = pobj.returncode
+    if len(err_data) or error_code != 0:
+        if not len(err_data):
+            err_data = 'Unknown Error'
+        print_error_and_exit('An error occured during js script execution:\n\n{}\n\n================================================\nGenerated script location: {}'.format(err_data, tmp_path))
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--delim', help='Delimiter', default=r'\t')
+    parser.add_argument('--query', help='Query string in rbql')
+    parser.add_argument('--query_file', metavar='FILE', help='Read rbql query from FILE')
+    parser.add_argument('--input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
+    parser.add_argument('--output_table_path', metavar='FILE', help='Write output table to FILE instead of stdout')
+    parser.add_argument('--meta_language', metavar='LANG', help='script language to use in query', default='python', choices=['python', 'js'])
+    #parser.add_argument('--convert_only', action='store_true', help='Only generate script do not run query on csv table')
+    parser.add_argument('--csv_encoding', help='Manually set csv table encoding', default=default_csv_encoding, choices=['latin-1', 'utf-8'])
+    parser.add_argument('-I', dest='libs', action='append', help='Import module to use in the result conversion script')
+    args = parser.parse_args()
+    if args.meta_language == 'python':
+        run_with_python(args)
+    else:
+        run_with_js(args)
+
 
 
 if __name__ == '__main__':
     main()
-

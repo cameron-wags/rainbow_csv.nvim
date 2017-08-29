@@ -16,6 +16,14 @@ func! s:is_rainbow_table()
 endfunc
 
 
+func! s:get_meta_language()
+    if exists("g:rbql_meta_language")
+        return g:rbql_meta_language
+    endif
+    return "python"
+endfunc
+
+
 func! s:create_recurrent_tip(tip_text)
     let b:rb_tip_text = a:tip_text
     augroup RainbowHintGrp
@@ -115,12 +123,12 @@ function! s:EnsurePythonInitialization()
         py3 import sys
         py3 import vim
         exe 'python3 sys.path.insert(0, "' . s:script_folder_path . '/../python")'
-        py3 import rbql
+        py3 import vim_rbql
     elseif has("python")
         py import sys
         py import vim
         exe 'python sys.path.insert(0, "' . s:script_folder_path . '/../python")'
-        py import rbql
+        py import vim_rbql
     else
         echoerr "vim must have 'python' or 'python3' feature installed to run in this mode"
         return 0
@@ -128,6 +136,7 @@ function! s:EnsurePythonInitialization()
     let s:python_env_initialized = 1
     return 1
 endfunction
+
 
 func! s:ensure_storage_exists()
     if !isdirectory(s:rainbowStorage)
@@ -219,10 +228,10 @@ endfunc
 
 
 
-func! s:do_run_select(table_path, rb_script_path, py_script_path, dst_table_path, delim)
+func! s:do_run_select(table_path, rb_script_path, meta_script_path, dst_table_path, delim, meta_language)
     let query_status = 'Unknown error'
     let report = 'Something went wrong'
-    let py_call = 'rbql.vim_execute("' . a:table_path . '", "' . a:rb_script_path . '", "' . a:py_script_path . '", "' . a:dst_table_path . '", "' . a:delim . '")'
+    let py_call = 'vim_rbql.execute("' . a:meta_language . '", "' . a:table_path . '", "' . a:rb_script_path . '", "' . a:meta_script_path . '", "' . a:dst_table_path . '", "' . a:delim . '")'
     if has("python3")
         exe 'python3 ' . py_call
     elseif has("python")
@@ -385,6 +394,165 @@ func! s:get_rb_script_path_for_this_table()
 endfunc
 
 
+
+func! s:generate_microlang_syntax(nlines)
+    let npairs = len(s:pairs)
+    if (npairs < 2)
+        return
+    endif
+
+    if s:get_meta_language() == "python"
+        set ft=python
+    else
+        set ft=javascript
+    endif
+
+    for pn in range(npairs)
+        let cmd = 'highlight rbql_color%d ctermfg=%s guifg=%s'
+        exe printf(cmd, pn + 1, s:pairs[pn][0], s:pairs[pn][1])
+    endfor
+
+    for lnum in range(1, a:nlines)
+        let color_num = ((lnum - 1) % npairs) + 1
+        let cmd = 'syntax keyword rbql_color%d a%d'
+        exe printf(cmd, color_num, lnum)
+    endfor
+
+    highlight RbCmd ctermbg=blue guibg=blue
+    syntax keyword RbCmd SELECT WHERE INITIALIZE DESC ASC
+    syntax keyword RbCmd select where initialize desc asc
+    syntax match RbCmd "ORDER BY"
+    syntax match RbCmd "order by"
+    syntax match RbCmd "INNER JOIN"
+    syntax match RbCmd "inner join"
+    syntax match RbCmd "LEFT JOIN"
+    syntax match RbCmd "left join"
+    syntax match RbCmd "STRICT LEFT JOIN"
+    syntax match RbCmd "strict left join"
+endfunc
+
+
+func! s:make_select_line(num_fields)
+    let select_line = 'select '
+    let new_rows = []
+    for nf in range(1, a:num_fields)
+        let select_line = select_line . 'a' . nf
+        if nf < a:num_fields
+            let select_line = select_line . ', '
+        endif
+    endfor
+    return select_line
+endfunc
+
+
+func! s:make_javascript_demo(num_fields)
+    let select_line = s:make_select_line(a:num_fields)
+
+    let help_before = []
+    call add(help_before, '// Welcome to RBQL: SQL with JavaScript or Python expressions.')
+    call add(help_before, '// To use RBQL with Python expressions see instructions at the bottom.')
+    call add(help_before, '')
+    call add(help_before, '// "a1", "a2", etc are column names.')
+    call add(help_before, '// You can use them in JavaScript expressions, e.g. "a1 * 20 + a2.length * Math.random()"')
+    call add(help_before, '// To run the query press F5.')
+    call add(help_before, '// For more info visit https://github.com/mechatroner/rainbow_csv')
+    call add(help_before, '')
+    call add(help_before, '')
+    call add(help_before, '// modify:')
+    call add(help_before, select_line)
+    call setline(1, help_before)
+    let help_after = []
+    call add(help_after, '')
+    call add(help_after, '// To join with another table, modify this:')
+    call add(help_after, '//join /path/to/another/table.tsv on a2 == b1')
+    call add(help_after, '')
+    call add(help_after, '// To filter result set, modify this:')
+    call add(help_after, '//where a1.length > 10')
+    call add(help_after, '')
+    call add(help_after, '// To sort result set, modify this:')
+    call add(help_after, '//order by a2 desc')
+    call add(help_after, '')
+    call add(help_after, '')
+    call add(help_after, '')
+    call add(help_after, '// Examples of RBQL queries:')
+    call add(help_after, '// select * where a1 == "SELL"')
+    call add(help_after, '// select a4, a1')
+    call add(help_after, '// select * order by parseInt(a2) desc')
+    call add(help_after, '// select * order by Math.random()')
+    call add(help_after, '// select NR, * where NR <= 100')
+    call add(help_after, '// select distinct a1, *, 200, parseInt(a2) + 5, "hello world" where NR > 100 and a5 < -7 order by a3 ASC')
+    call add(help_after, '')
+    call add(help_after, '// Next time you can run another query by entering it into vim command line starting with ":Select" command.')
+    call add(help_after, '')
+    call add(help_after, '')
+    call add(help_after, '')
+    call add(help_after, '// =======================================================================================')
+    call add(help_after, '// Instructions for Python:')
+    call add(help_after, '// 1. Add "let g:rbql_meta_language = ''python''" to your .vimrc')
+    call add(help_after, '// 2. Execute ":let g:rbql_meta_language = ''python''"')
+    call add(help_after, '// 3. Exit this buffer and run F5 again')
+    call setline(1 + len(help_before), help_after)
+    call cursor(len(help_before), 1)
+    w
+
+endfunc
+
+
+func! s:make_python_demo(num_fields)
+    let select_line = s:make_select_line(a:num_fields)
+
+    let help_before = []
+    call add(help_before, '# Welcome to RBQL: SQL with Python expressions.')
+    call add(help_before, '# To use RBQL with JavaScript expressions see instructions at the bottom.')
+    call add(help_before, '')
+    call add(help_before, '# "a1", "a2", etc are column names.')
+    call add(help_before, '# You can use them in Python expressions, e.g. "int(a1) * 20 + len(a2) * random.randint(1, 10)"')
+    call add(help_before, '# To run the query press F5.')
+    call add(help_before, '# For more info visit https://github.com/mechatroner/rainbow_csv')
+    call add(help_before, '')
+    call add(help_before, '')
+    call add(help_before, '# modify:')
+    call add(help_before, select_line)
+    call setline(1, help_before)
+    let help_after = []
+    call add(help_after, '')
+    call add(help_after, '# To join with another table, modify this:')
+    call add(help_after, '#join /path/to/another/table.tsv on a2 == b1')
+    call add(help_after, '')
+    call add(help_after, '# To filter result set, modify this:')
+    call add(help_after, '#where len(a1) > 10')
+    call add(help_after, '')
+    call add(help_after, '# To sort result set, modify this:')
+    call add(help_after, '#order by a2 desc')
+    call add(help_after, '')
+    call add(help_after, '')
+    call add(help_after, '')
+    call add(help_after, '# Examples of RBQL queries:')
+    call add(help_after, '# select * where a1 == "SELL"')
+    call add(help_after, '# select * where a3 in ["car", "plane", "boat"] and int(a1) >= 100')
+    call add(help_after, '# select a4, a1')
+    call add(help_after, '# select * order by int(a2) desc')
+    call add(help_after, '# select * order by random.random()')
+    call add(help_after, '# select NR, * where NR <= 100')
+    call add(help_after, '# select * where re.match(".*ab.*", a1) is not None')
+    call add(help_after, '# select distinct a1, *, 200, int(a2) + 5, "hello world" where NR > 100 and int(a5) < -7 order by a3 ASC')
+    call add(help_after, '')
+    call add(help_after, '# Next time you can run another query by entering it into vim command line starting with ":Select" command.')
+    call add(help_after, '')
+    call add(help_after, '')
+    call add(help_after, '')
+    call add(help_after, '# =======================================================================================')
+    call add(help_after, '# Instructions for JavaScript:')
+    call add(help_after, '# 1. Ensure you have Node.js installed')
+    call add(help_after, '# 2. Add "let g:rbql_meta_language = ''js''" to your .vimrc')
+    call add(help_after, '# 3. Execute ":let g:rbql_meta_language = ''js''"')
+    call add(help_after, '# 4. Exit this buffer and run F5 again')
+    call setline(1 + len(help_before), help_after)
+    call cursor(len(help_before), 1)
+    w
+endfunc
+
+
 func! rainbow_csv#select_mode()
     if !s:is_rainbow_table()
         echomsg "Error: rainbow_csv is disabled for this buffer"
@@ -412,61 +580,21 @@ func! rainbow_csv#select_mode()
     endif
     let num_fields = len(split(lines[0], delim))
 
-    let select_line = 'select'
-    let new_rows = []
-    for nf in range(1, num_fields)
-        let select_line = select_line . ' a' . nf . ','
-    endfor
-    let select_line = select_line . ' #  <- modify!'
 
     execute "e " . rb_script_path
     setlocal noswapfile
 
     nnoremap <buffer> <F5> :RbRun<cr>
-    call rainbow_csv#generate_microlang_syntax(num_fields)
     let b:table_path = buf_path
     let b:table_buf_number = buf_number
     let b:rainbow_select = 1
     let b:table_csv_delim = delim
-
-    let help_before = []
-    call add(help_before, '# Welcome to RBQL: SQL with python expressions')
-    call add(help_before, "")
-    call add(help_before, '# "a1", "a2", etc are column names')
-    call add(help_before, '# You can use them in python expression, e.g. "int(a1) * 20 + len(a2) * random.randint(1, 10)"')
-    call add(help_before, '# To run the query press F5')
-    call add(help_before, '# For more info visit https://github.com/mechatroner/rainbow_csv')
-    call add(help_before, '')
-    call add(help_before, select_line)
-    call setline(1, help_before)
-    let help_after = []
-    call add(help_after, '')
-    call add(help_after, '')
-    call add(help_after, '# To join with another table, modify this:')
-    call add(help_after, '#left join /path/to/another/table.tsv on a2 == b1')
-    call add(help_after, '')
-    call add(help_after, '# To filter result set, modify this:')
-    call add(help_after, '#where len(a1) > 10')
-    call add(help_after, '')
-    call add(help_after, '# To sort result set, modify this:')
-    call add(help_after, '#order by a2 desc')
-    call add(help_after, '')
-    call add(help_after, '# Examples of RBQL queries:')
-    call add(help_after, '# select * where a1 == "SELL"')
-    call add(help_after, '# select * where a3 in ["car", "plane", "boat"] and int(a1) >= 100')
-    call add(help_after, '# select * where NR <= 10 # this is an equivalent of bash command "head -n 10", NR is 1-based')
-    call add(help_after, '# select a1, a4 # this is an equivalent of bash command "cut -f 1,4"')
-    call add(help_after, '# select * order by int(a2) desc # this is an equivalent of bash command "sort -k2,2 -r -n"')
-    call add(help_after, '# select * order by random.random() # random sort, this is an equivalent of bash command "sort -R"')
-    call add(help_after, '# select NR, * # - enumerate lines, NR is 1-based')
-    call add(help_after, '# select * where re.match(".*ab.*", a1) is not None # select entries where first column has "ab" pattern')
-    call add(help_after, '# select * where flike(a1, "%ab%") # same as previous, but using "flike()" function (equivalent of SQL "LIKE" operator)')
-    call add(help_after, '# select distinct a1, *, 200, int(a2) + 5, "hello world" where NR > 100 and int(a5) < -7 order by a3 ASC')
-    call add(help_after, '')
-    call add(help_after, '# Next time you can run another query by entering it into vim command line starting with ":Select" command')
-    call setline(1 + len(help_before), help_after)
-    call cursor(len(help_before), 1)
-    w
+    call s:generate_microlang_syntax(num_fields)
+    if s:get_meta_language() == "python"
+        call s:make_python_demo(num_fields)
+    else
+        call s:make_javascript_demo(num_fields)
+    endif
     call s:create_recurrent_tip("Press F5 to run the query")
 endfunc
 
@@ -489,16 +617,19 @@ func! s:run_select(table_buf_number, rb_script_path)
 
     let root_delim = getbufvar(a:table_buf_number, "rainbow_csv_delim")
 
+    let meta_language = s:get_meta_language()
+    let script_extension = meta_language == 'python' ? '.py' : '.js'
+
     let table_path = expand("#" . a:table_buf_number . ":p")
-    let py_module_name = "vim_rb_convert_" .  strftime("%Y_%m_%d_%H_%M_%S") . ".py"
+    let meta_script_name = "vim_rb_convert_" .  strftime("%Y_%m_%d_%H_%M_%S") . script_extension
     let table_name = fnamemodify(table_path, ":t")
-    let py_script_path = s:rainbowStorage . "/" . py_module_name
+    let meta_script_path = s:rainbowStorage . "/" . meta_script_name
     let dst_table_path = s:rainbowStorage . "/" . table_name . ".rbselected"
 
     redraw!
     echo "executing..."
 
-    let [query_status, report] = s:do_run_select(table_path, a:rb_script_path, py_script_path, dst_table_path, root_delim)
+    let [query_status, report] = s:do_run_select(table_path, a:rb_script_path, meta_script_path, dst_table_path, root_delim, meta_language)
     if query_status == "Parsing Error"
         echohl ErrorMsg
         echo "Parsing Error"
@@ -511,7 +642,7 @@ func! s:run_select(table_buf_number, rb_script_path)
         echo "Execution Error"
         echohl None
         echo report
-        echo "Generated python module was saved here: " . py_script_path
+        echo "Generated script was saved here: " . meta_script_path
         return
     endif
     if query_status != "OK"
@@ -616,37 +747,6 @@ func! rainbow_csv#run_autodetection()
 endfunc
 
 
-func! rainbow_csv#generate_microlang_syntax(nlines)
-    let npairs = len(s:pairs)
-    if (npairs < 2)
-        return
-    endif
-
-    set ft=python
-
-    for pn in range(npairs)
-        let cmd = 'highlight rbql_color%d ctermfg=%s guifg=%s'
-        exe printf(cmd, pn + 1, s:pairs[pn][0], s:pairs[pn][1])
-    endfor
-
-    for lnum in range(1, a:nlines)
-        let color_num = ((lnum - 1) % npairs) + 1
-        let cmd = 'syntax keyword rbql_color%d a%d'
-        exe printf(cmd, color_num, lnum)
-    endfor
-
-    highlight RbCmd ctermbg=blue guibg=blue
-    syntax keyword RbCmd SELECT WHERE INITIALIZE DESC ASC
-    syntax keyword RbCmd select where initialize desc asc
-    syntax match RbCmd "ORDER BY"
-    syntax match RbCmd "order by"
-    syntax match RbCmd "INNER JOIN"
-    syntax match RbCmd "inner join"
-    syntax match RbCmd "LEFT JOIN"
-    syntax match RbCmd "left join"
-    syntax match RbCmd "STRICT LEFT JOIN"
-    syntax match RbCmd "strict left join"
-endfunc
 
 func! rainbow_csv#enable_syntax(delim)
     if (len(s:pairs) < 2)
@@ -759,6 +859,7 @@ func! s:read_column_name(colNo, numCols)
     endif
     return names[a:colNo]
 endfunc
+
 
 func! rainbow_csv#get_column()
     let line = getline('.')
