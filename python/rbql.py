@@ -829,8 +829,10 @@ lineReader.on('line', function (line) {{
         sort_entry = [{sort_key_expression}, NR, out_fields.join(DLM)];
         unsorted_entries.push(sort_entry);
     }} else {{
-        if (top_count != -1 && writer.NW >= top_count)
+        if (top_count != -1 && writer.NW >= top_count) {{
             lineReader.close();
+            return;
+        }}
         writer.write(out_fields.join(DLM));
     }}
 
