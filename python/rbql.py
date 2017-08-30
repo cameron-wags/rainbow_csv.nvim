@@ -1052,6 +1052,8 @@ def run_with_js(args):
     if len(err_data) or error_code != 0:
         if not len(err_data):
             err_data = 'Unknown Error'
+        else:
+            err_data = err_data.decode('latin-1')
         print_error_and_exit('An error occured during js script execution:\n\n{}\n\n================================================\nGenerated script location: {}'.format(err_data, tmp_path))
 
 

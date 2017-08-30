@@ -68,8 +68,10 @@ def execute_js(src_table_path, rb_script_path, meta_script_path, dst_table_path,
     out_data, err_data = pobj.communicate()
     error_code = pobj.returncode
     if len(err_data) or len(out_data) or error_code != 0:
-        if not len(err_data):
-            err_data = out_data
+        if len(err_data):
+            err_data = err_data.decode('latin-1')
+        else:
+            err_data = out_data.decode('latin-1')
         if not len(err_data):
             err_data = 'Unknown Error'
         report_to_vim('Execution Error', err_data)
