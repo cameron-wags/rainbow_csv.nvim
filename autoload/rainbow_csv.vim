@@ -18,7 +18,11 @@ endfunc
 
 func! s:get_meta_language()
     if exists("g:rbql_meta_language")
-        return g:rbql_meta_language
+        let lang_lw = tolower(g:rbql_meta_language)
+        if lang_lw == 'javascript'
+            let lang_lw = 'js'
+        endif
+        return lang_lw
     endif
     return "python"
 endfunc
