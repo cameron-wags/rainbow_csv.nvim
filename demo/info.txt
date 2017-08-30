@@ -1,0 +1,8 @@
+# Some info:
+https://askubuntu.com/questions/107726/how-to-create-animated-gif-images-of-a-screencast
+
+# Used tools:
+* byzanz - to save screencast as a gif
+* xwininfo - to get window coordinates
+* xdotool - to set window coordinates/size and generate key sequences - emulation of keyboard presses
+* gifsicle - to cut gif duration
