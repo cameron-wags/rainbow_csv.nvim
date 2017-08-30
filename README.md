@@ -11,7 +11,8 @@ There are 2 ways to enable csv columns highlighting:
 2. Manual CSV delimiter selection with `:RainbowDelim` command (So you can use it even for non-csv files, e.g. to highlight function arguments in different colors)
 
 
-### Demonstration of rainbow_csv highlighting and RBQL queries (1-st query with Python expressions and 2-nd with JS)
+### Demonstration of rainbow_csv highlighting and RBQL queries 
+1-st query with Python expressions and 2-nd query with JavaScript:
 
 ![demo_screencast](https://raw.githubusercontent.com/mechatroner/rainbow_csv/master/demo/rbql_demo.gif)
 
