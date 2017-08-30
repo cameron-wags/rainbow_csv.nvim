@@ -624,7 +624,7 @@ func! s:run_select(table_buf_number, rb_script_path)
     let meta_script_name = "vim_rb_convert_" .  strftime("%Y_%m_%d_%H_%M_%S") . script_extension
     let table_name = fnamemodify(table_path, ":t")
     let meta_script_path = s:rainbowStorage . "/" . meta_script_name
-    let dst_table_path = s:rainbowStorage . "/" . table_name . ".rbselected"
+    let dst_table_path = s:rainbowStorage . "/" . table_name . ".rs"
 
     redraw!
     echo "executing..."
