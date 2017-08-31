@@ -32,8 +32,18 @@ default_csv_encoding = 'latin-1'
 
 PY3 = sys.version_info[0] == 3
 
+column_var_regex = re.compile(r'^a([1-9][0-9]*)$')
+bcolumn_var_regex = re.compile(r'^b([1-9][0-9]*)$')
+
+rbql_script_dir = os.path.dirname(os.path.realpath(__file__))
+
+js_script_body = codecs.open(os.path.join(rbql_script_dir, 'template.js.raw'), encoding='utf-8').read()
+py_script_body = codecs.open(os.path.join(rbql_script_dir, 'template.py.raw'), encoding='utf-8').read()
+
+
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
+
 
 def dynamic_import(module_name):
     try:
@@ -49,15 +59,12 @@ def get_encoded_stdin(encoding_name):
     else:
         return codecs.getreader(encoding_name)(sys.stdin)
 
+
 def get_encoded_stdout(encoding_name):
     if PY3:
         return io.TextIOWrapper(sys.stdout.buffer, encoding=encoding_name)
     else:
         return codecs.getwriter(encoding_name)(sys.stdout)
-
-
-column_var_regex = re.compile(r'^a([1-9][0-9]*)$')
-bcolumn_var_regex = re.compile(r'^b([1-9][0-9]*)$')
 
 
 def replace_rbql_var(text):
@@ -74,6 +81,7 @@ def replace_rbql_var(text):
 
 class RBParsingError(Exception):
     pass
+
 
 def xrange6(x):
     if PY3:
@@ -141,6 +149,7 @@ class TokenType:
     WHITESPACE = 3
     ALPHANUM_RAW = 4
     SYMBOL_RAW = 5
+
 
 class Token:
     def __init__(self, ttype, content):
@@ -228,6 +237,7 @@ def replace_column_vars(tokens):
         if replaced_py_var is not None:
             tokens[i].content = replaced_py_var
     return tokens
+
 
 def replace_star_vars(tokens):
     for i in xrange6(len(tokens)):
@@ -317,232 +327,9 @@ def separate_actions(tokens):
     return result
 
 
-
-
-py_script_body = r'''#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-import sys
-import os
-import random #for random sort
-import datetime #for date manipulations
-import re #for regexes
-import codecs
-
-{import_expression}
-
-
-PY3 = sys.version_info[0] == 3
-
-def str6(obj):
-    if PY3 and isinstance(obj, str):
-        return obj
-    if not PY3 and isinstance(obj, basestring):
-        return obj
-    return str(obj)
-
-DLM = '{dlm}'
-
-def rows(f, chunksize=1024, sep='\n'):
-    incomplete_row = None
-    while True:
-        chunk = f.read(chunksize)
-        if not chunk:
-            if incomplete_row is not None and len(incomplete_row):
-                yield incomplete_row
-            return
-        while True:
-            i = chunk.find(sep)
-            if i == -1:
-                break
-            if incomplete_row is not None:
-                yield incomplete_row + chunk[:i]
-                incomplete_row = None
-            else:
-                yield chunk[:i]
-            chunk = chunk[i+1:]
-        if incomplete_row is not None:
-            incomplete_row += chunk
-        else:
-            incomplete_row = chunk
-
-
-class BadFieldError(Exception):
-    def __init__(self, bad_idx):
-        self.bad_idx = bad_idx
-
-class RbqlRuntimeError(Exception):
-    pass
-
-
-def safe_get(record, idx):
-    try:
-        return record[idx]
-    except IndexError as e:
-        raise BadFieldError(idx)
-
-
-class Flike:
-    def __init__(self):
-        self._cache = dict()
-
-    def _like_to_regex(self, pattern):
-        p = 0
-        i = 0
-        converted = ''
-        while i < len(pattern):
-            if pattern[i] in ['_', '%']:
-                converted += re.escape(pattern[p:i])
-                p = i + 1
-                if pattern[i] == '_':
-                    converted += '.'
-                else:
-                    converted += '.*'
-            i += 1
-        converted += re.escape(pattern[p:i])
-        return '^' + converted + '$'
-
-    def __call__(self, text, pattern):
-        if pattern not in self._cache:
-            rgx = self._like_to_regex(pattern)
-            self._cache[pattern] = re.compile(rgx)
-        return self._cache[pattern].match(text) is not None
-
-flike = Flike()
-
-
-class SimpleWriter:
-    def __init__(self, dst):
-        self.dst = dst
-        self.NW = 0
-
-    def write(self, record):
-        self.dst.write(record)
-        self.dst.write('\n')
-        self.NW += 1
-
-
-class UniqWriter:
-    def __init__(self, dst):
-        self.dst = dst
-        self.seen = set()
-
-    def write(self, record):
-        if record in self.seen:
-            return
-        self.seen.add(record)
-        self.dst.write(record)
-        self.dst.write('\n')
-
-
-def read_join_table(join_table_path):
-    fields_max_len = 0
-    if not os.path.isfile(join_table_path):
-        raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
-    result = dict()
-    with codecs.open(join_table_path, encoding='{join_encoding}') as src_text:
-        for il, line in enumerate(rows(src_text), 1):
-            line = line.rstrip('\r\n')
-            bfields = line.split(DLM)
-            fields_max_len = max(fields_max_len, len(bfields))
-            try:
-                key = {rhs_join_var}
-            except BadFieldError as e:
-                bad_idx = e.bad_idx
-                raise RbqlRuntimeError('No "b' + str(bad_idx + 1) + '" column at line: ' + str(il) + ' in "B" table')
-            if key in result:
-                raise RbqlRuntimeError('Join column must be unique in right-hand-side "B" table. Found duplicate key: "' + key + '"')
-            result[key] = bfields
-    return (result, fields_max_len)
-
-
-def none_joiner(path):
-    return None
-
-
-class InnerJoiner:
-    def __init__(self, join_table_path):
-        self.join_data, self.fields_max_len = read_join_table(join_table_path)
-    def get(self, lhs_key):
-        return self.join_data.get(lhs_key, None)
-
-
-class LeftJoiner:
-    def __init__(self, join_table_path):
-        self.join_data, self.fields_max_len = read_join_table(join_table_path)
-    def get(self, lhs_key):
-        return self.join_data.get(lhs_key, [None] * self.fields_max_len)
-
-
-class StrictLeftJoiner:
-    def __init__(self, join_table_path):
-        self.join_data, self.fields_max_len = read_join_table(join_table_path)
-    def get(self, lhs_key):
-        result = self.join_data.get(lhs_key, None)
-        if result is None:
-            raise RbqlRuntimeError('In "strict left join" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found')
-        return result
-
-
-def main():
-    rb_transform(sys.stdin, sys.stdout)
-
-
-def rb_transform(source, destination):
-    unsorted_entries = list()
-    writer = {writer_type}(destination)
-    joiner = {joiner_type}('{rhs_table_path}')
-    for NR, line in enumerate(rows(source), 1):
-        lnum = NR #TODO remove, backcompatibility
-        line = line.rstrip('\r\n')
-        star_line = line
-        fields = line.split(DLM)
-        NF = len(fields)
-        flen = NF #TODO remove, backcompatibility
-        bfields = None
-        try:
-            if joiner is not None:
-                bfields = joiner.get({lhs_join_var})
-                if bfields is None:
-                    continue
-                star_line = DLM.join([line] + [str6(f) for f in bfields])
-            if not ({where_expression}):
-                continue
-            out_fields = [{select_expression}]
-            if {sort_flag}:
-                sort_key_value = ({sort_key_expression})
-                unsorted_entries.append((sort_key_value, DLM.join([str6(f) for f in out_fields])))
-            else:
-                if {top_count} != -1 and writer.NW >= {top_count}:
-                    break
-                writer.write(DLM.join([str6(f) for f in out_fields]))
-        except BadFieldError as e:
-            bad_idx = e.bad_idx
-            raise RbqlRuntimeError('No "a' + str(bad_idx + 1) + '" column at line: ' + str(NR))
-        except Exception as e:
-            raise RbqlRuntimeError('Error at line: ' + str(NR) + ', Details: ' + str(e))
-    if len(unsorted_entries):
-        sorted_entries = sorted(unsorted_entries, key=lambda x: x[0])
-        if {reverse_flag}:
-            sorted_entries.reverse()
-        for e in sorted_entries:
-            if {top_count} != -1 and writer.NW >= {top_count}:
-                break
-            writer.write(e[1])
-
-
-if __name__ == '__main__':
-    main()
-
-'''
-
-
-
-
-
-def normalize_delim(delim):
+def escape_delim(delim):
     if delim == '\t':
-        return r'\t'
+        return '\\t'
     return delim
 
 
@@ -606,7 +393,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
         for mdl in import_modules:
             import_expression += 'import {}\n'.format(mdl)
     py_meta_params['import_expression'] = import_expression
-    py_meta_params['dlm'] = normalize_delim(delim)
+    py_meta_params['dlm'] = escape_delim(delim)
     py_meta_params['join_encoding'] = join_csv_encoding
     py_meta_params['rhs_join_var'] = rhs_join_var
     py_meta_params['writer_type'] = writer_name
@@ -650,212 +437,6 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
         dst.write(py_script_body.format(**py_meta_params))
 
 
-js_script_body = r'''
-fs = require('fs')
-readline = require('readline');
-
-var csv_encoding = '{csv_encoding}';
-var DLM = '{dlm}';
-var join_table_path = {rhs_table_path};
-var top_count = {top_count};
-
-function strip_cr(line) {{
-    if (line.charAt(line.length - 1) === '\r') {{
-        return line.substring(0, line.length - 1);
-    }}
-    return line;
-}}
-
-
-var lineReader = null;
-var src_table_path = {src_table_path};
-if (src_table_path != null) {{
-    lineReader = readline.createInterface({{ input: fs.createReadStream(src_table_path, {{encoding: csv_encoding}}) }});
-}} else {{
-    process.stdin.setEncoding(csv_encoding);
-    lineReader = readline.createInterface({{ input: process.stdin }});
-}}
-
-var dst_stream = null;
-var dst_table_path = {dst_table_path};
-if (dst_table_path != null) {{
-    dst_stream = fs.createWriteStream(dst_table_path, {{defaultEncoding: csv_encoding}});
-}} else {{
-    process.stdout.setDefaultEncoding(csv_encoding);
-    dst_stream = process.stdout;
-}}
-
-
-var NR = 0;
-
-function exit_with_error_msg(error_msg) {{
-    process.stderr.write(error_msg);
-    process.exit(1);
-}}
-
-function SimpleWriter(dst) {{
-    this.dst = dst;
-    this.NW = 0;
-    this.write = function(record) {{
-        this.dst.write(record);
-        this.dst.write('\n');
-        this.NW += 1;
-    }}
-}}
-
-function UniqWriter(dst) {{
-    this.dst = dst;
-    this.seen = new Set();
-    this.write = function(record) {{
-        if (!this.seen.has(record)) {{
-            this.seen.add(record);
-            this.dst.write(record);
-            this.dst.write('\n');
-        }}
-    }}
-}}
-
-
-function BadFieldError(idx) {{
-    this.idx = idx;
-    this.name = 'BadFieldError';
-}}
-
-
-function safe_get(record, idx) {{
-    if (idx < record.length) {{
-        return record[idx];
-    }}
-    throw new BadFieldError(idx);
-}}
-
-
-function read_join_table(table_path) {{
-    var fields_max_len = 0;
-    content = fs.readFileSync(table_path, {{encoding: csv_encoding}});
-    lines = content.split('\n');
-    result = new Map();
-    for (var i = 0; i < lines.length; i++) {{
-        var line = strip_cr(lines[i]);
-        var bfields = line.split(DLM);
-        fields_max_len = Math.max(fields_max_len, bfields.length);
-        key = null;
-        try {{
-            key = {rhs_join_var};
-        }} catch (e) {{
-            if (e instanceof BadFieldError) {{
-                exit_with_error_msg('No "b' + (e.idx + 1) + '" column at line: ' + (i + 1) + ' in "B" table')
-            }}
-        }}
-        if (result.has(key)) {{
-            exit_with_error_msg('Join column must be unique in right-hand-side "B" table. Found duplicate key: "' + key + '"')
-        }}
-        result.set(key, bfields);
-    }}
-    return [result, fields_max_len];
-}}
-
-function null_join(join_map, max_join_fields, lhs_key) {{
-    return null;
-}}
-
-function inner_join(join_map, max_join_fields, lhs_key) {{
-    return join_map.get(lhs_key);
-}}
-
-
-function left_join(join_map, max_join_fields, lhs_key) {{
-    var result = join_map.get(lhs_key);
-    if (result == null) {{
-        result = Array(max_join_fields).fill(null);
-    }}
-    return result;
-}}
-
-
-function strict_left_join(join_map, max_join_fields, lhs_key) {{
-    var result = join_map.get(lhs_key);
-    if (result == null) {{
-        exit_with_error_msg('In "strict left join" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found');
-    }}
-    return result;
-}}
-
-
-function stable_compare(a, b) {{
-    for (var i = 0; i < a.length; i++) {{
-        if (a[i] !== b[i])
-            return a[i] < b[i] ? -1 : 1;
-    }}
-}}
-
-
-var join_map = null;
-var max_join_fields = null;
-if (join_table_path !== null) {{
-    join_params = read_join_table(join_table_path);
-    join_map = join_params[0];
-    max_join_fields = join_params[1];
-}}
-
-
-var writer = new {writer_type}(dst_stream);
-var unsorted_entries = [];
-
-lineReader.on('line', function (line) {{
-    NR += 1;
-    //readline strips last '\r'
-    var fields = line.split(DLM);
-    var NF = fields.length;
-    bfields = null;
-    star_line = line;
-    if (join_map != null) {{
-        bfields = {join_function}(join_map, max_join_fields, {lhs_join_var});
-        if (bfields == null)
-            return;
-        star_line = line + DLM + bfields.join(DLM);
-    }}
-    if (!({where_expression}))
-        return;
-    out_fields = null;
-    try {{
-        out_fields = [{select_expression}]
-    }} catch (e) {{
-        if (e instanceof BadFieldError) {{
-            exit_with_error_msg('No "a' + (e.idx + 1) + '" column at line: ' + NR);
-        }}
-    }}
-    if ({sort_flag}) {{
-        sort_entry = [{sort_key_expression}, NR, out_fields.join(DLM)];
-        unsorted_entries.push(sort_entry);
-    }} else {{
-        if (top_count != -1 && writer.NW >= top_count) {{
-            lineReader.close();
-            return;
-        }}
-        writer.write(out_fields.join(DLM));
-    }}
-
-}});
-
-
-lineReader.on('close', function () {{
-    if (unsorted_entries.length) {{
-        unsorted_entries.sort(stable_compare);
-        if ({reverse_flag})
-            unsorted_entries.reverse();
-        for (var i = 0; i < unsorted_entries.length; i++) {{
-            if (top_count != -1 && writer.NW >= top_count)
-                break;
-            writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]);
-        }}
-    }}
-    //console.log('ok\tok');
-}});
-
-'''
-
-
 def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_encoding=default_csv_encoding, import_modules=None):
     for il in xrange6(len(rbql_lines)):
         cline = rbql_lines[il]
@@ -896,7 +477,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
 
     js_meta_params = dict()
     #TODO require modules feature
-    js_meta_params['dlm'] = normalize_delim(delim)
+    js_meta_params['dlm'] = escape_delim(delim)
     js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
     js_meta_params['rhs_join_var'] = rhs_join_var
     js_meta_params['writer_type'] = writer_name

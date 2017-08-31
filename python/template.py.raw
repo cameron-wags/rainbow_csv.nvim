@@ -1,0 +1,216 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+import sys
+import os
+import random #for random sort
+import datetime #for date manipulations
+import re #for regexes
+import codecs
+
+{import_expression}
+
+
+PY3 = sys.version_info[0] == 3
+
+def str6(obj):
+    if PY3 and isinstance(obj, str):
+        return obj
+    if not PY3 and isinstance(obj, basestring):
+        return obj
+    return str(obj)
+
+DLM = '{dlm}'
+
+def rows(f, chunksize=1024, sep='\n'):
+    incomplete_row = None
+    while True:
+        chunk = f.read(chunksize)
+        if not chunk:
+            if incomplete_row is not None and len(incomplete_row):
+                yield incomplete_row
+            return
+        while True:
+            i = chunk.find(sep)
+            if i == -1:
+                break
+            if incomplete_row is not None:
+                yield incomplete_row + chunk[:i]
+                incomplete_row = None
+            else:
+                yield chunk[:i]
+            chunk = chunk[i+1:]
+        if incomplete_row is not None:
+            incomplete_row += chunk
+        else:
+            incomplete_row = chunk
+
+
+class BadFieldError(Exception):
+    def __init__(self, bad_idx):
+        self.bad_idx = bad_idx
+
+class RbqlRuntimeError(Exception):
+    pass
+
+
+def safe_get(record, idx):
+    try:
+        return record[idx]
+    except IndexError as e:
+        raise BadFieldError(idx)
+
+
+class Flike:
+    def __init__(self):
+        self._cache = dict()
+
+    def _like_to_regex(self, pattern):
+        p = 0
+        i = 0
+        converted = ''
+        while i < len(pattern):
+            if pattern[i] in ['_', '%']:
+                converted += re.escape(pattern[p:i])
+                p = i + 1
+                if pattern[i] == '_':
+                    converted += '.'
+                else:
+                    converted += '.*'
+            i += 1
+        converted += re.escape(pattern[p:i])
+        return '^' + converted + '$'
+
+    def __call__(self, text, pattern):
+        if pattern not in self._cache:
+            rgx = self._like_to_regex(pattern)
+            self._cache[pattern] = re.compile(rgx)
+        return self._cache[pattern].match(text) is not None
+
+flike = Flike()
+
+
+class SimpleWriter:
+    def __init__(self, dst):
+        self.dst = dst
+        self.NW = 0
+
+    def write(self, record):
+        self.dst.write(record)
+        self.dst.write('\n')
+        self.NW += 1
+
+
+class UniqWriter:
+    def __init__(self, dst):
+        self.dst = dst
+        self.seen = set()
+
+    def write(self, record):
+        if record in self.seen:
+            return
+        self.seen.add(record)
+        self.dst.write(record)
+        self.dst.write('\n')
+
+
+def read_join_table(join_table_path):
+    fields_max_len = 0
+    if not os.path.isfile(join_table_path):
+        raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
+    result = dict()
+    with codecs.open(join_table_path, encoding='{join_encoding}') as src_text:
+        for il, line in enumerate(rows(src_text), 1):
+            line = line.rstrip('\r\n')
+            bfields = line.split(DLM)
+            fields_max_len = max(fields_max_len, len(bfields))
+            try:
+                key = {rhs_join_var}
+            except BadFieldError as e:
+                bad_idx = e.bad_idx
+                raise RbqlRuntimeError('No "b' + str(bad_idx + 1) + '" column at line: ' + str(il) + ' in "B" table')
+            if key in result:
+                raise RbqlRuntimeError('Join column must be unique in right-hand-side "B" table. Found duplicate key: "' + key + '"')
+            result[key] = bfields
+    return (result, fields_max_len)
+
+
+def none_joiner(path):
+    return None
+
+
+class InnerJoiner:
+    def __init__(self, join_table_path):
+        self.join_data, self.fields_max_len = read_join_table(join_table_path)
+    def get(self, lhs_key):
+        return self.join_data.get(lhs_key, None)
+
+
+class LeftJoiner:
+    def __init__(self, join_table_path):
+        self.join_data, self.fields_max_len = read_join_table(join_table_path)
+    def get(self, lhs_key):
+        return self.join_data.get(lhs_key, [None] * self.fields_max_len)
+
+
+class StrictLeftJoiner:
+    def __init__(self, join_table_path):
+        self.join_data, self.fields_max_len = read_join_table(join_table_path)
+    def get(self, lhs_key):
+        result = self.join_data.get(lhs_key, None)
+        if result is None:
+            raise RbqlRuntimeError('In "strict left join" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found')
+        return result
+
+
+def main():
+    rb_transform(sys.stdin, sys.stdout)
+
+
+def rb_transform(source, destination):
+    unsorted_entries = list()
+    writer = {writer_type}(destination)
+    joiner = {joiner_type}('{rhs_table_path}')
+    for NR, line in enumerate(rows(source), 1):
+        lnum = NR #TODO remove, backcompatibility
+        line = line.rstrip('\r\n')
+        star_line = line
+        fields = line.split(DLM)
+        NF = len(fields)
+        flen = NF #TODO remove, backcompatibility
+        bfields = None
+        try:
+            if joiner is not None:
+                bfields = joiner.get({lhs_join_var})
+                if bfields is None:
+                    continue
+                star_line = DLM.join([line] + [str6(f) for f in bfields])
+            if not ({where_expression}):
+                continue
+            out_fields = [{select_expression}]
+            if {sort_flag}:
+                sort_key_value = ({sort_key_expression})
+                unsorted_entries.append((sort_key_value, DLM.join([str6(f) for f in out_fields])))
+            else:
+                if {top_count} != -1 and writer.NW >= {top_count}:
+                    break
+                writer.write(DLM.join([str6(f) for f in out_fields]))
+        except BadFieldError as e:
+            bad_idx = e.bad_idx
+            raise RbqlRuntimeError('No "a' + str(bad_idx + 1) + '" column at line: ' + str(NR))
+        except Exception as e:
+            raise RbqlRuntimeError('Error at line: ' + str(NR) + ', Details: ' + str(e))
+    if len(unsorted_entries):
+        sorted_entries = sorted(unsorted_entries, key=lambda x: x[0])
+        if {reverse_flag}:
+            sorted_entries.reverse()
+        for e in sorted_entries:
+            if {top_count} != -1 and writer.NW >= {top_count}:
+                break
+            writer.write(e[1])
+
+
+if __name__ == '__main__':
+    main()
+
+
