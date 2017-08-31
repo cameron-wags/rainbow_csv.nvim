@@ -625,3 +625,49 @@ class TestStringMethods(unittest.TestCase):
         a_strp = rbql.strip_js_comments(a)
         self.assertEqual(a_strp, '')
 
+
+def make_random_bin_table(num_rows, num_cols, key_col1, key_col2, delim, dst_path):
+    restricted_chars = ['\r', '\n'] + [delim]
+    key_col = random.randint(0, num_cols - 1)
+    good_keys1 = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta']
+    good_keys2 = [str(v) for v in range(20)]
+    result_table = list()
+    for r in rbql.xrange6(num_rows):
+        result_table.append(list())
+        for c in rbql.xrange6(num_cols):
+            if c == key_col1:
+                result_table[-1].append(random.choice(good_keys1))
+            elif c == key_col2:
+                result_table[-1].append(random.choice(good_keys2))
+            else:
+                dice = random.randint(1, 20)
+                if dice == 1:
+                    result_table[-1].append(random.choice(good_keys1))
+                elif dice == 2:
+                    result_table[-1].append(random.choice(good_keys2))
+                else:
+                    result_table[-1].append(make_random_csv_entry(0, 20, restricted_chars))
+    with codecs.open(dst_path, 'w', encoding='latin-1') as f:
+        for row in result_table:
+            f.write(delim.join(row))
+            if random.randint(0, 2) == 0:
+                f.write('\r\n')
+            else:
+                f.write('\n')
+
+
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--create_random_binary_table', metavar='FILE', help='create random binary table and write it to FILE')
+    args = parser.parse_args()
+    if args.create_random_binary_table is not None:
+        dst_path = args.create_random_binary_table
+        make_random_bin_table(1000, 4, 1, 3, '\t', dst_path)
+
+
+
+if __name__ == '__main__':
+    main()
+

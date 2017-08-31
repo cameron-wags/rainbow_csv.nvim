@@ -156,12 +156,12 @@ If you want to use RBQL with JavaScript expressions, make sure you have Node.js 
 
 ## Requirements
 
-#### Highlighting mode only
+#### Highlighting mode only:
 * vim
 
-#### RBQL queries with Python expressions
+#### RBQL queries with Python expressions:
 * vim compiled with python 2.7 or python 3
 
-#### RBQL queries with JavaScript expressions
+#### RBQL queries with JavaScript expressions:
 * vim compiled with python 2.7 or python 3
 * Node.js
