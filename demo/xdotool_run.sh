@@ -8,7 +8,8 @@ fi
 xdotool windowactivate "$window_id"
 xdotool type --clearmodifiers --delay 100 clear
 xdotool key --clearmodifiers --delay 100 Return
-sleep 2.0
+#sleep 2.0
+sleep 10.0
 #xdotool type --clearmodifiers --delay 100 ls
 #xdotool key --clearmodifiers --delay 100 Return
 #sleep 2.0
