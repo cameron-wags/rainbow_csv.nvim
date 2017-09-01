@@ -14,7 +14,11 @@ There are 2 ways to enable csv columns highlighting:
 ### Demonstration of rainbow_csv highlighting and RBQL queries 
 1-st query with Python expressions and 2-nd query with JavaScript:
 
+
 ![demo_screencast](https://raw.githubusercontent.com/mechatroner/rainbow_csv/master/demo/rbql_demo_2.gif)
+
+
+The demo table is demo/movies.tsv. There are also some other test datasets in python/test_datasets.
 
 
 ## RBQL (RainBow Query Language) Description
