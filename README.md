@@ -105,8 +105,9 @@ Python script rbql.py parses RBQL query, creates a new .py module, then imports 
 ## Commands
 
 #### :Select ...
-Insteaf of pressing F5 you can enter your query in the vim command line.
-the query must start with `:Select` command e.g. `:Select a1, a2 order by a1`
+
+Most useful command: allows to enter RBQL query in vim command line.
+The query must start with `:Select` command e.g. `:Select a1, a2 order by a1`
 
 #### :RainbowDelim
 
