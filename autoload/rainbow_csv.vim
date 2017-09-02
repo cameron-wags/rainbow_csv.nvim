@@ -163,6 +163,7 @@ func! s:lines_are_delimited(lines, delim)
     return 1
 endfunc
 
+
 func! s:auto_detect_delimiter(delimiters)
     let lastLineNo = min([line("$"), 10])
     if (lastLineNo < 5)
@@ -352,6 +353,7 @@ func! rainbow_csv#set_statusline_columns()
         let indent = s:single_char_sring(indent_len, ' ')
     endif
     let bottom_line = getline(line('w$'))
+    "FIXME smarter quoted-comma-escape-aware split
     let bottom_fields = split(bottom_line, delim, 1)
     let status_labels = []
     if delim == "\t"
@@ -751,19 +753,17 @@ func! rainbow_csv#run_autodetection()
 endfunc
 
 
+func! s:generate_status_highlighting()
+    for groupid in range(len(s:pairs))
+        let statusline_hl_group = 'status_color' . groupid
+        let cmd = 'highlight %s ctermfg=%s guifg=%s ctermbg=black guibg=black'
+        exe printf(cmd, statusline_hl_group, s:pairs[groupid][0], s:pairs[groupid][1])
+    endfor
+endfunc
 
-func! rainbow_csv#enable_syntax(delim)
-    if (len(s:pairs) < 2)
-        return
-    endif
 
-    if s:is_rainbow_table()
-        return
-    endif
-
-    nnoremap <buffer> <F5> :RbSelect<cr>
-    nnoremap <buffer> <Leader>d :RbGetColumn<cr>
-
+func! rainbow_csv#generate_rainbow_syntax(delim)
+    "FIXME make function internal: add 's:' prefix instead of 'rainbow_csv#'
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
@@ -771,23 +771,91 @@ func! rainbow_csv#enable_syntax(delim)
         exe printf(cmd, match, a:delim, a:delim, nextgroup)
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
         exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
-        let statusline_hl_group = 'status_color' . groupid
-        let cmd = 'highlight %s ctermfg=%s guifg=%s ctermbg=black guibg=black'
-        exe printf(cmd, statusline_hl_group, s:pairs[groupid][0], s:pairs[groupid][1])
     endfor
+    let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=column1'
+    exe printf(cmd, a:delim)
+    let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
+    exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
+endfunc
+
+
+func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
+    "csv escaped highlighting doesn't have to follow all excel rules.
+    "actually the only situation it can fail it something like this, which is
+    "totaly unlikely: `,"askdfa"",asdfasfd",` and the worst possible outcome
+    "is broken highlighting in one of the lines
+
+    "use syn-keepend for contained regions
+    "you can also try to use "hs" and "he" and "ms" and "me"
+    "FIXME add statusline highlighting
+    for groupid in range(len(s:pairs))
+        "FIXME match should end with delimiter (or endline), not start with
+        "delimiter. this way you will make ^"", more reliable, but you will
+        "have to add a special endline match type, but this should be simple
+        "enough. alternatively you can try to use "ms" and "me"
+        let match = 'column' . groupid
+        let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
+        let cmd = 'syntax match %s /%s[^%s]*/ nextgroup=escaped_column%d,column%d'
+        exe printf(cmd, match, a:delim, a:delim, nextgroup, nextgroup)
+        let cmd = 'highlight %s ctermfg=%s guifg=%s'
+        exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
+
+
+        "FIXME remove this once you have it in git
+        "let match = 'begin_quote' . groupid
+        "exe printf('syntax match %s /,"/hs=s+1 contained', match)
+        "let cmd = 'highlight %s ctermbg=%s guibg=%s'
+        "exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
+        "let match = 'end_quote' . groupid
+        "exe printf('syntax match %s /",/he=e-1 contained', match)
+        "let cmd = 'highlight %s ctermbg=%s guibg=%s'
+        "exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
+        "let match = 'escaped_column' . groupid
+        "let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
+        "let cmd = 'syntax match %s /%s"[^"]*"/ nextgroup=escaped_column%d,column%d contains=begin_quote%d,end_quote%d'
+        "exe printf(cmd, match, a:delim, nextgroup, nextgroup, groupid, groupid)
+
+        let match = 'escaped_column' . groupid
+        let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
+        let cmd = 'syntax match %s /%s"[^"]*"%s/me=e-1 nextgroup=escaped_column%d,column%d'
+        exe printf(cmd, match, a:delim, a:delim, nextgroup, nextgroup)
+
+        let cmd = 'highlight %s ctermfg=%s guifg=%s'
+        exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
+    endfor
+    let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=escaped_column1,column1'
+    exe printf(cmd, a:delim)
+    let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
+    exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
+
+    let cmd = 'syntax match startcolumn_escaped /^"[^"]*"%s/me=e-1 nextgroup=escaped_column1,column1'
+    exe printf(cmd, a:delim)
+    let cmd = 'highlight startcolumn_escaped ctermfg=%s guifg=%s'
+    exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
+endfunc
+
+
+func! rainbow_csv#enable_syntax(delim)
+    if (len(s:pairs) < 2 || s:is_rainbow_table())
+        return
+    endif
+
+    nnoremap <buffer> <F5> :RbSelect<cr>
+    nnoremap <buffer> <Leader>d :RbGetColumn<cr>
+
+    call rainbow_csv#generate_rainbow_syntax(a:delim)
+    call s:generate_status_highlighting()
+
     highlight status_line_default_hl ctermbg=black guibg=black
 
     cnoreabbrev <expr> <buffer> Select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
     cnoreabbrev <expr> <buffer> select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
     cnoreabbrev <expr> <buffer> SELECT rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
 
-    let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=column1'
-    exe printf(cmd, a:delim)
-    let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
-    exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
     let b:rainbow_csv_delim = a:delim
     call s:create_recurrent_tip("Press F5 to enter \"select\" query mode")
 endfunc
+
 
 func! s:make_entry(delim)
     let fname = expand("%:p")
@@ -798,6 +866,7 @@ func! s:make_entry(delim)
     let entry = fname . "\t" . delim
     return entry
 endfunc
+
 
 func! s:save_file_delim(delim)
     let entry = s:make_entry(a:delim)
