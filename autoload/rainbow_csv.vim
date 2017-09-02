@@ -149,14 +149,42 @@ func! s:ensure_storage_exists()
 endfunc
 
 
+func! s:count_chars(line, target)
+    let result = 0
+    for idx in range(0, len(a:line))
+        if a:line[idx] == a:target
+            let result = result + 1
+        endif
+    endfor
+    return result
+endfunc
+
+
+func! s:get_num_csv_fields(line)
+    let reduced_line = a:line
+    let reduced_line = substitute(reduced_line, ',"[^"]*",', ',S,', 'g')
+    let reduced_line = substitute(reduced_line, ',"[^"]*",', ',S,', 'g')
+    let reduced_line = substitute(reduced_line, '^"[^"]*",', 'S,', 'g')
+    let reduced_line = substitute(reduced_line, ',"[^"]*"$', ',S', 'g')
+    return s:count_chars(reduced_line, ',')
+endfunc
+
+
+func! s:get_num_fields(line, delim)
+    if a:delim == ','
+        return s:get_num_csv_fields(a:line)
+    endif
+    return s:count_chars(a:line, a:delim)
+endfunc
+
+
 func! s:lines_are_delimited(lines, delim)
-    "FIXME handle escaped csv
-    let num_fields = len(split(a:lines[0], a:delim))
+    let num_fields = s:get_num_fields(a:lines[0], a:delim)
     if (num_fields < 2 || num_fields > s:max_columns)
         return 0
     endif
     for line in a:lines
-        let nfields = len(split(line, a:delim)) 
+        let nfields = s:get_num_fields(line, a:delim)
         if (num_fields != nfields)
             return 0
         endif
@@ -402,7 +430,7 @@ endfunc
 
 
 
-func! s:generate_microlang_syntax(nlines)
+func! s:generate_microlang_syntax(nfields)
     let npairs = len(s:pairs)
     if (npairs < 2)
         return
@@ -419,7 +447,7 @@ func! s:generate_microlang_syntax(nlines)
         exe printf(cmd, pn + 1, s:pairs[pn][0], s:pairs[pn][1])
     endfor
 
-    for lnum in range(1, a:nlines)
+    for lnum in range(1, a:nfields)
         let color_num = ((lnum - 1) % npairs) + 1
         let cmd = 'syntax keyword rbql_color%d a%d'
         exe printf(cmd, color_num, lnum)
@@ -585,7 +613,7 @@ func! rainbow_csv#select_mode()
         echoerr "Error: no lines in file"
         return
     endif
-    let num_fields = len(split(lines[0], delim))
+    let num_fields = s:get_num_fields(lines[0], delim)
 
 
     execute "e " . rb_script_path
@@ -818,7 +846,11 @@ func! rainbow_csv#enable_syntax(delim)
     nnoremap <buffer> <F5> :RbSelect<cr>
     nnoremap <buffer> <Leader>d :RbGetColumn<cr>
 
-    call rainbow_csv#generate_rainbow_syntax(a:delim)
+    if a:delim == ','
+        call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
+    else
+        call rainbow_csv#generate_rainbow_syntax(a:delim)
+    endif
     call s:generate_status_highlighting()
 
     highlight status_line_default_hl ctermbg=black guibg=black
