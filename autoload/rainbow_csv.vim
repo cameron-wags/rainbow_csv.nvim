@@ -150,6 +150,7 @@ endfunc
 
 
 func! s:lines_are_delimited(lines, delim)
+    "FIXME handle escaped csv
     let num_fields = len(split(a:lines[0], a:delim))
     if (num_fields < 2 || num_fields > s:max_columns)
         return 0
@@ -780,40 +781,14 @@ endfunc
 
 
 func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
-    "csv escaped highlighting doesn't have to follow all excel rules.
-    "actually the only situation it can fail it something like this, which is
-    "totaly unlikely: `,"askdfa"",asdfasfd",` and the worst possible outcome
-    "is broken highlighting in one of the lines
-
-    "use syn-keepend for contained regions
-    "you can also try to use "hs" and "he" and "ms" and "me"
-    "FIXME add statusline highlighting
+    "csv escaped highlighting doesn't have to follow all excel rules and the worst outcome is broken highlighting in some lines
     for groupid in range(len(s:pairs))
-        "FIXME match should end with delimiter (or endline), not start with
-        "delimiter. this way you will make ^"", more reliable, but you will
-        "have to add a special endline match type, but this should be simple
-        "enough. alternatively you can try to use "ms" and "me"
         let match = 'column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
         let cmd = 'syntax match %s /%s[^%s]*/ nextgroup=escaped_column%d,column%d'
         exe printf(cmd, match, a:delim, a:delim, nextgroup, nextgroup)
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
         exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
-
-
-        "FIXME remove this once you have it in git
-        "let match = 'begin_quote' . groupid
-        "exe printf('syntax match %s /,"/hs=s+1 contained', match)
-        "let cmd = 'highlight %s ctermbg=%s guibg=%s'
-        "exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
-        "let match = 'end_quote' . groupid
-        "exe printf('syntax match %s /",/he=e-1 contained', match)
-        "let cmd = 'highlight %s ctermbg=%s guibg=%s'
-        "exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
-        "let match = 'escaped_column' . groupid
-        "let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
-        "let cmd = 'syntax match %s /%s"[^"]*"/ nextgroup=escaped_column%d,column%d contains=begin_quote%d,end_quote%d'
-        "exe printf(cmd, match, a:delim, nextgroup, nextgroup, groupid, groupid)
 
         let match = 'escaped_column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
