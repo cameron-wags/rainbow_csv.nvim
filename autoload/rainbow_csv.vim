@@ -160,13 +160,107 @@ func! s:count_chars(line, target)
 endfunc
 
 
+"func! s:flatten_escaped_str(line)
+"    let idx = -1
+"    if line[0] == '"'
+"        let idx = 0
+"    else
+"        let idx = stridx(line, ',"')
+"    endif
+"    while 1
+"        let idx_upd = stridx(line, ',"')
+"    endwhile
+"endfunc
+
+
+"func! s:split_escaped_csv_str(line)
+"    let result = []
+"    "call add(result, getline(linenum))
+"    let idx = -1
+"    if line[0] == '"'
+"        let idx = 0
+"    else
+"        let idx = stridx(line, ',"')
+"    endif
+"    while 1
+"        let idx_upd = stridx(line, ',"')
+"    endwhile
+"    return result
+"endfunc
+
+func! rainbow_csv#rstrip(line)
+    let result = a:line
+    if len(result) && result[len(result) - 1] == "\n"
+        let result = strpart(result, 0, len(result) - 1)
+    endif
+    if len(result) && result[len(result) - 1] == "\r"
+        let result = strpart(result, 0, len(result) - 1)
+    endif
+    return result
+endfunc
+
+
+func! rainbow_csv#split_escaped_csv_str(in_line)
+    let line = rainbow_csv#rstrip(a:in_line)
+    let result = []
+    if len(line) == 0
+        return result
+    endif
+    let cidx = 0
+    if line[0] == ','
+        call add(result, '')
+        let cidx = 1
+    endif
+    while cidx < len(line)
+        if line[cidx] == '"'
+            let uidx = stridx(line, '",', cidx + 1)
+            if uidx != -1
+                let uidx = uidx + 1
+            elseif uidx == -1 && line[len(line) - 1] == '"'
+                let uidx = len(line)
+            endif
+            if uidx != -1
+                call add(result, strpart(line, cidx, uidx - cidx))
+                let cidx = uidx + 1
+                continue
+            endif
+        endif
+        let uidx = stridx(line, ',', cidx)
+        if uidx == -1
+            let uidx = len(line)
+        endif
+        call add(result, strpart(line, cidx, uidx - cidx))
+        let cidx = uidx + 1
+    endwhile
+    if line[len(line) - 1] == ','
+        call add(result, '')
+    endif
+    return result
+endfunc
+
+func! s:smart_split(line, dlm)
+    if dlm == ','
+        return rainbow_csv#split_escaped_csv_str(a:line)
+    else
+        return split(a:line, a:dlm, 1)
+    endif
+endfunc
+
+
+
 func! s:get_num_csv_fields(line)
-    let reduced_line = a:line
-    let reduced_line = substitute(reduced_line, ',"[^"]*",', ',S,', 'g')
-    let reduced_line = substitute(reduced_line, ',"[^"]*",', ',S,', 'g')
-    let reduced_line = substitute(reduced_line, '^"[^"]*",', 'S,', 'g')
-    let reduced_line = substitute(reduced_line, ',"[^"]*"$', ',S', 'g')
-    return s:count_chars(reduced_line, ',')
+    let flat_line = a:line
+    "FIXME replace this mess with a single handmade replacement function. It
+    "is not so hard to impl
+    "let flat_line = substitute(flat_line, ',"[^"]*",', ',S,', 'g')
+    "let flat_line = substitute(flat_line, ',"[^"]*",', ',S,', 'g')
+    "let flat_line = substitute(flat_line, '^"[^"]*",', 'S,', 'g')
+    "let flat_line = substitute(flat_line, ',"[^"]*"$', ',S', 'g')
+    let flat_line = substitute(flat_line, ',"[^"]*",', ',S,', 'g')
+    let flat_line = substitute(flat_line, ',"[^"]*",', ',S,', 'g')
+    let flat_line = substitute(flat_line, '^"[^"]*",', 'S,', 'g')
+    let flat_line = substitute(flat_line, ',"[^"]*"$', ',S', 'g')
+    return s:count_chars(flat_line, ',')
 endfunc
 
 
@@ -326,6 +420,7 @@ func! s:assert_equal(lhs, rhs)
     endif
 endfunc
 
+
 func! rainbow_csv#run_unit_tests()
     echomsg "Running unit tests..."
     "10,a,b,20000,5
@@ -333,14 +428,40 @@ func! rainbow_csv#run_unit_tests()
     let test_stln = s:generate_tab_statusline(1, ['10', 'a', 'b', '20000', '5'])
     let test_stln = join(test_stln, '')
     let canonic_stln = 'a1 a2 a3 a4  a5'
-    call s:assert_equal(canonic_stln, test_stln)
+    call s:assert_equal(test_stln, canonic_stln)
 
     "10  a   b   20000   5
     "a1  a2  a3  a4      a5
     let test_stln = s:generate_tab_statusline(4, ['10', 'a', 'b', '20000', '5'])
     let test_stln = join(test_stln, '')
     let canonic_stln = 'a1  a2  a3  a4      a5'
-    call s:assert_equal(canonic_stln, test_stln)
+    call s:assert_equal(test_stln, canonic_stln)
+
+    let test_cases = [
+        \ ['abc',                                   'abc'],
+        \ ['abc,',                                  'abc;'],
+        \ [',abc',                                  ';abc'],
+        \ ['abc,cdef',                              'abc;cdef'],
+        \ ['"abc",cdef',                            '"abc";cdef'],
+        \ ['abc,"cdef"',                            'abc;"cdef"'],
+        \ ['"a,bc",cdef',                           '"a,bc";cdef'],
+        \ ['abc,"c,def"',                           'abc;"c,def"'],
+        \ ['abc,"cdef,"acdf,"asddf',                'abc;"cdef;"acdf;"asddf'],
+        \ [',',                                     ';'],
+        \ [', ',                                    '; '],
+        \ ['"abc"',                                 '"abc"'],
+        \ [',"haha,hoho",',                         ';"haha,hoho";'],
+        \ [',"bbbb,"cccc,"',                        ';"bbbb,"cccc,"'],
+        \ [',",","',                                ';",";"'],
+        \ ['"a,bc","adf,asf","asdf,asdf,","as,df"', '"a,bc";"adf,asf";"asdf,asdf,";"as,df"'],
+        \ ]
+
+    for nt in range(len(test_cases))
+        let test_str = join(rainbow_csv#split_escaped_csv_str(test_cases[nt][0]), ';')
+        let canonic_str = test_cases[nt][1]
+        call s:assert_equal(test_str, canonic_str)
+    endfor
+
 
     echomsg "Finished"
 endfunc
@@ -792,7 +913,7 @@ endfunc
 
 
 func! rainbow_csv#generate_rainbow_syntax(delim)
-    "FIXME make function internal: add 's:' prefix instead of 'rainbow_csv#'
+    "TODO make function internal: add 's:' prefix instead of 'rainbow_csv#'
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
@@ -809,7 +930,7 @@ endfunc
 
 
 func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
-    "csv escaped highlighting doesn't have to follow all excel rules and the worst outcome is broken highlighting in some lines
+    "INFO csv escaped highlighting doesn't have to follow all excel rules and the worst outcome is broken highlighting in some lines
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
