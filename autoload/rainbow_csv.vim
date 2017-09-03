@@ -1,7 +1,3 @@
-"==============================================================================
-"  Description: rainbow csv
-"==============================================================================
-
 
 let s:max_columns = exists('g:rcsv_max_columns') ? g:rcsv_max_columns : 30
 let s:rainbowStorage = $HOME . '/.rainbow_csv_storage'
@@ -149,45 +145,6 @@ func! s:ensure_storage_exists()
 endfunc
 
 
-func! s:count_chars(line, target)
-    let result = 0
-    for idx in range(0, len(a:line))
-        if a:line[idx] == a:target
-            let result = result + 1
-        endif
-    endfor
-    return result
-endfunc
-
-
-"func! s:flatten_escaped_str(line)
-"    let idx = -1
-"    if line[0] == '"'
-"        let idx = 0
-"    else
-"        let idx = stridx(line, ',"')
-"    endif
-"    while 1
-"        let idx_upd = stridx(line, ',"')
-"    endwhile
-"endfunc
-
-
-"func! s:split_escaped_csv_str(line)
-"    let result = []
-"    "call add(result, getline(linenum))
-"    let idx = -1
-"    if line[0] == '"'
-"        let idx = 0
-"    else
-"        let idx = stridx(line, ',"')
-"    endif
-"    while 1
-"        let idx_upd = stridx(line, ',"')
-"    endwhile
-"    return result
-"endfunc
-
 func! rainbow_csv#rstrip(line)
     let result = a:line
     if len(result) && result[len(result) - 1] == "\n"
@@ -239,7 +196,7 @@ func! rainbow_csv#split_escaped_csv_str(in_line)
 endfunc
 
 func! s:smart_split(line, dlm)
-    if dlm == ','
+    if a:dlm == ','
         return rainbow_csv#split_escaped_csv_str(a:line)
     else
         return split(a:line, a:dlm, 1)
@@ -247,38 +204,13 @@ func! s:smart_split(line, dlm)
 endfunc
 
 
-
-func! s:get_num_csv_fields(line)
-    let flat_line = a:line
-    "FIXME replace this mess with a single handmade replacement function. It
-    "is not so hard to impl
-    "let flat_line = substitute(flat_line, ',"[^"]*",', ',S,', 'g')
-    "let flat_line = substitute(flat_line, ',"[^"]*",', ',S,', 'g')
-    "let flat_line = substitute(flat_line, '^"[^"]*",', 'S,', 'g')
-    "let flat_line = substitute(flat_line, ',"[^"]*"$', ',S', 'g')
-    let flat_line = substitute(flat_line, ',"[^"]*",', ',S,', 'g')
-    let flat_line = substitute(flat_line, ',"[^"]*",', ',S,', 'g')
-    let flat_line = substitute(flat_line, '^"[^"]*",', 'S,', 'g')
-    let flat_line = substitute(flat_line, ',"[^"]*"$', ',S', 'g')
-    return s:count_chars(flat_line, ',')
-endfunc
-
-
-func! s:get_num_fields(line, delim)
-    if a:delim == ','
-        return s:get_num_csv_fields(a:line)
-    endif
-    return s:count_chars(a:line, a:delim)
-endfunc
-
-
 func! s:lines_are_delimited(lines, delim)
-    let num_fields = s:get_num_fields(a:lines[0], a:delim)
+    let num_fields = len(s:smart_split(a:lines[0], a:delim))
     if (num_fields < 2 || num_fields > s:max_columns)
         return 0
     endif
     for line in a:lines
-        let nfields = s:get_num_fields(line, a:delim)
+        let nfields = len(s:smart_split(line, a:delim))
         if (num_fields != nfields)
             return 0
         endif
@@ -503,8 +435,7 @@ func! rainbow_csv#set_statusline_columns()
         let indent = s:single_char_sring(indent_len, ' ')
     endif
     let bottom_line = getline(line('w$'))
-    "FIXME smarter quoted-comma-escape-aware split
-    let bottom_fields = split(bottom_line, delim, 1)
+    let bottom_fields = s:smart_split(bottom_line, delim)
     let status_labels = []
     if delim == "\t"
         let status_labels = s:generate_tab_statusline(&tabstop, bottom_fields)
@@ -941,6 +872,8 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
 
         let match = 'escaped_column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
+        let cmd = 'syntax match %s /%s"[^"]*"$/'
+        exe printf(cmd, match, a:delim)
         let cmd = 'syntax match %s /%s"[^"]*"%s/me=e-1 nextgroup=escaped_column%d,column%d'
         exe printf(cmd, match, a:delim, a:delim, nextgroup, nextgroup)
 
@@ -952,6 +885,8 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
     let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 
+    let cmd = 'syntax match startcolumn_escaped /^"[^"]*"$/'
+    exe cmd
     let cmd = 'syntax match startcolumn_escaped /^"[^"]*"%s/me=e-1 nextgroup=escaped_column1,column1'
     exe printf(cmd, a:delim)
     let cmd = 'highlight startcolumn_escaped ctermfg=%s guifg=%s'
@@ -1064,18 +999,25 @@ endfunc
 
 func! rainbow_csv#get_column()
     let line = getline('.')
-    let pos = col('.') - 1
+    let kb_pos = col('.')
     if !s:is_rainbow_table()
         echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
     let delim = b:rainbow_csv_delim
 
-    let colNo = len(split(line[0:pos], delim))
-    let numCols = len(split(line, delim))
+    let fields = s:smart_split(line, delim)
+    let numCols = len(fields)
 
-    let colName = s:read_column_name(colNo - 1, numCols)
-    echo 'Col: [' . colNo . '], Name: [' . colName . ']'
+    let col_num = 0
+    let cpos = len(fields[col_num]) 
+    while kb_pos > cpos && col_num + 1 < len(fields)
+        let col_num = col_num + 1
+        let cpos = cpos + 1 + len(fields[col_num])
+    endwhile
+
+    let col_name = s:read_column_name(col_num, numCols)
+    echo printf('Col: [%s], Name: [%s]', col_num + 1, col_name)
 endfunc
 
 
