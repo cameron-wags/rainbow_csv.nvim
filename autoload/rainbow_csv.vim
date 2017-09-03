@@ -34,6 +34,7 @@ func! s:create_recurrent_tip(tip_text)
     echo a:tip_text
 endfunc
 
+
 function! s:InvertMap(pairs)
     let i = 0
     while i < len(a:pairs)
@@ -44,6 +45,7 @@ function! s:InvertMap(pairs)
     endwhile
     return a:pairs
 endfunction
+
 
 function! s:ListExistingBufDirs()
     let buff_ids = filter(range(1, bufnr('$')), 'buflisted(v:val)')
@@ -70,6 +72,7 @@ function! s:ListExistingBufDirs()
     endfor
     return result
 endfunction
+
 
 func! rainbow_csv#save_and_swap(dst_path)
     execute "bd " . b:parent_buf_nr
@@ -112,7 +115,6 @@ func! rainbow_csv#create_save_dialog(table_buf_nr, table_path)
     setlocal nomodifiable
     nnoremap <buffer> <CR> :call <SID>SelectDirectory()<CR>
 endfunction
-
 
 
 function! s:EnsurePythonInitialization()
@@ -195,6 +197,7 @@ func! rainbow_csv#split_escaped_csv_str(in_line)
     return result
 endfunc
 
+
 func! s:smart_split(line, dlm)
     if a:dlm == ','
         return rainbow_csv#split_escaped_csv_str(a:line)
@@ -250,6 +253,7 @@ let s:pairs = [
     \ ['NONE',        'NONE'],
     \ ]
 
+
 let s:pairs = exists('g:rcsv_colorpairs') ? g:rcsv_colorpairs : s:pairs
 let s:delimiters = ['	', ',']
 let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : s:delimiters
@@ -258,7 +262,6 @@ let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : s:delimiter
 func! s:rstrip(src)
     return substitute(a:src, '\s*$', '', '')
 endfunc
-
 
 
 func! s:read_column_names()
@@ -285,7 +288,6 @@ func! s:read_column_names()
     let names = split(line, b:rainbow_csv_delim)
     return names
 endfunc
-
 
 
 func! s:do_run_select(table_path, rb_script_path, meta_script_path, dst_table_path, delim, meta_language)
@@ -317,7 +319,6 @@ func! s:single_char_sring(string_len, string_char)
     endfor
     return result
 endfunc
-
 
 
 func! s:generate_tab_statusline(tabstop_val, template_fields)
@@ -394,7 +395,6 @@ func! rainbow_csv#run_unit_tests()
         call s:assert_equal(test_str, canonic_str)
     endfor
 
-
     echomsg "Finished"
 endfunc
 
@@ -468,7 +468,6 @@ func! rainbow_csv#set_statusline_columns()
 endfunc
 
 
-
 func! s:get_rb_script_path_for_this_table()
     let rb_script_name = expand("%:t") . ".rb"
     call s:ensure_storage_exists()
@@ -479,7 +478,6 @@ func! s:get_rb_script_path_for_this_table()
     endif
     return rb_script_path
 endfunc
-
 
 
 func! s:generate_microlang_syntax(nfields)
@@ -581,7 +579,6 @@ func! s:make_javascript_demo(num_fields)
     call setline(1 + len(help_before), help_after)
     call cursor(len(help_before), 1)
     w
-
 endfunc
 
 
@@ -666,7 +663,6 @@ func! rainbow_csv#select_mode()
         return
     endif
     let num_fields = s:get_num_fields(lines[0], delim)
-
 
     execute "e " . rb_script_path
     setlocal noswapfile
