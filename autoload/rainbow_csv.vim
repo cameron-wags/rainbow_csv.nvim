@@ -671,7 +671,7 @@ func! rainbow_csv#select_mode()
     let b:table_path = buf_path
     let b:table_buf_number = buf_number
     let b:rainbow_select = 1
-    let b:table_csv_delim = delim
+    "let b:table_csv_delim = delim
     call s:generate_microlang_syntax(num_fields)
     if s:get_meta_language() == "python"
         call s:make_python_demo(num_fields)
@@ -736,13 +736,14 @@ func! s:run_select(table_buf_number, rb_script_path)
     endif
     execute "e " . dst_table_path
     setlocal noswapfile
+    set ft=ignored
     let b:self_path = dst_table_path
     let b:root_table_buf_number = a:table_buf_number
     let b:self_buf_number = bufnr("%")
     let table_name = fnamemodify(table_path, ":t")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
     
-    call rainbow_csv#enable_syntax(root_delim)
+    call rainbow_csv#enable_rainbow("\t")
 
     nnoremap <buffer> <F4> :bd!<cr>
     nnoremap <buffer> <F6> :call rainbow_csv#create_save_dialog(b:self_buf_number, b:self_path)<cr>
@@ -826,7 +827,7 @@ func! rainbow_csv#run_autodetection()
     if (!len(delim))
         return
     endif
-    call rainbow_csv#enable_syntax(delim)
+    call rainbow_csv#enable_rainbow(delim)
 endfunc
 
 
@@ -890,7 +891,7 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
 endfunc
 
 
-func! rainbow_csv#enable_syntax(delim)
+func! rainbow_csv#enable_rainbow(delim)
     if (len(s:pairs) < 2 || s:is_rainbow_table())
         return
     endif
@@ -936,7 +937,7 @@ func! s:save_file_delim(delim)
 endfunc
 
 
-func! s:disable_syntax()
+func! s:disable_rainbow()
     if !s:is_rainbow_table()
         return
     endif
@@ -956,8 +957,8 @@ endfunc
 
 func! rainbow_csv#manual_load()
     let delim = getline('.')[col('.') - 1]  
-    call s:disable_syntax()
-    call rainbow_csv#enable_syntax(delim)
+    call s:disable_rainbow()
+    call rainbow_csv#enable_rainbow(delim)
     call s:save_file_delim(delim)
 endfunc
 
@@ -1018,6 +1019,6 @@ endfunc
 
 
 func! rainbow_csv#manual_disable()
-    call s:disable_syntax()
+    call s:disable_rainbow()
     call s:save_file_delim('DISABLED')
 endfunc
