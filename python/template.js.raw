@@ -155,12 +155,12 @@ lineReader.on('line', function (line) {{
     var fields = line.split(DLM);
     var NF = fields.length;
     bfields = null;
-    star_line = line;
+    star_line = fields.join('\t');
     if (join_map != null) {{
         bfields = {join_function}(join_map, max_join_fields, {lhs_join_var});
         if (bfields == null)
             return;
-        star_line = line + DLM + bfields.join(DLM);
+        star_line = fields.concat(bfields).join('\t')
     }}
     if (!({where_expression}))
         return;
@@ -173,14 +173,14 @@ lineReader.on('line', function (line) {{
         }}
     }}
     if ({sort_flag}) {{
-        sort_entry = [{sort_key_expression}, NR, out_fields.join(DLM)];
+        sort_entry = [{sort_key_expression}, NR, out_fields.join('\t')];
         unsorted_entries.push(sort_entry);
     }} else {{
         if (top_count != -1 && writer.NW >= top_count) {{
             lineReader.close();
             return;
         }}
-        writer.write(out_fields.join(DLM));
+        writer.write(out_fields.join('\t'));
     }}
 
 }});

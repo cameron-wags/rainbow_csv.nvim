@@ -174,8 +174,8 @@ def rb_transform(source, destination):
     for NR, line in enumerate(rows(source), 1):
         lnum = NR #TODO remove, backcompatibility
         line = line.rstrip('\r\n')
-        star_line = line
-        fields = line.split(DLM)
+        fields = line.split(DLM) #FIXME smart split
+        star_line = '\t'.join(fields)
         NF = len(fields)
         flen = NF #TODO remove, backcompatibility
         bfields = None
@@ -184,17 +184,17 @@ def rb_transform(source, destination):
                 bfields = joiner.get({lhs_join_var})
                 if bfields is None:
                     continue
-                star_line = DLM.join([line] + [str6(f) for f in bfields])
+                star_line = '\t'.join([line] + [str6(f) for f in bfields])
             if not ({where_expression}):
                 continue
             out_fields = [{select_expression}]
             if {sort_flag}:
                 sort_key_value = ({sort_key_expression})
-                unsorted_entries.append((sort_key_value, DLM.join([str6(f) for f in out_fields])))
+                unsorted_entries.append((sort_key_value, '\t'.join([str6(f) for f in out_fields])))
             else:
                 if {top_count} != -1 and writer.NW >= {top_count}:
                     break
-                writer.write(DLM.join([str6(f) for f in out_fields]))
+                writer.write('\t'.join([str6(f) for f in out_fields]))
         except BadFieldError as e:
             bad_idx = e.bad_idx
             raise RbqlRuntimeError('No "a' + str(bad_idx + 1) + '" column at line: ' + str(NR))

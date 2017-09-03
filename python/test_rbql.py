@@ -94,7 +94,7 @@ def run_conversion_test_py(query, input_table, testname, import_modules=None, jo
     out_data = dst.getvalue()
     if len(out_data):
         out_lines = out_data[:-1].split('\n')
-        out_table = [ln.split(delim) for ln in out_lines]
+        out_table = [ln.split('\t') for ln in out_lines]
     else:
         out_table = []
     return out_table
@@ -117,7 +117,7 @@ def run_conversion_test_js(query, input_table, testname, import_modules=None, cs
         raise RuntimeError("Error in file test: {}.\nError text:\n{}\n\nScript location: {}".format(testname, err_data, tmp_path))
     if len(out_data):
         out_lines = out_data[:-1].split('\n')
-        out_table = [ln.split(delim) for ln in out_lines]
+        out_table = [ln.split('\t') for ln in out_lines]
     else:
         out_table = []
     return out_table
@@ -140,7 +140,7 @@ def generate_random_scenario(max_num_rows, max_num_cols, delims):
     num_rows = random.randint(1, max_num_rows)
     num_cols = random.randint(1, max_num_cols)
     delim = random.choice(delims)
-    restricted_chars = ['\r', '\n'] + [delim]
+    restricted_chars = list(set(['\r', '\n', '\t'] + [delim]))
     key_col = random.randint(0, num_cols - 1)
     good_keys = ['Hello', 'Avada Kedavra ', ' ??????', '128', '3q295 fa#(@*$*)', ' abcdefg ', 'NR', 'a1', 'a2']
     input_table = list()
