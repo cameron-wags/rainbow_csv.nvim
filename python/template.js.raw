@@ -1,5 +1,6 @@
 fs = require('fs')
 readline = require('readline');
+rbql_utils = require('./rbql_utils')
 
 var csv_encoding = '{csv_encoding}';
 var DLM = '{dlm}';

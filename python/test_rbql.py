@@ -137,11 +137,19 @@ def make_random_csv_entry(min_len, max_len, restricted_chars):
     return pseudo_latin
 
 
+
+
 def generate_random_scenario(max_num_rows, max_num_cols, delims):
+    #FIXME or I even need a different random test. Create a big table with all sort of csv oddities. or maybe use this table, not sure
+    #FIXME add random quotes around some entries when delim is comma
+    #FIXME add '"' to the list of restricted chars
+    #FIXME remove coma from restricted chars for coma delim, but test if field has coma and add quotes around if it is.
     num_rows = random.randint(1, max_num_rows)
     num_cols = random.randint(1, max_num_cols)
     delim = random.choice(delims)
     restricted_chars = list(set(['\r', '\n', '\t'] + [delim]))
+    if delim == ',':
+        restricted_chars.append('"')
     key_col = random.randint(0, num_cols - 1)
     good_keys = ['Hello', 'Avada Kedavra ', ' ??????', '128', '3q295 fa#(@*$*)', ' abcdefg ', 'NR', 'a1', 'a2']
     input_table = list()
@@ -186,8 +194,8 @@ class TestEverything(unittest.TestCase):
 
     def test_random_bin_tables(self):
         test_name = 'test_random_bin_tables'
-        for subtest in rbql.xrange6(50):
-            input_table, query, canonic_table, delim = generate_random_scenario(12, 12, ['\t', ',', ';'])
+        for subtest in rbql.xrange6(20):
+            input_table, query, canonic_table, delim = generate_random_scenario(200, 6, ['\t', ',', ';'])
             test_table = run_conversion_test_py(query, input_table, test_name, delim=delim)
             self.compare_tables(canonic_table, test_table)
             test_table = run_conversion_test_js(query, input_table, test_name, delim=delim)

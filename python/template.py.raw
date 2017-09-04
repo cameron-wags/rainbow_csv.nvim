@@ -23,6 +23,14 @@ def str6(obj):
 
 DLM = '{dlm}'
 
+
+def smart_split(line):
+    if DLM == ',':
+        return rbql_utils.split_escaped_csv_str(line)
+    else:
+        return line.split(DLM)
+
+
 def rows(f, chunksize=1024, sep='\n'):
     incomplete_row = None
     while True:
@@ -123,7 +131,7 @@ def read_join_table(join_table_path):
     with codecs.open(join_table_path, encoding='{join_encoding}') as src_text:
         for il, line in enumerate(rows(src_text), 1):
             line = line.rstrip('\r\n')
-            bfields = line.split(DLM)
+            bfields = smart_split(line)
             fields_max_len = max(fields_max_len, len(bfields))
             try:
                 key = {rhs_join_var}
@@ -173,12 +181,10 @@ def rb_transform(source, destination):
     writer = {writer_type}(destination)
     joiner = {joiner_type}('{rhs_table_path}')
     for NR, line in enumerate(rows(source), 1):
-        lnum = NR #TODO remove, backcompatibility
         line = line.rstrip('\r\n')
-        fields = line.split(DLM) #FIXME smart split
+        fields = smart_split(line)
         star_line = '\t'.join(fields)
         NF = len(fields)
-        flen = NF #TODO remove, backcompatibility
         bfields = None
         try:
             if joiner is not None:
