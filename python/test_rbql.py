@@ -16,6 +16,7 @@ import codecs
 import io
 import rbql
 import subprocess
+import rbql_utils
 
 #This module must be both python2 and python3 compatible
 
@@ -626,6 +627,33 @@ class TestStringMethods(unittest.TestCase):
         self.assertEqual(a_strp, '')
 
 
+class TestSplitMethods(unittest.TestCase):
+
+    def test_split(self):
+        test_cases = list()
+        test_cases.append(('hello,world', ['hello','world']))
+        test_cases.append(('hello,"world"', ['hello','world']))
+        test_cases.append(('"abc"', ['abc']))
+        test_cases.append(('abc', ['abc']))
+        test_cases.append(('', ['']))
+        test_cases.append((',', ['','']))
+        test_cases.append((',,,', ['','','','']))
+        test_cases.append((',"",,,', ['','','','','']))
+        test_cases.append(('"","",,,""', ['','','','','']))
+        test_cases.append(('"aaa,bbb",', ['aaa,bbb','']))
+        test_cases.append(('"aaa,bbb",ccc', ['aaa,bbb','ccc']))
+        test_cases.append(('"aaa,bbb","ccc"', ['aaa,bbb','ccc']))
+        test_cases.append(('"aaa,bbb","ccc,ddd"', ['aaa,bbb','ccc,ddd']))
+        test_cases.append(('"aaa,bbb",ccc,ddd', ['aaa,bbb','ccc', 'ddd']))
+        test_cases.append(('"a"aa" a,bbb",ccc,ddd', ['a"aa" a,bbb','ccc', 'ddd']))
+        test_cases.append(('"aa, bb, cc",ccc",ddd', ['aa, bb, cc','ccc"', 'ddd']))
+        for tc in test_cases:
+            src = tc[0]
+            canonic_dst = tc[1]
+            test_dst = rbql_utils.split_escaped_csv_str(tc[0])
+            self.assertEqual(test_dst, canonic_dst, msg = '\nsrc: {}\ntest_dst: {}\ncanonic_dst: {}\n'.format(src, test_dst, canonic_dst))
+
+
 def make_random_bin_table(num_rows, num_cols, key_col1, key_col2, delim, dst_path):
     restricted_chars = ['\r', '\n'] + [delim]
     key_col = random.randint(0, num_cols - 1)
@@ -654,8 +682,6 @@ def make_random_bin_table(num_rows, num_cols, key_col1, key_col2, delim, dst_pat
                 f.write('\r\n')
             else:
                 f.write('\n')
-
-
 
 
 def main():

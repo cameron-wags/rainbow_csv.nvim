@@ -7,6 +7,7 @@ import random #for random sort
 import datetime #for date manipulations
 import re #for regexes
 import codecs
+import rbql_utils
 
 {import_expression}
 

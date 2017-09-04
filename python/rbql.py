@@ -5,10 +5,7 @@ from __future__ import print_function
 
 import sys
 import os
-import argparse
 import re
-import tempfile
-import time
 import importlib
 import codecs
 import io
@@ -545,6 +542,8 @@ def print_error_and_exit(error_msg):
 
 
 def run_with_python(args):
+    import time
+    import tempfile
     delim = args.delim
     query = args.query
     query_path = args.query_file
@@ -600,6 +599,8 @@ def run_with_python(args):
 
 
 def run_with_js(args):
+    import time
+    import tempfile
     import subprocess
     if not system_has_node_js():
         print_error_and_exit('Error: Node.js is not found, test command: "node --version"')
@@ -641,6 +642,7 @@ def run_with_js(args):
 
 
 def main():
+    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--delim', help='Delimiter', default=r'\t')
     parser.add_argument('--query', help='Query string in rbql')
