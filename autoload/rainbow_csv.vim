@@ -159,39 +159,38 @@ func! rainbow_csv#rstrip(line)
 endfunc
 
 
-func! rainbow_csv#split_escaped_csv_str(in_line)
-    let line = rainbow_csv#rstrip(a:in_line)
-    let result = []
-    if len(line) == 0
-        return result
+func! rainbow_csv#split_escaped_csv_str(line)
+    if stridx(a:line, '"') == -1
+        return split(a:line, ',', 1)
     endif
+    let result = []
     let cidx = 0
-    if line[0] == ','
+    if a:line[0] == ','
         call add(result, '')
         let cidx = 1
     endif
-    while cidx < len(line)
-        if line[cidx] == '"'
-            let uidx = stridx(line, '",', cidx + 1)
+    while cidx < len(a:line)
+        if a:line[cidx] == '"'
+            let uidx = stridx(a:line, '",', cidx + 1)
             if uidx != -1
                 let uidx = uidx + 1
-            elseif uidx == -1 && line[len(line) - 1] == '"'
-                let uidx = len(line)
+            elseif uidx == -1 && a:line[len(a:line) - 1] == '"'
+                let uidx = len(a:line)
             endif
             if uidx != -1
-                call add(result, strpart(line, cidx, uidx - cidx))
+                call add(result, strpart(a:line, cidx, uidx - cidx))
                 let cidx = uidx + 1
                 continue
             endif
         endif
-        let uidx = stridx(line, ',', cidx)
+        let uidx = stridx(a:line, ',', cidx)
         if uidx == -1
-            let uidx = len(line)
+            let uidx = len(a:line)
         endif
-        call add(result, strpart(line, cidx, uidx - cidx))
+        call add(result, strpart(a:line, cidx, uidx - cidx))
         let cidx = uidx + 1
     endwhile
-    if line[len(line) - 1] == ','
+    if a:line[len(a:line) - 1] == ','
         call add(result, '')
     endif
     return result
@@ -199,10 +198,11 @@ endfunc
 
 
 func! s:smart_split(line, dlm)
+    let stripped = rainbow_csv#rstrip(a:line)
     if a:dlm == ','
-        return rainbow_csv#split_escaped_csv_str(a:line)
+        return rainbow_csv#split_escaped_csv_str(stripped)
     else
-        return split(a:line, a:dlm, 1)
+        return split(stripped, a:dlm, 1)
     endif
 endfunc
 
