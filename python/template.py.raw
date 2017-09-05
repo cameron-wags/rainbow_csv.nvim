@@ -7,9 +7,10 @@ import random #for random sort
 import datetime #for date manipulations
 import re #for regexes
 import codecs
+sys.path.insert(0, '__RBQLMP__rbql_home_dir')
 import rbql_utils
 
-{import_expression}
+__RBQLMP__import_expression
 
 
 PY3 = sys.version_info[0] == 3
@@ -21,7 +22,7 @@ def str6(obj):
         return obj
     return str(obj)
 
-DLM = '{dlm}'
+DLM = '__RBQLMP__dlm'
 
 
 def smart_split(line):
@@ -128,13 +129,13 @@ def read_join_table(join_table_path):
     if not os.path.isfile(join_table_path):
         raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
     result = dict()
-    with codecs.open(join_table_path, encoding='{join_encoding}') as src_text:
+    with codecs.open(join_table_path, encoding='__RBQLMP__join_encoding') as src_text:
         for il, line in enumerate(rows(src_text), 1):
             line = line.rstrip('\r\n')
             bfields = smart_split(line)
             fields_max_len = max(fields_max_len, len(bfields))
             try:
-                key = {rhs_join_var}
+                key = __RBQLMP__rhs_join_var
             except BadFieldError as e:
                 bad_idx = e.bad_idx
                 raise RbqlRuntimeError('No "b' + str(bad_idx + 1) + '" column at line: ' + str(il) + ' in "B" table')
@@ -178,8 +179,8 @@ def main():
 
 def rb_transform(source, destination):
     unsorted_entries = list()
-    writer = {writer_type}(destination)
-    joiner = {joiner_type}('{rhs_table_path}')
+    writer = __RBQLMP__writer_type(destination)
+    joiner = __RBQLMP__joiner_type('__RBQLMP__rhs_table_path')
     for NR, line in enumerate(rows(source), 1):
         line = line.rstrip('\r\n')
         fields = smart_split(line)
@@ -188,18 +189,18 @@ def rb_transform(source, destination):
         bfields = None
         try:
             if joiner is not None:
-                bfields = joiner.get({lhs_join_var})
+                bfields = joiner.get(__RBQLMP__lhs_join_var)
                 if bfields is None:
                     continue
                 star_line = '\t'.join([line] + [str6(f) for f in bfields])
-            if not ({where_expression}):
+            if not (__RBQLMP__where_expression):
                 continue
-            out_fields = [{select_expression}]
-            if {sort_flag}:
-                sort_key_value = ({sort_key_expression})
+            out_fields = [__RBQLMP__select_expression]
+            if __RBQLMP__sort_flag:
+                sort_key_value = (__RBQLMP__sort_key_expression)
                 unsorted_entries.append((sort_key_value, '\t'.join([str6(f) for f in out_fields])))
             else:
-                if {top_count} != -1 and writer.NW >= {top_count}:
+                if __RBQLMP__top_count != -1 and writer.NW >= __RBQLMP__top_count:
                     break
                 writer.write('\t'.join([str6(f) for f in out_fields]))
         except BadFieldError as e:
@@ -209,10 +210,10 @@ def rb_transform(source, destination):
             raise RbqlRuntimeError('Error at line: ' + str(NR) + ', Details: ' + str(e))
     if len(unsorted_entries):
         sorted_entries = sorted(unsorted_entries, key=lambda x: x[0])
-        if {reverse_flag}:
+        if __RBQLMP__reverse_flag:
             sorted_entries.reverse()
         for e in sorted_entries:
-            if {top_count} != -1 and writer.NW >= {top_count}:
+            if __RBQLMP__top_count != -1 and writer.NW >= __RBQLMP__top_count:
                 break
             writer.write(e[1])
 

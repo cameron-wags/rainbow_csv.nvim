@@ -1,201 +1,201 @@
 fs = require('fs')
 readline = require('readline');
-rbql_utils = require('./rbql_utils')
+rbql_utils = require('__RBQLMP__rbql_home_dir/rbql_utils.js')
 
-var csv_encoding = '{csv_encoding}';
-var DLM = '{dlm}';
-var join_table_path = {rhs_table_path};
-var top_count = {top_count};
+var csv_encoding = '__RBQLMP__csv_encoding';
+var DLM = '__RBQLMP__dlm';
+var join_table_path = __RBQLMP__rhs_table_path;
+var top_count = __RBQLMP__top_count;
 
-function strip_cr(line) {{
-    if (line.charAt(line.length - 1) === '\r') {{
+function strip_cr(line) {
+    if (line.charAt(line.length - 1) === '\r') {
         return line.substring(0, line.length - 1);
-    }}
+    }
     return line;
-}}
+}
 
 
 var lineReader = null;
-var src_table_path = {src_table_path};
-if (src_table_path != null) {{
-    lineReader = readline.createInterface({{ input: fs.createReadStream(src_table_path, {{encoding: csv_encoding}}) }});
-}} else {{
+var src_table_path = __RBQLMP__src_table_path;
+if (src_table_path != null) {
+    lineReader = readline.createInterface({ input: fs.createReadStream(src_table_path, {encoding: csv_encoding}) });
+} else {
     process.stdin.setEncoding(csv_encoding);
-    lineReader = readline.createInterface({{ input: process.stdin }});
-}}
+    lineReader = readline.createInterface({ input: process.stdin });
+}
 
 var dst_stream = null;
-var dst_table_path = {dst_table_path};
-if (dst_table_path != null) {{
-    dst_stream = fs.createWriteStream(dst_table_path, {{defaultEncoding: csv_encoding}});
-}} else {{
+var dst_table_path = __RBQLMP__dst_table_path;
+if (dst_table_path != null) {
+    dst_stream = fs.createWriteStream(dst_table_path, {defaultEncoding: csv_encoding});
+} else {
     process.stdout.setDefaultEncoding(csv_encoding);
     dst_stream = process.stdout;
-}}
+}
 
 
 var NR = 0;
 
-function exit_with_error_msg(error_msg) {{
+function exit_with_error_msg(error_msg) {
     process.stderr.write(error_msg);
     process.exit(1);
-}}
+}
 
-function SimpleWriter(dst) {{
+function SimpleWriter(dst) {
     this.dst = dst;
     this.NW = 0;
-    this.write = function(record) {{
+    this.write = function(record) {
         this.dst.write(record);
         this.dst.write('\n');
         this.NW += 1;
-    }}
-}}
+    }
+}
 
-function UniqWriter(dst) {{
+function UniqWriter(dst) {
     this.dst = dst;
     this.seen = new Set();
-    this.write = function(record) {{
-        if (!this.seen.has(record)) {{
+    this.write = function(record) {
+        if (!this.seen.has(record)) {
             this.seen.add(record);
             this.dst.write(record);
             this.dst.write('\n');
-        }}
-    }}
-}}
+        }
+    }
+}
 
 
-function BadFieldError(idx) {{
+function BadFieldError(idx) {
     this.idx = idx;
     this.name = 'BadFieldError';
-}}
+}
 
 
-function safe_get(record, idx) {{
-    if (idx < record.length) {{
+function safe_get(record, idx) {
+    if (idx < record.length) {
         return record[idx];
-    }}
+    }
     throw new BadFieldError(idx);
-}}
+}
 
 
-function read_join_table(table_path) {{
+function read_join_table(table_path) {
     var fields_max_len = 0;
-    content = fs.readFileSync(table_path, {{encoding: csv_encoding}});
+    content = fs.readFileSync(table_path, {encoding: csv_encoding});
     lines = content.split('\n');
     result = new Map();
-    for (var i = 0; i < lines.length; i++) {{
+    for (var i = 0; i < lines.length; i++) {
         var line = strip_cr(lines[i]);
         var bfields = line.split(DLM);
         fields_max_len = Math.max(fields_max_len, bfields.length);
         key = null;
-        try {{
-            key = {rhs_join_var};
-        }} catch (e) {{
-            if (e instanceof BadFieldError) {{
+        try {
+            key = __RBQLMP__rhs_join_var;
+        } catch (e) {
+            if (e instanceof BadFieldError) {
                 exit_with_error_msg('No "b' + (e.idx + 1) + '" column at line: ' + (i + 1) + ' in "B" table')
-            }}
-        }}
-        if (result.has(key)) {{
+            }
+        }
+        if (result.has(key)) {
             exit_with_error_msg('Join column must be unique in right-hand-side "B" table. Found duplicate key: "' + key + '"')
-        }}
+        }
         result.set(key, bfields);
-    }}
+    }
     return [result, fields_max_len];
-}}
+}
 
-function null_join(join_map, max_join_fields, lhs_key) {{
+function null_join(join_map, max_join_fields, lhs_key) {
     return null;
-}}
+}
 
-function inner_join(join_map, max_join_fields, lhs_key) {{
+function inner_join(join_map, max_join_fields, lhs_key) {
     return join_map.get(lhs_key);
-}}
+}
 
 
-function left_join(join_map, max_join_fields, lhs_key) {{
+function left_join(join_map, max_join_fields, lhs_key) {
     var result = join_map.get(lhs_key);
-    if (result == null) {{
+    if (result == null) {
         result = Array(max_join_fields).fill(null);
-    }}
+    }
     return result;
-}}
+}
 
 
-function strict_left_join(join_map, max_join_fields, lhs_key) {{
+function strict_left_join(join_map, max_join_fields, lhs_key) {
     var result = join_map.get(lhs_key);
-    if (result == null) {{
+    if (result == null) {
         exit_with_error_msg('In "strict left join" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found');
-    }}
+    }
     return result;
-}}
+}
 
 
-function stable_compare(a, b) {{
-    for (var i = 0; i < a.length; i++) {{
+function stable_compare(a, b) {
+    for (var i = 0; i < a.length; i++) {
         if (a[i] !== b[i])
             return a[i] < b[i] ? -1 : 1;
-    }}
-}}
+    }
+}
 
 
 var join_map = null;
 var max_join_fields = null;
-if (join_table_path !== null) {{
+if (join_table_path !== null) {
     join_params = read_join_table(join_table_path);
     join_map = join_params[0];
     max_join_fields = join_params[1];
-}}
+}
 
 
-var writer = new {writer_type}(dst_stream);
+var writer = new __RBQLMP__writer_type(dst_stream);
 var unsorted_entries = [];
 
-lineReader.on('line', function (line) {{
+lineReader.on('line', function (line) {
     NR += 1;
     //readline strips last '\r'
     var fields = line.split(DLM);
     var NF = fields.length;
     bfields = null;
     star_line = fields.join('\t');
-    if (join_map != null) {{
-        bfields = {join_function}(join_map, max_join_fields, {lhs_join_var});
+    if (join_map != null) {
+        bfields = __RBQLMP__join_function(join_map, max_join_fields, __RBQLMP__lhs_join_var);
         if (bfields == null)
             return;
         star_line = fields.concat(bfields).join('\t')
-    }}
-    if (!({where_expression}))
+    }
+    if (!(__RBQLMP__where_expression))
         return;
     out_fields = null;
-    try {{
-        out_fields = [{select_expression}]
-    }} catch (e) {{
-        if (e instanceof BadFieldError) {{
+    try {
+        out_fields = [__RBQLMP__select_expression]
+    } catch (e) {
+        if (e instanceof BadFieldError) {
             exit_with_error_msg('No "a' + (e.idx + 1) + '" column at line: ' + NR);
-        }}
-    }}
-    if ({sort_flag}) {{
-        sort_entry = [{sort_key_expression}, NR, out_fields.join('\t')];
+        }
+    }
+    if (__RBQLMP__sort_flag) {
+        sort_entry = [__RBQLMP__sort_key_expression, NR, out_fields.join('\t')];
         unsorted_entries.push(sort_entry);
-    }} else {{
-        if (top_count != -1 && writer.NW >= top_count) {{
+    } else {
+        if (top_count != -1 && writer.NW >= top_count) {
             lineReader.close();
             return;
-        }}
+        }
         writer.write(out_fields.join('\t'));
-    }}
+    }
 
-}});
+});
 
 
-lineReader.on('close', function () {{
-    if (unsorted_entries.length) {{
+lineReader.on('close', function () {
+    if (unsorted_entries.length) {
         unsorted_entries.sort(stable_compare);
-        if ({reverse_flag})
+        if (__RBQLMP__reverse_flag)
             unsorted_entries.reverse();
-        for (var i = 0; i < unsorted_entries.length; i++) {{
+        for (var i = 0; i < unsorted_entries.length; i++) {
             if (top_count != -1 && writer.NW >= top_count)
                 break;
             writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]);
-        }}
-    }}
-}});
+        }
+    }
+});

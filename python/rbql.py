@@ -32,10 +32,10 @@ PY3 = sys.version_info[0] == 3
 column_var_regex = re.compile(r'^a([1-9][0-9]*)$')
 bcolumn_var_regex = re.compile(r'^b([1-9][0-9]*)$')
 
-rbql_script_dir = os.path.dirname(os.path.realpath(__file__))
+rbql_home_dir = os.path.dirname(os.path.realpath(__file__))
 
-js_script_body = codecs.open(os.path.join(rbql_script_dir, 'template.js.raw'), encoding='utf-8').read()
-py_script_body = codecs.open(os.path.join(rbql_script_dir, 'template.py.raw'), encoding='utf-8').read()
+js_script_body = codecs.open(os.path.join(rbql_home_dir, 'template.js.raw'), encoding='utf-8').read()
+py_script_body = codecs.open(os.path.join(rbql_home_dir, 'template.py.raw'), encoding='utf-8').read()
 
 
 def eprint(*args, **kwargs):
@@ -48,6 +48,14 @@ def dynamic_import(module_name):
     except AttributeError:
         pass
     return importlib.import_module(module_name)
+
+
+def str6(obj):
+    if PY3 and isinstance(obj, str):
+        return obj
+    if not PY3 and isinstance(obj, basestring):
+        return obj
+    return str(obj)
 
 
 def get_encoded_stdin(encoding_name):
@@ -214,7 +222,7 @@ def tokenize_terms(tokens):
 
 
 def remove_consecutive_whitespaces(tokens):
-    #TODO/FIXME don't do this. may break some expressions. leave it to the parser
+    #TODO don't do this. may break some expressions. leave it to the parser
     result = list()
     for i in xrange6(len(tokens)):
         if (tokens[i].ttype != TokenType.WHITESPACE) or (i == 0) or (tokens[i - 1].ttype != TokenType.WHITESPACE):
@@ -342,6 +350,13 @@ def parse_join_expression(tokens):
     return (tokens[0], replace_rbql_var(tokens[2]), replace_rbql_var(tokens[4]))
 
 
+def rbql_meta_format(template_src, meta_params):
+    for k, v in meta_params.items():
+        template_marker = '__RBQLMP__{}'.format(k)
+        template_src = template_src.replace(template_marker, str6(v))
+    return template_src
+
+
 def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encoding, import_modules=None):
     if not py_dst.endswith('.py'):
         raise RBParsingError('python module file must have ".py" extension')
@@ -389,6 +404,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     if import_modules is not None:
         for mdl in import_modules:
             import_expression += 'import {}\n'.format(mdl)
+    py_meta_params['rbql_home_dir'] = rbql_home_dir
     py_meta_params['import_expression'] = import_expression
     py_meta_params['dlm'] = escape_delim(delim)
     py_meta_params['join_encoding'] = join_csv_encoding
@@ -431,7 +447,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
         py_meta_params['sort_key_expression'] = order_expression
 
     with codecs.open(py_dst, 'w', encoding='utf-8') as dst:
-        dst.write(py_script_body.format(**py_meta_params))
+        dst.write(rbql_meta_format(py_script_body, py_meta_params))
 
 
 def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_encoding=default_csv_encoding, import_modules=None):
@@ -474,6 +490,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
 
     js_meta_params = dict()
     #TODO require modules feature
+    js_meta_params['rbql_home_dir'] = rbql_home_dir
     js_meta_params['dlm'] = escape_delim(delim)
     js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
     js_meta_params['rhs_join_var'] = rhs_join_var
@@ -517,7 +534,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
         js_meta_params['sort_key_expression'] = order_expression
 
     with codecs.open(js_dst, 'w', encoding='utf-8') as dst:
-        dst.write(js_script_body.format(**js_meta_params))
+        dst.write(rbql_meta_format(js_script_body, js_meta_params))
 
 
 def system_has_node_js():

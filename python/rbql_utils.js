@@ -1,4 +1,4 @@
-module.exports.split_escaped_csv_str = function (src) {
+function split_escaped_csv_str(src) {
     if (src.indexOf('"') == -1)
         return src.split(',')
     var result = [];
@@ -32,3 +32,4 @@ module.exports.split_escaped_csv_str = function (src) {
     return result;
 }
 
+module.exports.split_escaped_csv_str = split_escaped_csv_str;
