@@ -31,7 +31,7 @@ def table_to_string(array2d, delim):
 
 
 def table_to_file(array2d, dst_path, delim='\t'):
-    with open(dst_path, 'w') as f:
+    with codecs.open(dst_path, 'w', 'latin-1') as f:
         for row in array2d:
             f.write(delim.join(row))
             f.write('\n')
@@ -137,21 +137,24 @@ def make_random_csv_entry(min_len, max_len, restricted_chars):
     return pseudo_latin
 
 
+def stochastic_escape(src):
+    assert src.find('"') == -1
+    if src.find(',') == -1 and random.randint(0, 10) > 2:
+        return src
+    return '"{}"'.format(src)
 
 
 def generate_random_scenario(max_num_rows, max_num_cols, delims):
-    #FIXME or I even need a different random test. Create a big table with all sort of csv oddities. or maybe use this table, not sure
-    #FIXME add random quotes around some entries when delim is comma
-    #FIXME add '"' to the list of restricted chars
-    #FIXME remove coma from restricted chars for coma delim, but test if field has coma and add quotes around if it is.
     num_rows = random.randint(1, max_num_rows)
     num_cols = random.randint(1, max_num_cols)
     delim = random.choice(delims)
-    restricted_chars = list(set(['\r', '\n', '\t'] + [delim]))
+    restricted_chars = ['\r', '\n', '\t']
     if delim == ',':
         restricted_chars.append('"')
+    if delim == ';':
+        restricted_chars.append(';')
     key_col = random.randint(0, num_cols - 1)
-    good_keys = ['Hello', 'Avada Kedavra ', ' ??????', '128', '3q295 fa#(@*$*)', ' abcdefg ', 'NR', 'a1', 'a2']
+    good_keys = ['Hello', 'Avada, Keda,vra ', ' ??????', '128', '3q295 fa,#(@*$*)', ' abc,defg ', 'NR', 'a1', 'a2']
     input_table = list()
     for r in rbql.xrange6(num_rows):
         input_table.append(list())
@@ -161,16 +164,22 @@ def generate_random_scenario(max_num_rows, max_num_cols, delims):
             else:
                 input_table[-1].append(random.choice(good_keys))
 
-    output_table = list()
+    canonic_table = list()
     target_key = random.choice(good_keys)
     if random.choice([True, False]):
         sql_op = '!='
-        output_table = [row for row in input_table if row[key_col] != target_key]
+        canonic_table = [row[:] for row in input_table if row[key_col] != target_key]
     else:
         sql_op = '=='
-        output_table = [row for row in input_table if row[key_col] == target_key]
+        canonic_table = [row[:] for row in input_table if row[key_col] == target_key]
     query = 'select * where a{} {} "{}"'.format(key_col + 1, sql_op, target_key)
-    return (input_table, query, output_table, delim)
+
+    if delim == ',':
+        for r in range(len(input_table)):
+            for c in range(len(input_table[r])):
+                input_table[r][c] = stochastic_escape(input_table[r][c])
+
+    return (input_table, query, canonic_table, delim)
 
 
 class TestEverything(unittest.TestCase):
