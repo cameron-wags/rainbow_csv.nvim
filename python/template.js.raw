@@ -7,6 +7,15 @@ var DLM = '__RBQLMP__dlm';
 var join_table_path = __RBQLMP__rhs_table_path;
 var top_count = __RBQLMP__top_count;
 
+
+function smart_split(line) {
+    if (DLM == ',') {
+        return rbql_utils.split_escaped_csv_str(line);
+    } else {
+        return line.split(DLM)
+    }
+}
+
 function strip_cr(line) {
     if (line.charAt(line.length - 1) === '\r') {
         return line.substring(0, line.length - 1);
@@ -85,7 +94,7 @@ function read_join_table(table_path) {
     result = new Map();
     for (var i = 0; i < lines.length; i++) {
         var line = strip_cr(lines[i]);
-        var bfields = line.split(DLM);
+        var bfields = smart_split(line);
         fields_max_len = Math.max(fields_max_len, bfields.length);
         key = null;
         try {
@@ -153,7 +162,7 @@ var unsorted_entries = [];
 lineReader.on('line', function (line) {
     NR += 1;
     //readline strips last '\r'
-    var fields = line.split(DLM);
+    var fields = smart_split(line);
     var NF = fields.length;
     bfields = null;
     star_line = fields.join('\t');

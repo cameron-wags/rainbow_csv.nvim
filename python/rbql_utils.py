@@ -27,5 +27,27 @@ def split_escaped_csv_str(src):
     return result
             
 
+def rows(f, chunksize=1024, sep='\n'):
+    incomplete_row = None
+    while True:
+        chunk = f.read(chunksize)
+        if not chunk:
+            if incomplete_row is not None and len(incomplete_row):
+                yield incomplete_row
+            return
+        while True:
+            i = chunk.find(sep)
+            if i == -1:
+                break
+            if incomplete_row is not None:
+                yield incomplete_row + chunk[:i]
+                incomplete_row = None
+            else:
+                yield chunk[:i]
+            chunk = chunk[i+1:]
+        if incomplete_row is not None:
+            incomplete_row += chunk
+        else:
+            incomplete_row = chunk
 
 
