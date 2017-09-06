@@ -45,29 +45,62 @@ if (dst_table_path != null) {
 
 var NR = 0;
 
+var join_fields_info = new Map();
+var input_fields_info = new Map();
+var null_value_in_output = false;
+var join_table_has_double_quote = false;
+var join_table_has_escaped_quote = false;
+var input_table_has_double_quote = false;
+var input_table_has_escaped_quote = false;
+
+
 function exit_with_error_msg(error_msg) {
-    process.stderr.write(error_msg);
+    var report = new Object();
+    report.error = error_msg
+    process.stderr.write(JSON.stringify(report));
     process.exit(1);
 }
+
+
+//function register_num_fields(fields_info, line_num, line) {
+//    var num_fields = line.split('\t').length;
+//    if (!fields_info.has(num_fields))
+//        fields_info[num_fields] = [line_num, 0];
+//    fields_info[num_fields][1] += 1;
+//}
+
+
+function register_num_fields(fields_info, line_num, line) {
+    var num_fields = line.split('\t').length;
+    if (!fields_info.has(num_fields))
+        fields_info[num_fields] = line_num;
+}
+
 
 function SimpleWriter(dst) {
     this.dst = dst;
     this.NW = 0;
+    this.fields_info = new Map();
     this.write = function(record) {
         this.dst.write(record);
         this.dst.write('\n');
         this.NW += 1;
+        register_num_fields(this.fields_info, this.NW, record);
     }
 }
 
 function UniqWriter(dst) {
     this.dst = dst;
     this.seen = new Set();
+    this.NW = 0;
+    this.fields_info = new Map();
     this.write = function(record) {
         if (!this.seen.has(record)) {
             this.seen.add(record);
             this.dst.write(record);
             this.dst.write('\n');
+            this.NW += 1;
+            register_num_fields(this.fields_info, this.NW, record);
         }
     }
 }
@@ -89,14 +122,21 @@ function safe_get(record, idx) {
 
 function read_join_table(table_path) {
     var fields_max_len = 0;
-    content = fs.readFileSync(table_path, {encoding: csv_encoding});
-    lines = content.split('\n');
-    result = new Map();
+    var content = fs.readFileSync(table_path, {encoding: csv_encoding});
+    var lines = content.split('\n');
+    var result = new Map();
     for (var i = 0; i < lines.length; i++) {
         var line = strip_cr(lines[i]);
+        if (DLM == ',') {
+            join_table_has_double_quote = join_table_has_double_quote || (line.indexOf('""') != -1);
+            join_table_has_escaped_quote = join_table_has_escaped_quote || (line.indexOf('\\"') != -1);
+        }
         var bfields = smart_split(line);
-        fields_max_len = Math.max(fields_max_len, bfields.length);
-        key = null;
+        var num_fields = bfields.length;
+        if (!join_fields_info.has(num_fields))
+            join_fields_info[num_fields] = i + 1;
+        fields_max_len = Math.max(fields_max_len, num_fields);
+        var key = null;
         try {
             key = __RBQLMP__rhs_join_var;
         } catch (e) {
@@ -150,7 +190,7 @@ function stable_compare(a, b) {
 var join_map = null;
 var max_join_fields = null;
 if (join_table_path !== null) {
-    join_params = read_join_table(join_table_path);
+    var join_params = read_join_table(join_table_path);
     join_map = join_params[0];
     max_join_fields = join_params[1];
 }
@@ -164,8 +204,14 @@ lineReader.on('line', function (line) {
     //readline strips last '\r'
     var fields = smart_split(line);
     var NF = fields.length;
-    bfields = null;
-    star_line = fields.join('\t');
+    if (DLM == ',') {
+        input_table_has_double_quote = input_table_has_double_quote || (line.indexOf('""') != -1);
+        input_table_has_escaped_quote = input_table_has_escaped_quote || (line.indexOf('\\"') != -1);
+    }
+    if (!input_fields_info.has(NF))
+        input_fields_info[NF] = NR;
+    var bfields = null;
+    var star_line = fields.join('\t');
     if (join_map != null) {
         bfields = __RBQLMP__join_function(join_map, max_join_fields, __RBQLMP__lhs_join_var);
         if (bfields == null)
@@ -174,7 +220,7 @@ lineReader.on('line', function (line) {
     }
     if (!(__RBQLMP__where_expression))
         return;
-    out_fields = null;
+    var out_fields = null;
     try {
         out_fields = [__RBQLMP__select_expression]
     } catch (e) {
@@ -182,8 +228,13 @@ lineReader.on('line', function (line) {
             exit_with_error_msg('No "a' + (e.idx + 1) + '" column at line: ' + NR);
         }
     }
+    for (var i = 0; i < out_fields.length; i++) {
+        if (out_fields[i] == null) {
+            null_value_in_output = true;
+        }
+    }
     if (__RBQLMP__sort_flag) {
-        sort_entry = [__RBQLMP__sort_key_expression, NR, out_fields.join('\t')];
+        var sort_entry = [__RBQLMP__sort_key_expression, NR, out_fields.join('\t')];
         unsorted_entries.push(sort_entry);
     } else {
         if (top_count != -1 && writer.NW >= top_count) {
@@ -196,6 +247,47 @@ lineReader.on('line', function (line) {
 });
 
 
+//function generate_warnings() {
+//    var has_warnings = false;
+//    has_warnings = has_warnings || input_table_has_double_quote;
+//    has_warnings = has_warnings || input_table_has_escaped_quote;
+//    has_warnings = has_warnings || join_table_has_double_quote;
+//    has_warnings = has_warnings || join_table_has_escaped_quote;
+//    has_warnings = has_warnings || null_value_in_output;
+//    has_warnings = has_warnings || writer.fields_info.size > 1;
+//    has_warnings = has_warnings || input_fields_info.size > 1;
+//    has_warnings = has_warnings || join_fields_info.size > 1;
+//    if (!has_warnings)
+//        return null;
+//    var report = new Object();
+//}
+
+
+function generate_warnings() {
+    var report = new Object();
+
+    if (input_table_has_double_quote)
+        report['input_table_has_double_quote'] = true;
+    if (input_table_has_escaped_quote)
+        report['input_table_has_escaped_quote'] = true;
+    if (join_table_has_double_quote)
+        report['join_table_has_double_quote'] = true;
+    if (join_table_has_escaped_quote)
+        report['join_table_has_escaped_quote'] = true;
+    if (null_value_in_output)
+        report['null_value_in_output'] = true;
+    if (writer.fields_info.size > 1)
+        report['output_fields_info'] = writer.fields_info;
+    if (input_fields_info.size > 1)
+        report['input_fields_info'] = input_fields_info;
+    if (join_fields_info.size > 1)
+        report['join_fields_info'] = join_fields_info;
+
+    if (!Object.keys(report).length)
+        return null;
+    return JSON.stringify(report);
+}
+
 lineReader.on('close', function () {
     if (unsorted_entries.length) {
         unsorted_entries.sort(stable_compare);
@@ -207,4 +299,7 @@ lineReader.on('close', function () {
             writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]);
         }
     }
+    var warnings = generate_warnings();
+    if (warnings)
+        process.stderr.write(warnings);
 });
