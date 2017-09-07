@@ -693,6 +693,17 @@ func! rainbow_csv#copy_file_content_to_buf(src_file_path, dst_buf_no)
 endfunc
 
 
+func! s:ShowImportantMessage(msg_header, msg_lines)
+    echohl ErrorMsg
+    echo a:msg_header
+    echohl None
+    for msg in a:msg_lines
+        echo msg
+    endfor
+    call input("Press ENTER to continue...")
+endfunc
+
+
 func! s:run_select(table_buf_number, rb_script_path)
     if !s:EnsurePythonInitialization()
         return
@@ -714,24 +725,15 @@ func! s:run_select(table_buf_number, rb_script_path)
 
     let [query_status, report] = s:do_run_select(table_path, a:rb_script_path, meta_script_path, dst_table_path, root_delim, meta_language)
     if query_status == "Parsing Error"
-        echohl ErrorMsg
-        echo "Parsing Error"
-        echohl None
-        echo report
+        call s:ShowImportantMessage("Parsing Error!", [report])
         return
     endif
     if query_status == "Execution Error"
-        echohl ErrorMsg
-        echo "Execution Error"
-        echohl None
-        echo report
-        echo "Generated script was saved here: " . meta_script_path
+        call s:ShowImportantMessage("Execution Error!", [report, "Generated script was saved here: " . meta_script_path])
         return
     endif
     if query_status != "OK"
-        echohl ErrorMsg
-        echo "Unknown Error has occured during execution of select query"
-        echohl None
+        call s:ShowImportantMessage("Error!", ["Unknown error has occured"])
         return
     endif
     execute "e " . dst_table_path
@@ -742,14 +744,22 @@ func! s:run_select(table_buf_number, rb_script_path)
     let b:self_buf_number = bufnr("%")
     let table_name = fnamemodify(table_path, ":t")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
-    
+
     call rainbow_csv#enable_rainbow("\t")
 
     nnoremap <buffer> <F4> :bd!<cr>
     nnoremap <buffer> <F6> :call rainbow_csv#create_save_dialog(b:self_buf_number, b:self_path)<cr>
     nnoremap <buffer> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
     setlocal nomodifiable
-    "TODO use filename and buf number of the root table (not immediate parent), you can do a recursive buffers list traversal
+
+    if len(report)
+        let warnings = split(report, "\n")
+        for wnum in range(len(warnings))
+            let warnings[wnum] = 'Warning: ' . warnings[wnum]
+        endfor
+        call s:ShowImportantMessage("Finished with WARNINGS!", warnings)
+    endif
+
     call s:create_recurrent_tip("F4: Close; F5: Recursive query; F6: Save...; F7: Copy to " . table_name)
 endfunc
 

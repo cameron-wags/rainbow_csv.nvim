@@ -559,6 +559,7 @@ def print_error_and_exit(error_msg):
 
 
 def parse_json_report(exit_code, err_data):
+    err_data = err_data.decode('latin-1')
     if not len(err_data) and exit_code == 0:
         return dict()
     try:
@@ -588,13 +589,13 @@ def make_warnings_human_readable(warnings):
     result = list()
     for warning_type, warning_value in warnings.items():
         if warning_type == 'input_table_has_double_quote':
-            result.append('Double quotes in input table. Might be processed not properly.')
+            result.append('Consecutive quotes in input table. Incorrect interpretation is possible.')
         elif warning_type == 'input_table_has_escaped_quote':
-            result.append('Backslash-escaped quotes in input table. Might be processed not properly.')
+            result.append('Backslash-escaped quotes in input table. Incorrect interpretation is possible.')
         elif warning_type == 'join_table_has_double_quote':
-            result.append('Double quotes in join table. Might be processed not properly.')
+            result.append('Consecutive quotes in join table. Incorrect interpretation is possible.')
         elif warning_type == 'join_table_has_escaped_quote':
-            result.append('Backslash-escaped quotes in join table. Might be processed not properly.')
+            result.append('Backslash-escaped quotes in join table. Incorrect interpretation is possible.')
         elif warning_type == 'null_value_in_output':
             result.append('Output has null values.')
         elif warning_type == 'output_fields_info':
