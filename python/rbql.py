@@ -539,23 +539,75 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
 
 def system_has_node_js():
     import subprocess
-    error_code = 0
+    exit_code = 0
     out_data = ''
     try:
         cmd = ['node', '--version']
         pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out_data, err_data = pobj.communicate()
-        error_code = pobj.returncode
+        exit_code = pobj.returncode
     except OSError as e:
         if e.errno == 2:
             return False
         raise
-    return error_code == 0 and len(out_data) and len(err_data) == 0
+    return exit_code == 0 and len(out_data) and len(err_data) == 0
 
 
 def print_error_and_exit(error_msg):
     eprint(error_msg)
     sys.exit(1)
+
+
+def parse_json_report(exit_code, err_data):
+    if not len(err_data) and exit_code == 0:
+        return dict()
+    try:
+        import json
+        report = json.loads(err_data)
+        if exit_code != 0 and 'error' not in report:
+            report['error'] = 'Unknown error'
+        return report
+    except Exception:
+        err_msg = err_data if len(err_data) else 'Unknown error'
+        report = {'error': err_msg}
+        return report
+
+
+def make_inconsistent_num_fields_hr_warning(table_name, inconsistent_lines_info):
+    assert len(inconsistent_lines_info) > 1
+    inconsistent_lines_info = inconsistent_lines_info.items()
+    inconsistent_lines_info = sorted(inconsistent_lines_info, key=lambda v: v[1])
+    num_fields_1, lnum_1 = inconsistent_lines_info[0]
+    num_fields_2, lnum_2 = inconsistent_lines_info[1]
+    warn_msg = 'Number of fields in {} table is not consistent. '.format(table_name)
+    warn_msg += 'E.g. there are {} fields at line {}, and {} fields at line {}.'.format(num_fields_1, lnum_1, num_fields_2, lnum_2)
+    return warn_msg
+
+
+def make_warnings_human_readable(warnings):
+    result = list()
+    for warning_type, warning_value in warnings.items():
+        if warning_type == 'input_table_has_double_quote':
+            result.append('Double quotes in input table. Might be processed not properly.')
+        elif warning_type == 'input_table_has_escaped_quote':
+            result.append('Backslash-escaped quotes in input table. Might be processed not properly.')
+        elif warning_type == 'join_table_has_double_quote':
+            result.append('Double quotes in join table. Might be processed not properly.')
+        elif warning_type == 'join_table_has_escaped_quote':
+            result.append('Backslash-escaped quotes in join table. Might be processed not properly.')
+        elif warning_type == 'null_value_in_output':
+            result.append('Output has null values.')
+        elif warning_type == 'output_fields_info':
+            result.append(make_inconsistent_num_fields_hr_warning('output', warning_value))
+        elif warning_type == 'input_fields_info':
+            result.append(make_inconsistent_num_fields_hr_warning('input', warning_value))
+        elif warning_type == 'join_fields_info':
+            result.append(make_inconsistent_num_fields_hr_warning('join', warning_value))
+        else:
+            print_error_and_exit('Error: unknown warning type: {}'.format(warning_type))
+    for w in result:
+        assert w.find('\n') == -1
+    return result
 
 
 def run_with_python(args):
@@ -649,13 +701,22 @@ def run_with_js(args):
     cmd = ['node', tmp_path]
     pobj = subprocess.Popen(cmd, stderr=subprocess.PIPE)
     err_data = pobj.communicate()[1]
-    error_code = pobj.returncode
-    if len(err_data) or error_code != 0:
-        if not len(err_data):
-            err_data = 'Unknown Error'
-        else:
-            err_data = err_data.decode('latin-1')
-        print_error_and_exit('An error occured during js script execution:\n\n{}\n\n================================================\nGenerated script location: {}'.format(err_data, tmp_path))
+    exit_code = pobj.returncode
+
+    operation_report = parse_json_report(exit_code, err_data)
+    operation_error = operation_report.get('error')
+    if operation_error is not None:
+        error_msg = 'An error occured during js script execution:\n\n{}\n'.format(operation_error)
+        error_msg += '\n================================================\n'
+        error_msg += 'Generated script location: {}'.format(tmp_path)
+        print_error_and_exit(error_msg)
+    warnings = operation_report.get('warnings')
+    if warnings is not None:
+        hr_warnings = make_warnings_human_readable(warnings)
+        for warning in hr_warnings:
+            eprint('Warning: {}'.format(warning))
+
+
 
 
 def main():

@@ -45,8 +45,8 @@ if (dst_table_path != null) {
 
 var NR = 0;
 
-var join_fields_info = new Map();
-var input_fields_info = new Map();
+var join_fields_info = new Object();
+var input_fields_info = new Object();
 var null_value_in_output = false;
 var join_table_has_double_quote = false;
 var join_table_has_escaped_quote = false;
@@ -62,17 +62,9 @@ function exit_with_error_msg(error_msg) {
 }
 
 
-//function register_num_fields(fields_info, line_num, line) {
-//    var num_fields = line.split('\t').length;
-//    if (!fields_info.has(num_fields))
-//        fields_info[num_fields] = [line_num, 0];
-//    fields_info[num_fields][1] += 1;
-//}
-
-
 function register_num_fields(fields_info, line_num, line) {
     var num_fields = line.split('\t').length;
-    if (!fields_info.has(num_fields))
+    if (!fields_info.hasOwnProperty(num_fields))
         fields_info[num_fields] = line_num;
 }
 
@@ -80,7 +72,7 @@ function register_num_fields(fields_info, line_num, line) {
 function SimpleWriter(dst) {
     this.dst = dst;
     this.NW = 0;
-    this.fields_info = new Map();
+    this.fields_info = new Object();
     this.write = function(record) {
         this.dst.write(record);
         this.dst.write('\n');
@@ -93,7 +85,7 @@ function UniqWriter(dst) {
     this.dst = dst;
     this.seen = new Set();
     this.NW = 0;
-    this.fields_info = new Map();
+    this.fields_info = new Object();
     this.write = function(record) {
         if (!this.seen.has(record)) {
             this.seen.add(record);
@@ -133,7 +125,7 @@ function read_join_table(table_path) {
         }
         var bfields = smart_split(line);
         var num_fields = bfields.length;
-        if (!join_fields_info.has(num_fields))
+        if (!join_fields_info.hasOwnProperty(num_fields))
             join_fields_info[num_fields] = i + 1;
         fields_max_len = Math.max(fields_max_len, num_fields);
         var key = null;
@@ -208,7 +200,7 @@ lineReader.on('line', function (line) {
         input_table_has_double_quote = input_table_has_double_quote || (line.indexOf('""') != -1);
         input_table_has_escaped_quote = input_table_has_escaped_quote || (line.indexOf('\\"') != -1);
     }
-    if (!input_fields_info.has(NF))
+    if (!input_fields_info.hasOwnProperty(NF))
         input_fields_info[NF] = NR;
     var bfields = null;
     var star_line = fields.join('\t');
@@ -247,45 +239,28 @@ lineReader.on('line', function (line) {
 });
 
 
-//function generate_warnings() {
-//    var has_warnings = false;
-//    has_warnings = has_warnings || input_table_has_double_quote;
-//    has_warnings = has_warnings || input_table_has_escaped_quote;
-//    has_warnings = has_warnings || join_table_has_double_quote;
-//    has_warnings = has_warnings || join_table_has_escaped_quote;
-//    has_warnings = has_warnings || null_value_in_output;
-//    has_warnings = has_warnings || writer.fields_info.size > 1;
-//    has_warnings = has_warnings || input_fields_info.size > 1;
-//    has_warnings = has_warnings || join_fields_info.size > 1;
-//    if (!has_warnings)
-//        return null;
-//    var report = new Object();
-//}
-
-
 function generate_warnings() {
-    var report = new Object();
+    var warnings = new Object();
 
     if (input_table_has_double_quote)
-        report['input_table_has_double_quote'] = true;
+        warnings['input_table_has_double_quote'] = true;
     if (input_table_has_escaped_quote)
-        report['input_table_has_escaped_quote'] = true;
+        warnings['input_table_has_escaped_quote'] = true;
     if (join_table_has_double_quote)
-        report['join_table_has_double_quote'] = true;
+        warnings['join_table_has_double_quote'] = true;
     if (join_table_has_escaped_quote)
-        report['join_table_has_escaped_quote'] = true;
+        warnings['join_table_has_escaped_quote'] = true;
     if (null_value_in_output)
-        report['null_value_in_output'] = true;
-    if (writer.fields_info.size > 1)
-        report['output_fields_info'] = writer.fields_info;
-    if (input_fields_info.size > 1)
-        report['input_fields_info'] = input_fields_info;
-    if (join_fields_info.size > 1)
-        report['join_fields_info'] = join_fields_info;
-
-    if (!Object.keys(report).length)
+        warnings['null_value_in_output'] = true;
+    if (Object.keys(writer.fields_info).length > 1)
+        warnings['output_fields_info'] = writer.fields_info;
+    if (Object.keys(input_fields_info).length > 1)
+        warnings['input_fields_info'] = input_fields_info;
+    if (Object.keys(join_fields_info).length > 1)
+        warnings['join_fields_info'] = join_fields_info;
+    if (!Object.keys(warnings).length)
         return null;
-    return JSON.stringify(report);
+    return JSON.stringify({'warnings': warnings});
 }
 
 lineReader.on('close', function () {
@@ -299,7 +274,7 @@ lineReader.on('close', function () {
             writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]);
         }
     }
-    var warnings = generate_warnings();
-    if (warnings)
-        process.stderr.write(warnings);
+    var warnings_report = generate_warnings();
+    if (warnings_report)
+        process.stderr.write(warnings_report);
 });

@@ -67,17 +67,18 @@ def execute_js(src_table_path, rb_script_path, meta_script_path, dst_table_path,
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out_data, err_data = pobj.communicate()
     error_code = pobj.returncode
-    if len(err_data) or len(out_data) or error_code != 0:
-        if len(err_data):
-            err_data = err_data.decode('latin-1')
-        else:
-            err_data = out_data.decode('latin-1')
-        if not len(err_data):
-            err_data = 'Unknown Error'
-        report_to_vim('Execution Error', err_data)
-        return
-    report_to_vim('OK')
 
+    operation_report = rbql.parse_json_report(error_code, err_data)
+    operation_error = operation_report.get('error')
+    if operation_error is not None:
+        report_to_vim('Execution Error', operation_error)
+        return
+    warnings = operation_report.get('warnings')
+    warning_report = ''
+    if warnings is not None:
+        hr_warnings = rbql.make_warnings_human_readable(warnings)
+        warning_report = '\n'.join(hr_warnings)
+    report_to_vim('OK', warning_report)
 
 
 def execute(meta_language, src_table_path, rb_script_path, meta_script_path, dst_table_path, delim, csv_encoding=rbql.default_csv_encoding):
