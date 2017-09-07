@@ -48,35 +48,6 @@ def safe_get(record, idx):
         raise BadFieldError(idx)
 
 
-class Flike:
-    def __init__(self):
-        self._cache = dict()
-
-    def _like_to_regex(self, pattern):
-        p = 0
-        i = 0
-        converted = ''
-        while i < len(pattern):
-            if pattern[i] in ['_', '%']:
-                converted += re.escape(pattern[p:i])
-                p = i + 1
-                if pattern[i] == '_':
-                    converted += '.'
-                else:
-                    converted += '.*'
-            i += 1
-        converted += re.escape(pattern[p:i])
-        return '^' + converted + '$'
-
-    def __call__(self, text, pattern):
-        if pattern not in self._cache:
-            rgx = self._like_to_regex(pattern)
-            self._cache[pattern] = re.compile(rgx)
-        return self._cache[pattern].match(text) is not None
-
-flike = Flike()
-
-
 class SimpleWriter:
     def __init__(self, dst):
         self.dst = dst

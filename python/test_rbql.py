@@ -258,30 +258,6 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
 
 
-    def test_run3(self):
-        test_name = 'test3'
-        input_table = list()
-        input_table.append(['5', 'haha', 'hoho'])
-        input_table.append(['-20', 'haha', 'hioho'])
-        input_table.append(['50', 'haha', 'dfdf'])
-        input_table.append(['20', 'haha', ''])
-        input_table.append(['11', 'hoho', ''])
-        input_table.append(['10', 'hihi', ''])
-        input_table.append(['13', 'haha', ''])
-
-        canonic_table = list()
-        canonic_table.append(['50', 'haha', 'dfdf'])
-        canonic_table.append(['20', 'haha', ''])
-        canonic_table.append(['13', 'haha', ''])
-        canonic_table.append(['5', 'haha', 'hoho'])
-        canonic_table.append(['-20', 'haha', 'hioho'])
-
-        query = 'select \t  *  where flike(a2,\t"%a_a") order\tby int(a1)    desc   '
-        test_table = run_conversion_test_py(query, input_table, test_name)
-        self.compare_tables(canonic_table, test_table)
-        #TODO implement flike() in js
-
-
     def test_run4(self):
         test_name = 'test4'
         input_table = list()
