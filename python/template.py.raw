@@ -66,7 +66,7 @@ input_table_has_double_quote = False
 input_table_has_escaped_quote = False
 
 
-def register_num_fields(line_num, line);
+def register_num_fields(line_num, line):
     global output_fields_info
     num_fields = line.count('\t')
     if num_fields not in output_fields_info:
@@ -170,7 +170,7 @@ def replace_none_values(fields):
 
 
 def create_warnings_report():
-    result = dict()
+    warnings = dict()
     if input_table_has_double_quote:
         warnings['input_table_has_double_quote'] = True
     if input_table_has_escaped_quote:
@@ -187,9 +187,9 @@ def create_warnings_report():
         warnings['input_fields_info'] = input_fields_info
     if len(join_fields_info) > 1:
         warnings['join_fields_info'] = join_fields_info
-    if not len(result):
+    if not len(warnings):
         return None
-    return result
+    return warnings
 
 
 def main():
