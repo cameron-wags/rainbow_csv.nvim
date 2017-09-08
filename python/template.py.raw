@@ -16,6 +16,7 @@ __RBQLMP__import_expression
 PY3 = sys.version_info[0] == 3
 
 def str6(obj):
+    #FIXME get rid of this function
     if PY3 and isinstance(obj, str):
         return obj
     if not PY3 and isinstance(obj, basestring):
@@ -48,6 +49,26 @@ def safe_get(record, idx):
         raise BadFieldError(idx)
 
 
+module_was_used_failsafe = False
+
+#For warnings:
+join_fields_info = dict()
+input_fields_info = dict()
+output_fields_info = dict()
+null_value_in_output = False
+join_table_has_double_quote = False
+join_table_has_escaped_quote = False
+input_table_has_double_quote = False
+input_table_has_escaped_quote = False
+
+
+def register_num_fields(line_num, line);
+    global output_fields_info
+    num_fields = line.count('\t')
+    if num_fields not in output_fields_info:
+        output_fields_info[num_fields] = line_num
+
+
 class SimpleWriter:
     def __init__(self, dst):
         self.dst = dst
@@ -57,12 +78,14 @@ class SimpleWriter:
         self.dst.write(record)
         self.dst.write('\n')
         self.NW += 1
+        register_num_fields(self.NW, record)
 
 
 class UniqWriter:
     def __init__(self, dst):
         self.dst = dst
         self.seen = set()
+        self.NW = 0
 
     def write(self, record):
         if record in self.seen:
@@ -70,9 +93,14 @@ class UniqWriter:
         self.seen.add(record)
         self.dst.write(record)
         self.dst.write('\n')
+        self.NW += 1
+        register_num_fields(self.NW, record)
 
 
 def read_join_table(join_table_path):
+    global join_table_has_double_quote
+    global join_table_has_escaped_quote
+    global join_fields_info
     fields_max_len = 0
     if not os.path.isfile(join_table_path):
         raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
@@ -80,8 +108,14 @@ def read_join_table(join_table_path):
     with codecs.open(join_table_path, encoding='__RBQLMP__join_encoding') as src_text:
         for il, line in enumerate(rbql_utils.rows(src_text), 1):
             line = line.rstrip('\r\n')
+            if DLM == ',':
+                join_table_has_double_quote = join_table_has_double_quote or line.find('""') != -1
+                join_table_has_escaped_quote = join_table_has_escaped_quote or line.find('\\"') != -1
             bfields = smart_split(line)
-            fields_max_len = max(fields_max_len, len(bfields))
+            num_fields = len(bfields)
+            fields_max_len = max(fields_max_len, num_fields)
+            if num_fields not in join_fields_info:
+                join_fields_info[num_fields] = il
             try:
                 key = __RBQLMP__rhs_join_var
             except BadFieldError as e:
@@ -121,19 +155,64 @@ class StrictLeftJoiner:
         return result
 
 
+def replace_none_values(fields):
+    global null_value_in_output
+    i = 0
+    while i < len(fields):
+        if fields[i] is None:
+            fields[i] = ''
+            null_value_in_output = True
+        i += 1
+
+
+def create_warnings_report():
+    result = dict()
+    if input_table_has_double_quote:
+        warnings['input_table_has_double_quote'] = True
+    if input_table_has_escaped_quote:
+        warnings['input_table_has_escaped_quote'] = True
+    if join_table_has_double_quote:
+        warnings['join_table_has_double_quote'] = True
+    if join_table_has_escaped_quote:
+        warnings['join_table_has_escaped_quote'] = True
+    if null_value_in_output:
+        warnings['null_value_in_output'] = True
+    if len(output_fields_info) > 1:
+        warnings['output_fields_info'] = output_fields_info
+    if len(input_fields_info) > 1:
+        warnings['input_fields_info'] = input_fields_info
+    if len(join_fields_info) > 1:
+        warnings['join_fields_info'] = join_fields_info
+    if not len(result):
+        return None
+    return result
+
+
 def main():
     rb_transform(sys.stdin, sys.stdout)
 
 
 def rb_transform(source, destination):
+    #FIXME must return dictionary with unformatted warnings or None.
+    global module_was_used_failsafe
+    assert not module_was_used_failsafe
+    module_was_used_failsafe = True
+    global input_table_has_double_quote
+    global input_table_has_escaped_quote
+    global input_fields_info
     unsorted_entries = list()
     writer = __RBQLMP__writer_type(destination)
     joiner = __RBQLMP__joiner_type('__RBQLMP__rhs_table_path')
     for NR, line in enumerate(rbql_utils.rows(source), 1):
         line = line.rstrip('\r\n')
+        if DLM == ',':
+            input_table_has_double_quote = input_table_has_double_quote or line.find('""') != -1
+            input_table_has_escaped_quote = input_table_has_escaped_quote or line.find('\\"') != -1
         fields = smart_split(line)
         star_line = '\t'.join(fields)
         NF = len(fields)
+        if NF not in input_fields_info:
+            input_fields_info[NF] = NR
         bfields = None
         try:
             if joiner is not None:
@@ -144,6 +223,7 @@ def rb_transform(source, destination):
             if not (__RBQLMP__where_expression):
                 continue
             out_fields = [__RBQLMP__select_expression]
+            replace_none_values(out_fields)
             if __RBQLMP__sort_flag:
                 sort_key_value = (__RBQLMP__sort_key_expression)
                 unsorted_entries.append((sort_key_value, '\t'.join([str6(f) for f in out_fields])))
@@ -164,6 +244,7 @@ def rb_transform(source, destination):
             if __RBQLMP__top_count != -1 and writer.NW >= __RBQLMP__top_count:
                 break
             writer.write(e[1])
+    return create_warnings_report()
 
 
 if __name__ == '__main__':

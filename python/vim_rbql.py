@@ -47,7 +47,7 @@ def execute_python(src_table_path, rb_script_path, meta_script_path, dst_table_p
         error_msg += 'Original python exception:\n{}\n'.format(str(e))
         report_to_vim('Execution Error', error_msg)
         tmp_dir = tempfile.gettempdir()
-        with open(os.path.join(tmp_dir, 'last_exception'), 'w') as exc_dst:
+        with open(os.path.join(tmp_dir, 'last_rbql_exception'), 'w') as exc_dst:
             traceback.print_exc(file=exc_dst)
         return
     report_to_vim('OK')
