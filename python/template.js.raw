@@ -47,6 +47,7 @@ var NR = 0;
 
 var join_fields_info = new Object();
 var input_fields_info = new Object();
+var output_fields_info = new Object();
 var null_value_in_output = false;
 var join_table_has_double_quote = false;
 var join_table_has_escaped_quote = false;
@@ -62,22 +63,21 @@ function exit_with_error_msg(error_msg) {
 }
 
 
-function register_num_fields(fields_info, line_num, line) {
+function register_num_fields(line_num, line) {
     var num_fields = line.split('\t').length;
-    if (!fields_info.hasOwnProperty(num_fields))
-        fields_info[num_fields] = line_num;
+    if (!output_fields_info.hasOwnProperty(num_fields))
+        output_fields_info[num_fields] = line_num;
 }
 
 
 function SimpleWriter(dst) {
     this.dst = dst;
     this.NW = 0;
-    this.fields_info = new Object();
     this.write = function(record) {
         this.dst.write(record);
         this.dst.write('\n');
         this.NW += 1;
-        register_num_fields(this.fields_info, this.NW, record);
+        register_num_fields(this.NW, record);
     }
 }
 
@@ -85,14 +85,13 @@ function UniqWriter(dst) {
     this.dst = dst;
     this.seen = new Set();
     this.NW = 0;
-    this.fields_info = new Object();
     this.write = function(record) {
         if (!this.seen.has(record)) {
             this.seen.add(record);
             this.dst.write(record);
             this.dst.write('\n');
             this.NW += 1;
-            register_num_fields(this.fields_info, this.NW, record);
+            register_num_fields(this.NW, record);
         }
     }
 }
@@ -252,8 +251,8 @@ function generate_warnings() {
         warnings['join_table_has_escaped_quote'] = true;
     if (null_value_in_output)
         warnings['null_value_in_output'] = true;
-    if (Object.keys(writer.fields_info).length > 1)
-        warnings['output_fields_info'] = writer.fields_info;
+    if (Object.keys(output_fields_info).length > 1)
+        warnings['output_fields_info'] = output_fields_info;
     if (Object.keys(input_fields_info).length > 1)
         warnings['input_fields_info'] = input_fields_info;
     if (Object.keys(join_fields_info).length > 1)
