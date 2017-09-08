@@ -15,14 +15,14 @@ def vim_sanitize(obj):
 
 
 def set_vim_variable(var_name, value):
+    #FIXME don't use replace quotes hack, escape the quotes
     str_value = value.replace("'", '"')
     vim.command("let {} = '{}'".format(var_name, str_value))
 
 
-def report_to_vim(query_status, details=None):
+def report_to_vim(query_status, details):
     set_vim_variable('query_status', query_status)
-    if details is not None:
-        set_vim_variable('report', details)
+    set_vim_variable('report', details)
 
 
 def execute_python(src_table_path, rb_script_path, meta_script_path, dst_table_path, delim, csv_encoding):
@@ -40,8 +40,14 @@ def execute_python(src_table_path, rb_script_path, meta_script_path, dst_table_p
     sys.path.insert(0, module_dir)
     try:
         rbconvert = rbql.dynamic_import(module_name)
+        warnings = None
         with codecs.open(src_table_path, encoding=csv_encoding) as src, codecs.open(dst_table_path, 'w', encoding=csv_encoding) as dst:
-            rbconvert.rb_transform(src, dst)
+            warnings = rbconvert.rb_transform(src, dst)
+        warning_report = ''
+        if warnings is not None:
+            hr_warnings = rbql.make_warnings_human_readable(warnings)
+            warning_report = '\n'.join(hr_warnings)
+        report_to_vim('OK', warning_report)
     except Exception as e:
         error_msg = 'Error: Unable to use generated python module.\n'
         error_msg += 'Original python exception:\n{}\n'.format(str(e))
@@ -49,8 +55,6 @@ def execute_python(src_table_path, rb_script_path, meta_script_path, dst_table_p
         tmp_dir = tempfile.gettempdir()
         with open(os.path.join(tmp_dir, 'last_rbql_exception'), 'w') as exc_dst:
             traceback.print_exc(file=exc_dst)
-        return
-    report_to_vim('OK')
 
 
 def execute_js(src_table_path, rb_script_path, meta_script_path, dst_table_path, delim, csv_encoding):

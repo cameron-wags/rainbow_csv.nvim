@@ -27,6 +27,10 @@ def str6(obj):
 DLM = '__RBQLMP__dlm'
 
 
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
 def smart_split(line):
     if DLM == ',':
         return rbql_utils.split_escaped_csv_str(line)
@@ -189,7 +193,10 @@ def create_warnings_report():
 
 
 def main():
-    rb_transform(sys.stdin, sys.stdout)
+    warnings = rb_transform(sys.stdin, sys.stdout)
+    if warnings is not None:
+        for k, v in warnings.items():
+            eprint(k, v)
 
 
 def rb_transform(source, destination):

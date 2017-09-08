@@ -597,7 +597,7 @@ def make_warnings_human_readable(warnings):
         elif warning_type == 'join_table_has_escaped_quote':
             result.append('Backslash-escaped quotes in join table. Incorrect interpretation is possible.')
         elif warning_type == 'null_value_in_output':
-            result.append('Output has null values.')
+            result.append('None/null values in output were replaced by empty strings.')
         elif warning_type == 'output_fields_info':
             result.append(make_inconsistent_num_fields_hr_warning('output', warning_value))
         elif warning_type == 'input_fields_info':
@@ -641,7 +641,6 @@ def run_with_python(args):
     module_filename = '{}.py'.format(module_name)
     tmp_path = os.path.join(tmp_dir, module_filename)
     sys.path.insert(0, tmp_dir)
-
     try:
         parse_to_py(rbql_lines, tmp_path, delim, csv_encoding, import_modules)
     except RBParsingError as e:
@@ -655,12 +654,17 @@ def run_with_python(args):
             src = codecs.open(input_path, encoding=csv_encoding)
         else:
             src = get_encoded_stdin(csv_encoding)
+        warnings = None
         if output_path:
             with codecs.open(output_path, 'w', encoding=csv_encoding) as dst:
-                rbconvert.rb_transform(src, dst)
+                warnings = rbconvert.rb_transform(src, dst)
         else:
             dst = get_encoded_stdout(csv_encoding)
-            rbconvert.rb_transform(src, dst)
+            warnings = rbconvert.rb_transform(src, dst)
+        if warnings is not None:
+            hr_warnings = make_warnings_human_readable(warnings)
+            for warning in hr_warnings:
+                eprint('Warning: {}'.format(warning))
     except Exception as e:
         error_msg = 'Error: Unable to use generated python module.\n'
         error_msg += 'Location of the generated module: {}\n\n'.format(tmp_path)
