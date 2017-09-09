@@ -17,7 +17,7 @@ __RBQLMP__import_expression
 PY3 = sys.version_info[0] == 3
 
 def str6(obj):
-    #FIXME get rid of this function
+    #TODO get rid of this function
     if PY3 and isinstance(obj, str):
         return obj
     if not PY3 and isinstance(obj, basestring):
@@ -201,7 +201,6 @@ def main():
 
 
 def rb_transform(source, destination):
-    #FIXME must return dictionary with unformatted warnings or None.
     global module_was_used_failsafe
     assert not module_was_used_failsafe
     module_was_used_failsafe = True

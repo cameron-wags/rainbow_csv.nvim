@@ -15,7 +15,7 @@ def vim_sanitize(obj):
 
 
 def set_vim_variable(var_name, value):
-    #FIXME don't use replace quotes hack, escape the quotes
+    #TODO don't use replace quotes hack, escape the quotes
     str_value = value.replace("'", '"')
     vim.command("let {} = '{}'".format(var_name, str_value))
 
