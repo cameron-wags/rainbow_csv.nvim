@@ -187,6 +187,16 @@ def generate_random_scenario(max_num_rows, max_num_cols, delims):
     return (input_table, query, canonic_table, delim)
 
 
+
+def compare_warnings(tester, canonic_warnings, test_warnings):
+    if canonic_warnings is None:
+        tester.assertTrue(len(test_warnings) == 0)
+        return
+    canonic_warnings = sorted(canonic_warnings.keys())
+    test_warnings = sorted(test_warnings)
+    tester.assertEqual(canonic_warnings, test_warnings)
+
+
 class TestEverything(unittest.TestCase):
 
     @classmethod
@@ -234,12 +244,12 @@ class TestEverything(unittest.TestCase):
         query = 'select NR, a1, len(a3) where int(a1) > 5'
         test_table, warnings = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, list())
 
         query = 'select NR, a1, a3.length where a1 > 5'
         test_table, warnings = run_conversion_test_js(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, list())
 
 
     def test_run2(self):
@@ -263,12 +273,12 @@ class TestEverything(unittest.TestCase):
         query = '\tselect    distinct\ta2 where int(a1) > 10 '
         test_table, warnings = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, ['input_fields_info'])
 
         query = '\tselect    distinct\ta2 where a1 > 10  '
         test_table, warnings = run_conversion_test_js(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, ['input_fields_info'])
 
 
     def test_run4(self):
@@ -288,13 +298,13 @@ class TestEverything(unittest.TestCase):
         query = r'select int(math.sqrt(int(a1))), r"\'\"a   bc"'
         test_table, warnings = run_conversion_test_py(query, input_table, test_name, ['math', 'os'])
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, ['input_fields_info'])
 
         #TODO do not strip consequent whitespaces durint rbql query parsing.
         #query = r'select Math.floor(Math.sqrt(a1)), String.raw`\'\"a   bc`'
         #test_table, warnings = run_conversion_test_js(query, input_table, test_name)
         #self.compare_tables(canonic_table, test_table)
-        #self.assertTrue(warnings is None)
+        #compare_warnings(self, warnings, ['input_fields_info'])
 
 
     def test_run5(self):
@@ -327,6 +337,7 @@ class TestEverything(unittest.TestCase):
         join_table.append(['plane', 'wings  \r'])
         join_table.append(['boat', 'wind\r'])
         join_table.append(['rocket', 'some stuff'])
+        #FIXME js parses last empty line in join table
 
         table_to_file(join_table, join_table_path)
 
@@ -350,12 +361,12 @@ class TestEverything(unittest.TestCase):
         query = r'select NR, * inner join {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
         test_table, warnings = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, list())
 
         query = r'select NR, * inner join {} on a2 == b1 where   b2 !=  "haha" &&  a1 > -100 &&  b2.length >  1 order by a2, parseInt(a1)'.format(join_table_path)
         test_table, warnings = run_conversion_test_js(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, list())
 
 
     def test_run7(self):
@@ -391,12 +402,12 @@ class TestEverything(unittest.TestCase):
         query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
         test_table, warnings = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, ['null_value_in_output'])
 
         #query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
         #test_table, warnings = run_conversion_test_js(query, input_table, test_name)
         #self.compare_tables(canonic_table, test_table)
-        #self.assertTrue(warnings is None)
+        #compare_warnings(self, warnings, ['null_value_in_output'])
 
 
     def test_run8(self):
@@ -471,7 +482,7 @@ class TestEverything(unittest.TestCase):
 
         test_table, warnings = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, list())
 
 
     def test_run11(self):
@@ -490,12 +501,12 @@ class TestEverything(unittest.TestCase):
         query = 'select * where a2== "Наполеон" '
         test_table, warnings = run_conversion_test_py(query, input_table, test_name, join_csv_encoding='utf-8')
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, list())
 
         query = 'select * where a2== "Наполеон" '
         test_table, warnings = run_conversion_test_js(query, input_table, test_name, csv_encoding='utf-8')
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, list())
 
 
     def test_run12(self):
@@ -532,7 +543,7 @@ class TestEverything(unittest.TestCase):
 
         test_table, warnings= run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
-        self.assertTrue(warnings is None)
+        compare_warnings(self, warnings, list())
 
 
 
@@ -591,7 +602,7 @@ class TestFiles(unittest.TestCase):
                     test_md5 = calc_file_md5(result_table)
                     self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
                     #FIXME compare with canonic warnigs instead
-                    self.assertTrue(warnings is None)
+                    compare_warnings(self, warnings, list())
                 
                 else:
                     assert meta_language == 'js'
@@ -607,7 +618,7 @@ class TestFiles(unittest.TestCase):
                     test_md5 = calc_file_md5(result_table)
                     self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
                     #FIXME compare with canonic warnigs instead
-                    self.assertTrue(warnings is None)
+                    compare_warnings(self, warnings, list())
 
 
 
