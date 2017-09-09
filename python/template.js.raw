@@ -118,6 +118,8 @@ function read_join_table(table_path) {
     var result = new Map();
     for (var i = 0; i < lines.length; i++) {
         var line = strip_cr(lines[i]);
+        if (i + 1 == lines.length && line.length == 0)
+            break;
         if (DLM == ',') {
             join_table_has_double_quote = join_table_has_double_quote || (line.indexOf('""') != -1);
             join_table_has_escaped_quote = join_table_has_escaped_quote || (line.indexOf('\\"') != -1);
