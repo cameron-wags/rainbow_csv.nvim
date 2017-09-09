@@ -382,7 +382,6 @@ class TestEverything(unittest.TestCase):
 
         table_to_file(join_table, join_table_path)
 
-
         input_table = list()
         input_table.append(['100', 'magic carpet', 'nimbus 3000'])
         input_table.append(['5', 'car', 'lada'])
@@ -404,10 +403,10 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['null_value_in_output'], warnings)
 
-        #query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
-        #test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        #self.compare_tables(canonic_table, test_table)
-        #compare_warnings(self, ['null_value_in_output'], warnings)
+        query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
+        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, ['null_value_in_output'], warnings)
 
 
     def test_run8(self):
@@ -422,8 +421,6 @@ class TestEverything(unittest.TestCase):
 
         table_to_file(join_table, join_table_path)
 
-        query = r'select b1,b2,   a1 strict left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
-
         input_table = list()
         input_table.append(['5', 'car', 'lada'])
         input_table.append(['-20', 'car', 'ferrari'])
@@ -433,8 +430,15 @@ class TestEverything(unittest.TestCase):
         input_table.append(['200', 'plane', 'boeing 737'])
         input_table.append(['100', 'magic carpet', 'nimbus 3000'])
 
+        query = r'select b1,b2,   a1 strict left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
         with self.assertRaises(Exception) as cm:
             test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        e = cm.exception
+        self.assertTrue(str(e).find('all A table keys must be present in table B') != -1)
+
+        query = r'select b1,b2,   a1 strict left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
+        with self.assertRaises(Exception) as cm:
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
         e = cm.exception
         self.assertTrue(str(e).find('all A table keys must be present in table B') != -1)
 
@@ -452,23 +456,27 @@ class TestEverything(unittest.TestCase):
 
         table_to_file(join_table, join_table_path)
 
-        query = r'select b1,b2,a1 inner join {} on a2 == b1 where b1 != "car"'.format(join_table_path)
-
         input_table = list()
         input_table.append(['5', 'car', 'lada'])
         input_table.append(['-20', 'car', 'ferrari'])
         input_table.append(['50', 'plane', 'tu-134'])
         input_table.append(['200', 'plane', 'boeing 737'])
 
+        query = r'select b1,b2,a1 inner join {} on a2 == b1 where b1 != "car"'.format(join_table_path)
         with self.assertRaises(Exception) as cm:
             test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        e = cm.exception
+        self.assertTrue(str(e).find('Join column must be unique in right-hand-side "B" table') != -1)
+
+        query = r'select b1,b2,a1 inner join {} on a2 == b1 where b1 != "car"'.format(join_table_path)
+        with self.assertRaises(Exception) as cm:
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
         e = cm.exception
         self.assertTrue(str(e).find('Join column must be unique in right-hand-side "B" table') != -1)
 
 
     def test_run10(self):
         test_name = 'test10'
-        query = 'select * where a3 =="hoho" or int(a1)==50 or a1 == "aaaa" or a2== "bbbbb" '
 
         input_table = list()
         input_table.append(['5', 'haha', 'hoho'])
@@ -480,7 +488,12 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['5', 'haha', 'hoho'])
         canonic_table.append(['50', 'haha', 'dfdf'])
 
+        query = 'select * where a3 =="hoho" or int(a1)==50 or a1 == "aaaa" or a2== "bbbbb" '
         test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+        query = 'select * where a3 =="hoho" || parseInt(a1)==50 || a1 == "aaaa" || a2== "bbbbb" '
+        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
@@ -522,8 +535,6 @@ class TestEverything(unittest.TestCase):
 
         table_to_file(join_table, join_table_path)
 
-        query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
-
         input_table = list()
         input_table.append(['5', 'car', 'lada'])
         input_table.append(['-20', 'car', 'Ferrari'])
@@ -541,7 +552,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['3', '50', 'plane', 'tu-134', 'plane', 'wings'])
         canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings'])
 
+        query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
         test_table, warnings= run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" && a1 > -100 && b2.length > 1 order by a2, parseInt(a1)'.format(join_table_path)
+        test_table, warnings= run_conversion_test_js(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
