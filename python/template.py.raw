@@ -17,7 +17,7 @@ __RBQLMP__import_expression
 PY3 = sys.version_info[0] == 3
 
 def str6(obj):
-    #TODO get rid of this function
+    #we have to use this function because str() for python2.7 tries to ascii-encode unicode strings
     if PY3 and isinstance(obj, str):
         return obj
     if not PY3 and isinstance(obj, basestring):

@@ -51,6 +51,7 @@ def dynamic_import(module_name):
 
 
 def str6(obj):
+    #we have to use this function because str() for python2.7 tries to ascii-encode unicode strings
     if PY3 and isinstance(obj, str):
         return obj
     if not PY3 and isinstance(obj, basestring):
