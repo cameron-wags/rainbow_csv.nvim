@@ -47,6 +47,7 @@ def execute_python(src_table_path, rb_script_path, meta_script_path, dst_table_p
         if warnings is not None:
             hr_warnings = rbql.make_warnings_human_readable(warnings)
             warning_report = '\n'.join(hr_warnings)
+        rbql.remove_if_possible(meta_script_path)
         report_to_vim('OK', warning_report)
     except Exception as e:
         error_msg = 'Error: Unable to use generated python module.\n'
@@ -82,6 +83,7 @@ def execute_js(src_table_path, rb_script_path, meta_script_path, dst_table_path,
     if warnings is not None:
         hr_warnings = rbql.make_warnings_human_readable(warnings)
         warning_report = '\n'.join(hr_warnings)
+    rbql.remove_if_possible(meta_script_path)
     report_to_vim('OK', warning_report)
 
 

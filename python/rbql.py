@@ -358,6 +358,13 @@ def rbql_meta_format(template_src, meta_params):
     return template_src
 
 
+def remove_if_possible(file_path):
+    try:
+        os.remove(file_path)
+    except Exception:
+        pass
+
+
 def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encoding, import_modules=None):
     if not py_dst.endswith('.py'):
         raise RBParsingError('python module file must have ".py" extension')
@@ -666,6 +673,7 @@ def run_with_python(args):
             hr_warnings = make_warnings_human_readable(warnings)
             for warning in hr_warnings:
                 eprint('Warning: {}'.format(warning))
+        remove_if_possible(tmp_path)
     except Exception as e:
         error_msg = 'Error: Unable to use generated python module.\n'
         error_msg += 'Location of the generated module: {}\n\n'.format(tmp_path)
@@ -721,6 +729,7 @@ def run_with_js(args):
         hr_warnings = make_warnings_human_readable(warnings)
         for warning in hr_warnings:
             eprint('Warning: {}'.format(warning))
+    remove_if_possible(tmp_path)
 
 
 

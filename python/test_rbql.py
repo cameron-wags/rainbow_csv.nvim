@@ -58,6 +58,9 @@ def run_file_query_test_py(query, input_path, testname, import_modules=None, csv
     warnings = None
     with codecs.open(input_path, encoding=csv_encoding) as src, codecs.open(output_path, 'w', encoding=csv_encoding) as dst:
         warnings = rbconvert.rb_transform(src, dst)
+    assert os.path.exists(tmp_path)
+    rbql.remove_if_possible(tmp_path)
+    assert not os.path.exists(tmp_path)
     return (output_path, warnings)
 
 
@@ -80,6 +83,9 @@ def run_conversion_test_py(query, input_table, testname, import_modules=None, jo
         out_table = [ln.split('\t') for ln in out_lines]
     else:
         out_table = []
+    assert os.path.exists(tmp_path)
+    rbql.remove_if_possible(tmp_path)
+    assert not os.path.exists(tmp_path)
     return (out_table, warnings)
 
 
@@ -102,6 +108,9 @@ def run_file_query_test_js(query, input_path, testname, import_modules=None, csv
     if operation_error is not None:
         raise RuntimeError("Error in file test: {}.\nError text:\n{}\n\nScript location: {}".format(testname, operation_error, tmp_path))
 
+    assert os.path.exists(tmp_path)
+    rbql.remove_if_possible(tmp_path)
+    assert not os.path.exists(tmp_path)
     return (output_path, warnings)
 
 
@@ -127,6 +136,9 @@ def run_conversion_test_js(query, input_table, testname, import_modules=None, cs
     if len(out_data):
         out_lines = out_data[:-1].split('\n')
         out_table = [ln.split('\t') for ln in out_lines]
+    assert os.path.exists(tmp_path)
+    rbql.remove_if_possible(tmp_path)
+    assert not os.path.exists(tmp_path)
     return (out_table, warnings)
 
 
