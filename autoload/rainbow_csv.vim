@@ -714,10 +714,19 @@ func! s:run_select(table_buf_number, rb_script_path)
     let meta_language = s:get_meta_language()
     let script_extension = meta_language == 'python' ? '.py' : '.js'
 
-    let table_path = expand("#" . a:table_buf_number . ":p")
     let meta_script_name = "vim_rb_convert_" .  strftime("%Y_%m_%d_%H_%M_%S") . script_extension
-    let table_name = fnamemodify(table_path, ":t")
     let meta_script_path = s:rainbowStorage . "/" . meta_script_name
+
+    let table_path = expand("#" . a:table_buf_number . ":p")
+    if table_path == ""
+        "For unnamed buffers. E.g. can happen for stdin-read buffer: `cat data.tsv | vim -`
+        let tmp_file_name = "tmp_table_" .  strftime("%Y_%m_%d_%H_%M_%S") . ".txt"
+        let table_path = s:rainbowStorage . "/" . tmp_file_name
+        "TODO highlighting disappears in parrent buffer after this command, fix it.
+        execute "w " . table_path
+    endif
+
+    let table_name = fnamemodify(table_path, ":t")
     let dst_table_path = s:rainbowStorage . "/" . table_name . ".rs"
 
     redraw!
@@ -742,7 +751,6 @@ func! s:run_select(table_buf_number, rb_script_path)
     let b:self_path = dst_table_path
     let b:root_table_buf_number = a:table_buf_number
     let b:self_buf_number = bufnr("%")
-    let table_name = fnamemodify(table_path, ":t")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
 
     call rainbow_csv#enable_rainbow("\t")
