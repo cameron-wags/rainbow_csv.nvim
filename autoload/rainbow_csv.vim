@@ -290,21 +290,6 @@ func! s:read_column_names()
 endfunc
 
 
-func! s:do_run_select(table_path, rb_script_path, meta_script_path, dst_table_path, delim, meta_language)
-    let query_status = 'Unknown error'
-    let report = 'Something went wrong'
-    let py_call = 'vim_rbql.execute("' . a:meta_language . '", "' . a:table_path . '", "' . a:rb_script_path . '", "' . a:meta_script_path . '", "' . a:dst_table_path . '", "' . a:delim . '")'
-    if has("python3")
-        exe 'python3 ' . py_call
-    elseif has("python")
-        exe 'python ' . py_call
-    else
-        return ["python not found", "vim must have 'python' or 'python3' feature installed to run in this mode"]
-    endif
-    return [query_status, report]
-endfunc
-
-
 func! rainbow_csv#clear_current_buf_content()
     let nl = line("$")
     call cursor(1, 1)
@@ -710,12 +695,7 @@ func! s:run_select(table_buf_number, rb_script_path)
     endif
 
     let root_delim = getbufvar(a:table_buf_number, "rainbow_csv_delim")
-
     let meta_language = s:get_meta_language()
-    let script_extension = meta_language == 'python' ? '.py' : '.js'
-
-    let meta_script_name = "vim_rb_convert_" .  strftime("%Y_%m_%d_%H_%M_%S") . script_extension
-    let meta_script_path = s:rainbowStorage . "/" . meta_script_name
 
     let table_path = expand("#" . a:table_buf_number . ":p")
     if table_path == ""
@@ -726,29 +706,32 @@ func! s:run_select(table_buf_number, rb_script_path)
         execute "w " . table_path
     endif
 
-    let table_name = fnamemodify(table_path, ":t")
-    let dst_table_path = s:rainbowStorage . "/" . table_name . ".rs"
+    let psv_query_status = 'Unknown error'
+    let psv_error_report = 'Something went wrong'
+    let psv_warning_report = ''
+    let psv_dst_table_path = ''
 
     redraw!
     echo "executing..."
+    let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path . '", "' . a:rb_script_path . '", "' . root_delim . '")'
+    if has("python3")
+        exe 'python3 ' . py_call
+    elseif has("python")
+        exe 'python ' . py_call
+    else
+        call s:ShowImportantMessage("Error", ["Python not found, vim must have 'python' or 'python3' feature installed to run in this mode"])
+        return
+    endif
 
-    let [query_status, report] = s:do_run_select(table_path, a:rb_script_path, meta_script_path, dst_table_path, root_delim, meta_language)
-    if query_status == "Parsing Error"
-        call s:ShowImportantMessage("Parsing Error!", [report])
+    if psv_query_status != "OK"
+        call s:ShowImportantMessage(psv_query_status, [psv_error_report])
         return
     endif
-    if query_status == "Execution Error"
-        call s:ShowImportantMessage("Execution Error!", [report, "Generated script was saved here: " . meta_script_path])
-        return
-    endif
-    if query_status != "OK"
-        call s:ShowImportantMessage("Error!", ["Unknown error has occured"])
-        return
-    endif
-    execute "e " . dst_table_path
+
+    execute "e " . psv_dst_table_path
+    let b:self_path = psv_dst_table_path
     setlocal noswapfile
     set ft=ignored
-    let b:self_path = dst_table_path
     let b:root_table_buf_number = a:table_buf_number
     let b:self_buf_number = bufnr("%")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
@@ -760,14 +743,15 @@ func! s:run_select(table_buf_number, rb_script_path)
     nnoremap <buffer> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
     setlocal nomodifiable
 
-    if len(report)
-        let warnings = split(report, "\n")
+    if len(psv_warning_report)
+        let warnings = split(psv_warning_report, "\n")
         for wnum in range(len(warnings))
             let warnings[wnum] = 'Warning: ' . warnings[wnum]
         endfor
         call s:ShowImportantMessage("Finished with WARNINGS!", warnings)
     endif
 
+    let table_name = fnamemodify(table_path, ":t")
     call s:create_recurrent_tip("F4: Close; F5: Recursive query; F6: Save...; F7: Copy to " . table_name)
 endfunc
 
