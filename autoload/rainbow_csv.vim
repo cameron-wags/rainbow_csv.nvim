@@ -5,6 +5,7 @@ let s:rainbowSettingsPath = $HOME . '/.rainbow_csv_files'
 
 let s:script_folder_path = fnamemodify(resolve(expand('<sfile>:p')), ':h')
 let s:python_env_initialized = 0
+let s:system_python_interpreter = ''
 
 
 func! s:is_rainbow_table()
@@ -81,6 +82,11 @@ func! rainbow_csv#save_and_swap(dst_path)
 endfunction
 
 
+func! rainbow_csv#dbg_set_system_python_interpreter(interpreter)
+    let s:system_python_interpreter = a:interpreter
+endfunction
+
+
 func! s:SelectDirectory()
     let line = getline('.')
     call feedkeys(":RbSaveAndSwap " . line . "/")
@@ -117,6 +123,21 @@ func! rainbow_csv#create_save_dialog(table_buf_nr, table_path)
 endfunction
 
 
+func! rainbow_csv#find_python_interpreter()
+    "checking `python3` first, because `python` could be theorethically linked to python 2.6
+    let py3_version = tolower(system('python3 --version'))
+    if (v:shell_error == 0 && match(py3_version, 'python 3\.') == 0)
+        let s:system_python_interpreter = 'python3'
+        return
+    endif
+    let py_version = tolower(system('python --version'))
+    if (v:shell_error == 0 && (match(py_version, 'python 2\.7') == 0 || match(py_version, 'python 3\.') == 0))
+        let s:system_python_interpreter = 'python'
+        return
+    endif
+endfunc
+
+
 function! s:EnsurePythonInitialization()
     if (s:python_env_initialized)
         return 1
@@ -132,8 +153,10 @@ function! s:EnsurePythonInitialization()
         exe 'python sys.path.insert(0, "' . s:script_folder_path . '/../python")'
         py import vim_rbql
     else
-        echoerr "vim must have 'python' or 'python3' feature installed to run in this mode"
-        return 0
+        rainbow_csv#find_python_interpreter()
+        if s:system_python_interpreter == ""
+            return 0
+        endif
     endif
     let s:python_env_initialized = 1
     return 1
@@ -628,12 +651,13 @@ func! rainbow_csv#select_mode()
         return
     endif
 
-    if exists("b:selected_buf") && buflisted(b:selected_buf)
-        execute "bd " . b:selected_buf
+    if !s:EnsurePythonInitialization()
+        echoerr "Python not found. Unable to run in this mode."
+        return
     endif
 
-    if !s:EnsurePythonInitialization()
-        return
+    if exists("b:selected_buf") && buflisted(b:selected_buf)
+        execute "bd " . b:selected_buf
     endif
 
     let delim = b:rainbow_csv_delim
@@ -689,8 +713,25 @@ func! s:ShowImportantMessage(msg_header, msg_lines)
 endfunc
 
 
+func! rainbow_csv#parse_report(report_content)
+    let lines = split(a:report_content, "\n")
+    let psv_warning_report = ''
+    let psv_error_report = ''
+    let psv_query_status = (len(lines) > 0 && len(lines[0]) > 0) ? lines[0] : 'Unknown error'
+    let psv_dst_table_path = len(lines) > 1 ? lines[1] : ''
+    let report = join(lines[2:], "\n")
+    if psv_query_status == "OK"
+        let psv_warning_report = report
+    else
+        let psv_error_report = report
+    endif
+    return [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path]
+endfunc
+
+
 func! s:run_select(table_buf_number, rb_script_path)
     if !s:EnsurePythonInitialization()
+        echoerr "Python not found. Unable to run in this mode."
         return
     endif
 
@@ -714,7 +755,18 @@ func! s:run_select(table_buf_number, rb_script_path)
     redraw!
     echo "executing..."
     let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path . '", "' . a:rb_script_path . '", "' . root_delim . '")'
-    if has("python3")
+    if s:system_python_interpreter != ""
+        let rbql_executable_path = s:script_folder_path . '/../python/rbql.py'
+        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), meta_language, shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim)]
+        let cmd = join(cmd_args, ' ')
+        "let cmd = s:system_python_interpreter . ' ' . rbql_executable_path
+        "let cmd = cmd . ' --meta_language ' . meta_language
+        "let cmd = cmd . ' --input_table_path "' . table_path . '"'
+        "let cmd = cmd . ' --query_file "' . a:rb_script_path . '"'
+        "let cmd = cmd . ' --delim "' . root_delim . '"'
+        let report_content = system(cmd)
+        let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = parse_report(report_content)
+    elseif has("python3")
         exe 'python3 ' . py_call
     elseif has("python")
         exe 'python ' . py_call
@@ -915,7 +967,10 @@ func! rainbow_csv#enable_rainbow(delim)
     cnoreabbrev <expr> <buffer> SELECT rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
 
     let b:rainbow_csv_delim = a:delim
-    call s:create_recurrent_tip("Press F5 to enter \"select\" query mode")
+
+    if s:EnsurePythonInitialization()
+        call s:create_recurrent_tip("Press F5 to enter \"select\" query mode")
+    endif
 endfunc
 
 
