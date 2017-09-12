@@ -329,7 +329,7 @@ func! s:single_char_sring(string_len, string_char)
 endfunc
 
 
-func! s:generate_tab_statusline(tabstop_val, template_fields)
+func! rainbow_csv#generate_tab_statusline(tabstop_val, template_fields)
     let result = []
     let space_deficit = 0
     for nf in range(len(a:template_fields))
@@ -355,56 +355,6 @@ func! s:generate_tab_statusline(tabstop_val, template_fields)
 endfunc
 
 
-func! s:assert_equal(lhs, rhs)
-    if a:lhs != a:rhs
-        echoerr 'equal assertion failed: "' . a:lhs . '" != "' . a:rhs '"'
-    endif
-endfunc
-
-
-func! rainbow_csv#run_unit_tests()
-    echomsg "Running unit tests..."
-    "10,a,b,20000,5
-    "a1 a2 a3 a4  a5
-    let test_stln = s:generate_tab_statusline(1, ['10', 'a', 'b', '20000', '5'])
-    let test_stln = join(test_stln, '')
-    let canonic_stln = 'a1 a2 a3 a4  a5'
-    call s:assert_equal(test_stln, canonic_stln)
-
-    "10  a   b   20000   5
-    "a1  a2  a3  a4      a5
-    let test_stln = s:generate_tab_statusline(4, ['10', 'a', 'b', '20000', '5'])
-    let test_stln = join(test_stln, '')
-    let canonic_stln = 'a1  a2  a3  a4      a5'
-    call s:assert_equal(test_stln, canonic_stln)
-
-    let test_cases = [
-        \ ['abc',                                   'abc'],
-        \ ['abc,',                                  'abc;'],
-        \ [',abc',                                  ';abc'],
-        \ ['abc,cdef',                              'abc;cdef'],
-        \ ['"abc",cdef',                            '"abc";cdef'],
-        \ ['abc,"cdef"',                            'abc;"cdef"'],
-        \ ['"a,bc",cdef',                           '"a,bc";cdef'],
-        \ ['abc,"c,def"',                           'abc;"c,def"'],
-        \ ['abc,"cdef,"acdf,"asddf',                'abc;"cdef;"acdf;"asddf'],
-        \ [',',                                     ';'],
-        \ [', ',                                    '; '],
-        \ ['"abc"',                                 '"abc"'],
-        \ [',"haha,hoho",',                         ';"haha,hoho";'],
-        \ [',"bbbb,"cccc,"',                        ';"bbbb,"cccc,"'],
-        \ [',",","',                                ';",";"'],
-        \ ['"a,bc","adf,asf","asdf,asdf,","as,df"', '"a,bc";"adf,asf";"asdf,asdf,";"as,df"'],
-        \ ]
-
-    for nt in range(len(test_cases))
-        let test_str = join(rainbow_csv#split_escaped_csv_str(test_cases[nt][0]), ';')
-        let canonic_str = test_cases[nt][1]
-        call s:assert_equal(test_str, canonic_str)
-    endfor
-
-    echomsg "Finished"
-endfunc
 
 
 func! s:status_escape_string(src)
@@ -446,9 +396,9 @@ func! rainbow_csv#set_statusline_columns()
     let bottom_fields = s:smart_split(bottom_line, delim)
     let status_labels = []
     if delim == "\t"
-        let status_labels = s:generate_tab_statusline(&tabstop, bottom_fields)
+        let status_labels = rainbow_csv#generate_tab_statusline(&tabstop, bottom_fields)
     else
-        let status_labels =  s:generate_tab_statusline(1, bottom_fields)
+        let status_labels =  rainbow_csv#generate_tab_statusline(1, bottom_fields)
     endif
     let max_len = winwidth(0)
     let cur_len = len(indent)

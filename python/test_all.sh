@@ -17,3 +17,16 @@ md5sum_canonic=($( md5sum unit_tests/canonic_result_4.tsv ))
 if [ "$md5sum_canonic" != "$md5sum_test" ] ; then
     echo "CLI test FAIL!"  1>&2
 fi
+
+#vim unit tests:
+rm vim_unit_tests.log 2> /dev/null
+vim -s unit_tests.vim
+total=$( cat vim_unit_tests.log | wc -l )
+started=$( cat vim_unit_tests.log | grep 'Starting' | wc -l )
+finished=$( cat vim_unit_tests.log | grep 'Finished' | wc -l )
+fails=$( cat vim_unit_tests.log | grep 'FAIL' | wc -l )
+if [ $total != 2 ] || [ $started != $finished ] || [ $fails != 0 ] ; then
+    echo "FAIL! unit_tests.vim test has failed"  1>&2
+fi
+
+echo "Finished vim integration tests"
