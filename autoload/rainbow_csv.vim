@@ -128,13 +128,15 @@ func! rainbow_csv#find_python_interpreter()
     let py3_version = tolower(system('python3 --version'))
     if (v:shell_error == 0 && match(py3_version, 'python 3\.') == 0)
         let s:system_python_interpreter = 'python3'
-        return
+        return s:system_python_interpreter
     endif
     let py_version = tolower(system('python --version'))
     if (v:shell_error == 0 && (match(py_version, 'python 2\.7') == 0 || match(py_version, 'python 3\.') == 0))
         let s:system_python_interpreter = 'python'
-        return
+        return s:system_python_interpreter
     endif
+    let s:system_python_interpreter = ''
+    return s:system_python_interpreter
 endfunc
 
 
@@ -153,7 +155,7 @@ function! s:EnsurePythonInitialization()
         exe 'python sys.path.insert(0, "' . s:script_folder_path . '/../python")'
         py import vim_rbql
     else
-        rainbow_csv#find_python_interpreter()
+        call rainbow_csv#find_python_interpreter()
         if s:system_python_interpreter == ""
             return 0
         endif
