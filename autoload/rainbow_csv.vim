@@ -756,16 +756,11 @@ func! s:run_select(table_buf_number, rb_script_path)
     echo "executing..."
     let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path . '", "' . a:rb_script_path . '", "' . root_delim . '")'
     if s:system_python_interpreter != ""
-        let rbql_executable_path = s:script_folder_path . '/../python/rbql.py'
+        let rbql_executable_path = s:script_folder_path . '/../python/vim_rbql.py'
         let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), meta_language, shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim)]
         let cmd = join(cmd_args, ' ')
-        "let cmd = s:system_python_interpreter . ' ' . rbql_executable_path
-        "let cmd = cmd . ' --meta_language ' . meta_language
-        "let cmd = cmd . ' --input_table_path "' . table_path . '"'
-        "let cmd = cmd . ' --query_file "' . a:rb_script_path . '"'
-        "let cmd = cmd . ' --delim "' . root_delim . '"'
         let report_content = system(cmd)
-        let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = parse_report(report_content)
+        let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)
     elseif has("python3")
         exe 'python3 ' . py_call
     elseif has("python")
