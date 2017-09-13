@@ -1,8 +1,7 @@
 :source unit_lib.vim
-:call InitTests()
 :call RunUnitTests()
 
-:call writefile(['Starting full integration tests'], g:rbql_test_log_path, 'a')
+:call add(g:rbql_test_log_records, 'Starting full integration tests')
 
 :e test_datasets/movies.tsv
 
@@ -18,7 +17,7 @@
 
 :let system_py_interpreter = rainbow_csv#find_python_interpreter()
 :let log_msg = system_py_interpreter != '' ? system_py_interpreter : 'FAIL'
-:call writefile([log_msg], g:rbql_test_log_path, 'a')
+:call add(g:rbql_test_log_records, log_msg)
 
 :let g:rbql_meta_language = 'python'
 :Select top 20 a1, * where a7.find('Adventure') != -1 order by int(a4) desc
@@ -30,6 +29,7 @@
 :w ./movies.tsv.system_py.js.rs
 :bd!
 
-:call writefile(['Finished full integration tests'], g:rbql_test_log_path, 'a')
+:call add(g:rbql_test_log_records, 'Finished full integration tests')
+:call writefile(g:rbql_test_log_records, "./vim_unit_tests.log")
 
 :q!

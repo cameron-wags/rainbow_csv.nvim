@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+vim=$1
+
+if [ -z "$vim" ] ; then
+    vim=vim
+fi
+
 python -m unittest test_rbql
 python3 -m unittest test_rbql
 node ./unit_tests.js
@@ -25,13 +31,14 @@ rm movies.tsv.js.rs 2> /dev/null
 rm movies.tsv.system_py.py.rs 2> /dev/null
 rm movies.tsv.system_py.js.rs 2> /dev/null
 
-vim -s unit_tests.vim
+$vim -s unit_tests.vim
 total=$( cat vim_unit_tests.log | wc -l )
 started=$( cat vim_unit_tests.log | grep 'Starting' | wc -l )
 finished=$( cat vim_unit_tests.log | grep 'Finished' | wc -l )
 fails=$( cat vim_unit_tests.log | grep 'FAIL' | wc -l )
 if [ $total != 5 ] || [ $started != $finished ] || [ $fails != 0 ] ; then
-    echo "FAIL! Integration tests failed"  1>&2
+    echo "FAIL! Integration tests failed: log"  1>&2
+    exit 1
 fi
 
 md5sum_test_1=($( md5sum movies.tsv.py.rs ))
@@ -42,7 +49,8 @@ md5sum_canonic=($( md5sum unit_tests/canonic_integration_1.tsv ))
 sanity_len=$( printf "$md5sum_canonic" | wc -c )
 
 if [ "$sanity_len" != 32 ] || [ "$md5sum_test_1" != $md5sum_canonic ] || [ "$md5sum_test_2" != $md5sum_canonic ] || [ "$md5sum_test_3" != $md5sum_canonic ] || [ "$md5sum_test_4" != $md5sum_canonic ] ; then
-    echo "FAIL! Integration tests failed"  1>&2
+    echo "FAIL! Integration tests failed: md5sums"  1>&2
+    exit 1
 fi
 
 rm vim_unit_tests.log 2> /dev/null

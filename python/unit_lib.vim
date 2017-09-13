@@ -1,34 +1,29 @@
-let g:rbql_test_log_path = "./vim_unit_tests.log"
-
-
-func! InitTests()
-    call delete(g:rbql_test_log_path)
-endfunc
+let g:rbql_test_log_records = []
 
 
 func! AssertEqual(lhs, rhs)
     if a:lhs != a:rhs
         let msg = 'FAIL. Equal assertion failed: "' . a:lhs . '" != "' . a:rhs '"'
-        call writefile([msg], g:rbql_test_log_path, 'a')
+        call add(g:rbql_test_log_records, msg)
     endif
 endfunc
 
 
 func! RunUnitTests()
-    call writefile(['Starting Test: Statusline'], g:rbql_test_log_path, 'a')
+    call add(g:rbql_test_log_records, 'Starting Test: Statusline')
     "10,a,b,20000,5
     "a1 a2 a3 a4  a5
     let test_stln = rainbow_csv#generate_tab_statusline(1, ['10', 'a', 'b', '20000', '5'])
-    let test_stln = join(test_stln, '')
+    let test_stln_str = join(test_stln, '')
     let canonic_stln = 'a1 a2 a3 a4  a5'
-    call AssertEqual(test_stln, canonic_stln)
+    call AssertEqual(test_stln_str, canonic_stln)
 
     "10  a   b   20000   5
     "a1  a2  a3  a4      a5
     let test_stln = rainbow_csv#generate_tab_statusline(4, ['10', 'a', 'b', '20000', '5'])
-    let test_stln = join(test_stln, '')
+    let test_stln_str = join(test_stln, '')
     let canonic_stln = 'a1  a2  a3  a4      a5'
-    call AssertEqual(test_stln, canonic_stln)
+    call AssertEqual(test_stln_str, canonic_stln)
 
     let test_cases = [
         \ ['abc',                                   'abc'],
@@ -55,5 +50,5 @@ func! RunUnitTests()
         call AssertEqual(test_str, canonic_str)
     endfor
 
-    call writefile(['Finished Test: Statusline'], g:rbql_test_log_path, 'a')
+    call add(g:rbql_test_log_records, 'Finished Test: Statusline')
 endfunc
