@@ -141,8 +141,8 @@ endfunc
 
 
 function! s:py_source_escape(src)
-    let dst = substitute(a:src, "\\", "\\\\", "g")
-    let dst = substitute(dst, "\t", "\\t", "g")
+    let dst = substitute(a:src, '\\', '\\\\', "g")
+    let dst = substitute(dst, '\t', '\\t', "g")
     return dst
 endfunc
 
