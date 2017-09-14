@@ -38,6 +38,13 @@ js_script_body = codecs.open(os.path.join(rbql_home_dir, 'template.js.raw'), enc
 py_script_body = codecs.open(os.path.join(rbql_home_dir, 'template.py.raw'), encoding='utf-8').read()
 
 
+def normalize_delim(delim):
+    if delim == r'\t':
+        return '\t'
+    return delim
+
+
+
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
@@ -333,10 +340,10 @@ def separate_actions(tokens):
     return result
 
 
-def escape_delim(delim):
-    if delim == '\t':
-        return '\\t'
-    return delim
+def py_source_escape(src):
+    result = src.replace('\\', '\\\\')
+    result = result.replace('\t', '\\t')
+    return result
 
 
 def parse_join_expression(tokens):
@@ -395,7 +402,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
 
     joiner_name = 'none_joiner'
     join_op = None
-    rhs_table_path = None
+    rhs_table_path = 'None'
     lhs_join_var = None
     rhs_join_var = None
     join_ops = {JOIN: 'InnerJoiner', INNER_JOIN: 'InnerJoiner', LEFT_JOIN: 'LeftJoiner', STRICT_LEFT_JOIN: 'StrictLeftJoiner'}
@@ -412,14 +419,14 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     if import_modules is not None:
         for mdl in import_modules:
             import_expression += 'import {}\n'.format(mdl)
-    py_meta_params['rbql_home_dir'] = rbql_home_dir
+    py_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
     py_meta_params['import_expression'] = import_expression
-    py_meta_params['dlm'] = escape_delim(delim)
+    py_meta_params['dlm'] = py_source_escape(delim)
     py_meta_params['join_encoding'] = join_csv_encoding
     py_meta_params['rhs_join_var'] = rhs_join_var
     py_meta_params['writer_type'] = writer_name
     py_meta_params['joiner_type'] = joiner_name
-    py_meta_params['rhs_table_path'] = rhs_table_path
+    py_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
     py_meta_params['lhs_join_var'] = lhs_join_var
     py_meta_params['where_expression'] = 'True'
     if WHERE in rb_actions:
@@ -498,15 +505,15 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
 
     js_meta_params = dict()
     #TODO require modules feature
-    js_meta_params['rbql_home_dir'] = rbql_home_dir
-    js_meta_params['dlm'] = escape_delim(delim)
+    js_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
+    js_meta_params['dlm'] = py_source_escape(delim)
     js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
     js_meta_params['rhs_join_var'] = rhs_join_var
     js_meta_params['writer_type'] = writer_name
     js_meta_params['join_function'] = join_function
-    js_meta_params['src_table_path'] = "null" if src_table_path is None else "'{}'".format(src_table_path)
-    js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(dst_table_path)
-    js_meta_params['rhs_table_path'] = rhs_table_path
+    js_meta_params['src_table_path'] = "null" if src_table_path is None else "'{}'".format(py_source_escape(src_table_path))
+    js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(py_source_escape(dst_table_path))
+    js_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
     js_meta_params['lhs_join_var'] = lhs_join_var
     js_meta_params['where_expression'] = 'true'
     if WHERE in rb_actions:
@@ -622,7 +629,7 @@ def make_warnings_human_readable(warnings):
 def run_with_python(args):
     import time
     import tempfile
-    delim = args.delim
+    delim = normalize_delim(args.delim)
     query = args.query
     query_path = args.query_file
     #convert_only = args.convert_only
@@ -687,7 +694,7 @@ def run_with_js(args):
     import subprocess
     if not system_has_node_js():
         print_error_and_exit('Error: Node.js is not found, test command: "node --version"')
-    delim = args.delim
+    delim = normalize_delim(args.delim)
     query = args.query
     query_path = args.query_file
     #convert_only = args.convert_only
@@ -737,7 +744,7 @@ def run_with_js(args):
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--delim', help='Delimiter', default=r'\t')
+    parser.add_argument('--delim', help='Delimiter', default='\t')
     parser.add_argument('--query', help='Query string in rbql')
     parser.add_argument('--query_file', metavar='FILE', help='Read rbql query from FILE')
     parser.add_argument('--input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')

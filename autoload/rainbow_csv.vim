@@ -140,19 +140,27 @@ func! rainbow_csv#find_python_interpreter()
 endfunc
 
 
+function! s:py_source_escape(src)
+    let dst = substitute(a:src, "\\", "\\\\", "g")
+    let dst = substitute(dst, "\t", "\\t", "g")
+    return dst
+endfunc
+
 function! s:EnsurePythonInitialization()
     if (s:python_env_initialized)
         return 1
     endif
+    let py_home_dir = fnamemodify(s:script_folder_path . '/../python', ":p")
+    let py_home_dir = s:py_source_escape(py_home_dir)
     if has("python3")
         py3 import sys
         py3 import vim
-        exe 'python3 sys.path.insert(0, "' . s:script_folder_path . '/../python")'
+        exe 'python3 sys.path.insert(0, "' . py_home_dir . '")'
         py3 import vim_rbql
     elseif has("python")
         py import sys
         py import vim
-        exe 'python sys.path.insert(0, "' . s:script_folder_path . '/../python")'
+        exe 'python sys.path.insert(0, "' . py_home_dir . '")'
         py import vim_rbql
     else
         call rainbow_csv#find_python_interpreter()
@@ -706,9 +714,12 @@ func! s:run_select(table_buf_number, rb_script_path)
 
     redraw!
     echo "executing..."
-    let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path . '", "' . a:rb_script_path . '", "' . root_delim . '")'
+    let table_path_esc = s:py_source_escape(table_path)
+    let rb_script_path_esc = s:py_source_escape(a:rb_script_path)
+    let root_delim_esc = s:py_source_escape(root_delim)
+    let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path_esc . '", "' . rb_script_path_esc . '", "' . root_delim_esc . '")'
     if s:system_python_interpreter != ""
-        let rbql_executable_path = s:script_folder_path . '/../python/vim_rbql.py'
+        let rbql_executable_path = fnamemodify(s:script_folder_path . '/../python/vim_rbql.py', ":p")
         let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), meta_language, shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim)]
         let cmd = join(cmd_args, ' ')
         let report_content = system(cmd)

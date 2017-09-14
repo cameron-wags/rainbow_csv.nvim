@@ -136,6 +136,7 @@ def do_run_execute(meta_language, src_table_path, rb_script_path, delim, csv_enc
 def run_execute(meta_language, src_table_path, rb_script_path, delim, csv_encoding=rbql.default_csv_encoding):
     global vim_interface
     vim_interface = VimInterface()
+    delim = rbql.normalize_delim(delim)
     do_run_execute(meta_language, src_table_path, rb_script_path, delim, csv_encoding)
 
 
@@ -155,7 +156,8 @@ def main():
     parser.add_argument('delim', help='Delimiter')
     parser.add_argument('--csv_encoding', help='Manually set csv table encoding', default=rbql.default_csv_encoding, choices=['latin-1', 'utf-8'])
     args = parser.parse_args()
-    run_execute_cli(args.meta_language, args.input_table_path, args.query_file, args.delim)
+    delim = rbql.normalize_delim(args.delim)
+    run_execute_cli(args.meta_language, args.input_table_path, args.query_file, delim)
 
 
 if __name__ == '__main__':
