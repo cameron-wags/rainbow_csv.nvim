@@ -631,7 +631,9 @@ func! rainbow_csv#select_mode()
         echoerr "Error: no lines in file"
         return
     endif
-    let num_fields = s:get_num_fields(lines[0], delim)
+
+    let fields = s:smart_split(lines[0], delim)
+    let num_fields = len(fields)
 
     execute "e " . rb_script_path
     setlocal noswapfile
