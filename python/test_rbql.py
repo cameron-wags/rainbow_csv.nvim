@@ -653,33 +653,8 @@ class TestFiles(unittest.TestCase):
 
 
 class TestStringMethods(unittest.TestCase):
-
-    def test_strip(self):
-        a = 'v = "hello" #world  '
-        a_strp = rbql.strip_py_comments(a)
-        self.assertEqual(a_strp, 'v = "hello"')
-        #a = 'v = "hello" //world  '
-        #a_strp = rbql.strip_js_comments(a)
-        #self.assertEqual(a_strp, 'v = "hello"')
-
-    def test_strip2(self):
-        a = r'''v = "hel\"lo" #w'or"ld  '''
-        a_strp = rbql.strip_py_comments(a)
-        self.assertEqual(a_strp, r'''v = "hel\"lo"''')
-        #a = r'''v = "hel\"lo" //w'or"ld  '''
-        #a_strp = rbql.strip_js_comments(a)
-        #self.assertEqual(a_strp, r'''v = "hel\"lo"''')
-
-    def test_strip3(self):
-        a = r'''v = "hello\\" #w'or"ld  '''
-        a_strp = rbql.strip_py_comments(a)
-        self.assertEqual(a_strp, r'''v = "hello\\"''')
-        #a = r'''v = "hello\\" //w'or"ld  '''
-        #a_strp = rbql.strip_js_comments(a)
-        #self.assertEqual(a_strp, r'''v = "hello\\"''')
-
     def test_strip4(self):
-        a = ''' # a comment'''
+        a = ''' # a comment  '''
         a_strp = rbql.strip_py_comments(a)
         self.assertEqual(a_strp, '')
         #a = ''' // a comment'''
@@ -687,7 +662,7 @@ class TestStringMethods(unittest.TestCase):
         #self.assertEqual(a_strp, '')
 
     def test_strip5(self):
-        a = ''' // a comment'''
+        a = ''' // a comment  '''
         a_strp = rbql.strip_js_comments(a)
         self.assertEqual(a_strp, '')
 

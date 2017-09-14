@@ -135,16 +135,8 @@ def strip_py_comments(cline):
     #TODO simplify this, don't remove comments from lines, but skip lines completely if they contain comments
     cline = cline.strip()
     cline = cline.replace('\t', ' ')
-    cur_quote_mark = None
-    for i in xrange6(len(cline)):
-        c = cline[i]
-        if cur_quote_mark is None and c == '#':
-            return cline[:i].rstrip()
-        if cur_quote_mark is None and (c == "'" or c == '"'):
-            cur_quote_mark = c
-            continue
-        if cur_quote_mark is not None and c == cur_quote_mark and not is_escaped_quote(cline, i):
-            cur_quote_mark = None
+    if cline.startswith('#'):
+        return ''
     return cline
 
 
