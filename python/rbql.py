@@ -132,7 +132,6 @@ def is_escaped_quote(cline, i):
 
 
 def strip_py_comments(cline):
-    #TODO simplify this, don't remove comments from lines, but skip lines completely if they contain comments
     cline = cline.strip()
     cline = cline.replace('\t', ' ')
     if cline.startswith('#'):
@@ -161,11 +160,14 @@ class Token:
         self.ttype = ttype
         self.content = content
 
+    def is_whitespace(self):
+        return self.ttype == TokenType.WHITESPACE
+
     def __str__(self):
         return '{}\t{}'.format(self.ttype, self.content)
 
 
-def tokenize_string_literals(lines):
+def tokenize_string_literals(lines, quote_marks):
     result = list()
     for cline in lines:
         cur_quote_mark = None
@@ -173,7 +175,7 @@ def tokenize_string_literals(lines):
         i = 0
         while i < len(cline):
             c = cline[i]
-            if cur_quote_mark is None and (c == "'" or c == '"'):
+            if cur_quote_mark is None and c in quote_marks:
                 cur_quote_mark = c
                 result.append(Token(TokenType.RAW, cline[k:i]))
                 k = i
@@ -221,16 +223,31 @@ def tokenize_terms(tokens):
     return result
 
 
-def remove_consecutive_whitespaces(tokens):
-    #TODO don't do this. may break some expressions. leave it to the parser
+def strip_tokens(tokens):
+    while len(tokens) and tokens[0].is_whitespace():
+        tokens = tokens[1:]
+    while len(tokens) and tokens[-1].is_whitespace():
+        tokens = tokens[:-1]
+    return tokens
+
+
+def merge_consecutive_whitespaces(tokens):
     result = list()
     for i in xrange6(len(tokens)):
-        if (tokens[i].ttype != TokenType.WHITESPACE) or (i == 0) or (tokens[i - 1].ttype != TokenType.WHITESPACE):
+        if tokens[i].is_whitespace() and len(result) and result[-1].is_whitespace():
+            result[-1].content += tokens[i].content
+        else:
             result.append(tokens[i])
-    if len(result) and result[0].ttype == TokenType.WHITESPACE:
-        result = result[1:]
-    if len(result) and result[-1].ttype == TokenType.WHITESPACE:
-        result = result[:-1]
+    return result
+
+
+def merge_consecutive_non_whitespaces(tokens):
+    result = list()
+    for i in xrange6(len(tokens)):
+        if not tokens[i].is_whitespace() and len(result) and not result[-1].is_whitespace():
+            result[-1].content += tokens[i].content
+        else:
+            result.append(tokens[i])
     return result
 
 
@@ -251,17 +268,17 @@ def replace_star_vars(tokens):
         if tokens[i].content != '*':
             continue
         j = i - 1
-        if j >= 0 and tokens[j].content == ' ':
+        if j >= 0 and tokens[j].is_whitespace():
             j -= 1
         if j >= 0:
-            assert tokens[j].content != ' '
+            assert not tokens[j].is_whitespace()
             if not tokens[j].content.endswith(','):
                 continue
         j = i + 1
-        if j < len(tokens) and tokens[j].content == ' ':
+        if j < len(tokens) and tokens[j].is_whitespace():
             j += 1
         if j < len(tokens):
-            assert tokens[j].content != ' '
+            assert not tokens[j].is_whitespace()
             if not tokens[j].content.startswith(','):
                 continue
         tokens[i].content = 'star_line'
@@ -284,6 +301,18 @@ class Pattern:
         self.size = len(self.tokens)
 
 
+def compare_tokens(lhs, rhs):
+    assert len(lhs) == len(rhs)
+    for i in xrange6(len(lhs)):
+        if lhs[i].is_whitespace() and rhs[i].is_whitespace():
+            continue
+        if lhs[i].ttype != rhs[i].ttype:
+            return False
+        if lhs[i].content.upper() != rhs[i].content.upper():
+            return False
+    return True
+
+
 def consume_action(patterns, tokens, idx):
     if tokens[idx].ttype == TokenType.STRING_LITERAL:
         return (None, idx + 1)
@@ -291,20 +320,9 @@ def consume_action(patterns, tokens, idx):
         if idx + pattern.size >= len(tokens):
             continue
         input_slice = tokens[idx:idx + pattern.size]
-        if [t.content.upper() for t in input_slice] != [t.content for t in pattern.tokens]:
-            continue
-        if [t.ttype for t in input_slice] != [t.ttype for t in pattern.tokens]:
-            continue
-        return (pattern.text, idx + pattern.size)
+        if compare_tokens(input_slice, pattern.tokens):
+            return (pattern.text, idx + pattern.size)
     return (None, idx + 1)
-
-
-def strip_tokens(tokens):
-    while len(tokens) and tokens[0].content == ' ':
-        tokens = tokens[1:]
-    while len(tokens) and tokens[-1].content == ' ':
-        tokens = tokens[:-1]
-    return tokens
 
 
 def separate_actions(tokens):
@@ -340,7 +358,8 @@ def py_source_escape(src):
 
 def parse_join_expression(tokens):
     syntax_err_msg = 'Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"'
-    tokens = join_tokens(tokens).split(' ')
+    tokens = merge_consecutive_non_whitespaces(tokens)
+    tokens = [t.content for t in tokens if not t.is_whitespace()]
     if len(tokens) != 5 or tokens[1].upper() != 'ON' or tokens[3] != '==':
         raise RBParsingError(syntax_err_msg)
     if column_var_regex.match(tokens[4]) is not None:
@@ -376,9 +395,10 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
 
     rbql_lines = [l for l in rbql_lines if len(l)]
 
-    tokens = tokenize_string_literals(rbql_lines)
+    tokens = tokenize_string_literals(rbql_lines, ['"', "'"])
     tokens = tokenize_terms(tokens)
-    tokens = remove_consecutive_whitespaces(tokens)
+    tokens = merge_consecutive_whitespaces(tokens)
+    tokens = strip_tokens(tokens)
     rb_actions = separate_actions(tokens)
 
     select_op = None
@@ -427,7 +447,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     if select_op == SELECT_TOP:
         try:
             py_meta_params['top_count'] = int(rb_actions[select_op][0].content)
-            assert rb_actions[select_op][1].content == ' '
+            assert rb_actions[select_op][1].is_whitespace()
             rb_actions[select_op] = rb_actions[select_op][2:]
         except Exception:
             raise RBParsingError('Unable to parse "TOP" expression')
@@ -464,9 +484,10 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
 
     rbql_lines = [l for l in rbql_lines if len(l)]
 
-    tokens = tokenize_string_literals(rbql_lines)
+    tokens = tokenize_string_literals(rbql_lines, ['"', "'", '`'])
     tokens = tokenize_terms(tokens)
-    tokens = remove_consecutive_whitespaces(tokens)
+    tokens = merge_consecutive_whitespaces(tokens)
+    tokens = strip_tokens(tokens)
     rb_actions = separate_actions(tokens)
 
     select_op = None

@@ -304,22 +304,23 @@ class TestEverything(unittest.TestCase):
         input_table.append(['4', 'haha', 'dfdf', 'asdfa', '111'])
 
         canonic_table = list()
-        canonic_table.append(['0', r"\'\"a   bc"])
-        canonic_table.append(['3', r"\'\"a   bc"])
-        canonic_table.append(['9', r"\'\"a   bc"])
-        canonic_table.append(['2', r"\'\"a   bc"])
+        canonic_table.append(['0', r"\'\"a1   bc"])
+        canonic_table.append(['3', r"\'\"a1   bc"])
+        canonic_table.append(['9', r"\'\"a1   bc"])
+        canonic_table.append(['2', r"\'\"a1   bc"])
 
-        query = r'select int(math.sqrt(int(a1))), r"\'\"a   bc"'
+        query = r'select int(math.sqrt(int(a1))), r"\'\"a1   bc"'
         test_table, warnings = run_conversion_test_py(query, input_table, test_name, ['math', 'os'])
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['input_fields_info'], warnings)
 
-        #TODO do not strip consequent whitespaces durint rbql query parsing.
-        #query = r'select Math.floor(Math.sqrt(a1)), String.raw`\'\"a   bc`'
-        #test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        #self.compare_tables(canonic_table, test_table)
-        #compare_warnings(self, ['input_fields_info'], warnings)
+        query = r'select Math.floor(Math.sqrt(a1)), String.raw`\'\"a1   bc`'
+        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, ['input_fields_info'], warnings)
 
+
+    #TODO add test with js regex with multiple spaces and check that it is preserved during parsing
 
     def test_run5(self):
         test_name = 'test5'
@@ -564,12 +565,12 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['3', '50', 'plane', 'tu-134', 'plane', 'wings'])
         canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings'])
 
-        query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
+        query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order   by a2, int(a1)'.format(join_table_path)
         test_table, warnings= run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
-        query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" && a1 > -100 && b2.length > 1 order by a2, parseInt(a1)'.format(join_table_path)
+        query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" && a1 > -100 && b2.length > 1 order    by a2, parseInt(a1)'.format(join_table_path)
         test_table, warnings= run_conversion_test_js(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
