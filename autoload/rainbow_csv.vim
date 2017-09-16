@@ -635,8 +635,13 @@ func! rainbow_csv#select_mode()
     let fields = s:smart_split(lines[0], delim)
     let num_fields = len(fields)
 
-    execute "e " . rb_script_path
+    set splitbelow
+    execute "split " . rb_script_path
     setlocal noswapfile
+    if bufnr("%") == buf_number
+        echoerr "Something went wrong"
+        return
+    endif
 
     nnoremap <buffer> <F5> :RbRun<cr>
     let b:table_path = buf_path
