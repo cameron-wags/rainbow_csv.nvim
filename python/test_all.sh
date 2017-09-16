@@ -32,14 +32,16 @@ rm movies.tsv.system_py.js.rs 2> /dev/null
 rm movies.tsv.f5_ui.py.rs 2> /dev/null
 
 rm vim_unit_tests.log 2> /dev/null
+rm vim_debug.log 2> /dev/null
 
-$vim -s unit_tests.vim
+$vim -s unit_tests.vim -V0vim_debug.log
+errors=$( cat vim_debug.log | grep '^E[0-9][0-9]*' | wc -l )
 total=$( cat vim_unit_tests.log | wc -l )
 started=$( cat vim_unit_tests.log | grep 'Starting' | wc -l )
 finished=$( cat vim_unit_tests.log | grep 'Finished' | wc -l )
 fails=$( cat vim_unit_tests.log | grep 'FAIL' | wc -l )
 if [ $total != 5 ] || [ $started != $finished ] || [ $fails != 0 ] ; then
-    echo "FAIL! Integration tests failed: log"  1>&2
+    echo "FAIL! Integration tests failed: see vim_unit_test.log"  1>&2
     exit 1
 fi
 
@@ -64,5 +66,11 @@ rm movies.tsv.system_py.js.rs 2> /dev/null
 rm movies.tsv.f5_ui.py.rs 2> /dev/null
 
 rm vim_unit_tests.log 2> /dev/null
+
+if [ $errors != 0 ] || [ ! -e vim_debug.log ] ; then
+    echo "Warning: some errors were detected during vim integration testing, see vim_debug.log"  1>&2
+else
+    rm vim_debug.log 2> /dev/null
+fi
 
 echo "Finished vim integration tests"
