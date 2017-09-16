@@ -576,6 +576,28 @@ class TestEverything(unittest.TestCase):
         compare_warnings(self, None, warnings)
 
 
+    def test_run13(self):
+        test_name = 'test13'
+
+        input_table = list()
+        input_table.append(['5', 'haha   asdf', 'hoho'])
+        input_table.append(['50', 'haha  asdf', 'dfdf'])
+        input_table.append(['20', 'haha    asdf', ''])
+        input_table.append(['-20', 'haha   asdf', 'hioho'])
+
+        canonic_table = list()
+        canonic_table.append(['5', 'haha   asdf', 'hoho'])
+        canonic_table.append(['-20', 'haha   asdf', 'hioho'])
+
+        query = r'select * where re.search("a   as", a2)  is   not  None'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+        query = r'select * where /a   as/.test(a2)'
+        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
 
 def calc_file_md5(fname):
     import hashlib
@@ -658,9 +680,6 @@ class TestStringMethods(unittest.TestCase):
         a = ''' # a comment  '''
         a_strp = rbql.strip_py_comments(a)
         self.assertEqual(a_strp, '')
-        #a = ''' // a comment'''
-        #a_strp = rbql.strip_js_comments(a)
-        #self.assertEqual(a_strp, '')
 
     def test_strip5(self):
         a = ''' // a comment  '''
