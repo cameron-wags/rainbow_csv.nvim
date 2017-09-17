@@ -416,10 +416,10 @@ func! rainbow_csv#set_statusline_columns()
     let rb_statusline = s:status_escape_string(rb_statusline)
     execute "set statusline=" . rb_statusline
     augroup StatusDisableGrp
-        autocmd CursorHold call rainbow_csv#restore_statusline()
-        autocmd CursorMoved call rainbow_csv#restore_statusline()
-        autocmd WinEnter call rainbow_csv#restore_statusline()
-        autocmd WinLeave call rainbow_csv#restore_statusline()
+        autocmd CursorHold * call rainbow_csv#restore_statusline()
+        autocmd CursorMoved * call rainbow_csv#restore_statusline()
+        autocmd WinEnter * call rainbow_csv#restore_statusline()
+        autocmd WinLeave * call rainbow_csv#restore_statusline()
     augroup END
     redraw!
 endfunc
