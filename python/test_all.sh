@@ -34,7 +34,7 @@ rm movies.tsv.f5_ui.py.rs 2> /dev/null
 rm vim_unit_tests.log 2> /dev/null
 rm vim_debug.log 2> /dev/null
 
-$vim -s unit_tests.vim -V0vim_debug.log
+$vim -s unit_tests.vim -V0vim_debug.log -u test_vimrc
 errors=$( cat vim_debug.log | grep '^E[0-9][0-9]*' | wc -l )
 total=$( cat vim_unit_tests.log | wc -l )
 started=$( cat vim_unit_tests.log | grep 'Starting' | wc -l )
