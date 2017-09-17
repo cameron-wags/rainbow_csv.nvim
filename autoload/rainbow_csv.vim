@@ -905,6 +905,7 @@ func! rainbow_csv#enable_rainbow(delim)
     endif
 
     set laststatus=2
+    set nocompatible
 
     nnoremap <buffer> <F5> :RbSelect<cr>
     nnoremap <buffer> <Leader>d :RbGetColumn<cr>
