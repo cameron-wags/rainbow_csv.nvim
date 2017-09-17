@@ -1,15 +1,33 @@
 #!/usr/bin/env bash
 
-vim=$1
+vim=vim
+skip_python_ut="False"
 
-if [ -z "$vim" ] ; then
-    vim=vim
+while test ${#} -gt 0
+do
+  if [ $1 == "--vim" ]; then
+      shift
+      vim=$1
+      shift
+  elif [ $1 == "--skip_python_ut" ]; then
+      shift
+      skip_python_ut="True"
+  else
+      echo "Error. Unknown parameter: $1" 1>&2
+      shift
+      exit 1
+  fi
+done
+
+
+if [ $skip_python_ut == "False" ]; then
+    python -m unittest test_rbql
+    python3 -m unittest test_rbql
+else
+    echo "Skipping python unit tests"
 fi
 
-python -m unittest test_rbql
-python3 -m unittest test_rbql
 node ./unit_tests.js
-
 
 #Some CLI tests:
 md5sum_test=($( ./rbql.py --query "select a1,a2,a7,b2,b3,b4 left join test_datasets/countries.tsv on a2 == b1 where 'Sci-Fi' in a7.split('|') and b2!='US' and int(a4) > 2010" < test_datasets/movies.tsv | md5sum))
