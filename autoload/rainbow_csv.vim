@@ -9,7 +9,7 @@ let s:system_python_interpreter = ''
 
 
 func! s:is_rainbow_table()
-    return exists("b:rainbow_csv_delim") && len(b:rainbow_csv_delim)
+    return exists("b:rainbow_csv_delim")
 endfunc
 
 
@@ -364,7 +364,7 @@ endfunc
 
 
 func! rainbow_csv#restore_statusline()
-    if !exists("b:statusline_before") || !len(b:statusline_before)
+    if !exists("b:statusline_before")
         return
     endif
     augroup StatusDisableGrp
@@ -372,7 +372,7 @@ func! rainbow_csv#restore_statusline()
     augroup END
     let escaped_statusline = s:status_escape_string(b:statusline_before)
     execute "set statusline=" . escaped_statusline
-    let b:statusline_before=''
+    unlet b:statusline_before
 endfunc
 
 
@@ -380,7 +380,7 @@ func! rainbow_csv#set_statusline_columns()
     if !s:is_rainbow_table()
         return
     endif
-    if !exists("b:statusline_before") || !len(b:statusline_before)
+    if !exists("b:statusline_before")
         let b:statusline_before = &statusline 
     endif
     let delim = b:rainbow_csv_delim
@@ -416,10 +416,10 @@ func! rainbow_csv#set_statusline_columns()
     let rb_statusline = s:status_escape_string(rb_statusline)
     execute "set statusline=" . rb_statusline
     augroup StatusDisableGrp
-        autocmd CursorHold <buffer> call rainbow_csv#restore_statusline()
-        autocmd CursorMoved <buffer> call rainbow_csv#restore_statusline()
-        autocmd WinEnter <buffer> call rainbow_csv#restore_statusline()
-        autocmd WinLeave <buffer> call rainbow_csv#restore_statusline()
+        autocmd CursorHold call rainbow_csv#restore_statusline()
+        autocmd CursorMoved call rainbow_csv#restore_statusline()
+        autocmd WinEnter call rainbow_csv#restore_statusline()
+        autocmd WinLeave call rainbow_csv#restore_statusline()
     augroup END
     redraw!
 endfunc
@@ -824,7 +824,9 @@ endfunc
 
 
 func! rainbow_csv#run_autodetection()
-    let b:rainbow_csv_delim = ''
+    if exists("b:rainbow_csv_delim")
+        unlet b:rainbow_csv_delim
+    endif
     let delim = s:try_load_from_settings() 
     if delim == 'DISABLED'
         return
@@ -965,7 +967,9 @@ func! s:disable_rainbow()
     augroup END
     unmap <buffer> <F5>
     unmap <buffer> <Leader>d
-    let b:rainbow_csv_delim = ''
+    if exists("b:rainbow_csv_delim")
+        unlet b:rainbow_csv_delim
+    endif
 endfunc
 
 
