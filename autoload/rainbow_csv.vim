@@ -273,18 +273,7 @@ func! s:auto_detect_delimiter(delimiters)
 endfunc
 
 
-let s:pairs = [
-    \ ['darkred',     'darkred'],
-    \ ['darkblue',    'darkblue'],
-    \ ['darkgreen',   'darkgreen'],
-    \ ['darkmagenta', 'darkmagenta'],
-    \ ['darkcyan',    'darkcyan'],
-    \ ['red',         'red'],
-    \ ['blue',        'blue'],
-    \ ['green',       'green'],
-    \ ['magenta',     'magenta'],
-    \ ['NONE',        'NONE'],
-    \ ]
+let s:pairs = [['darkred', 'darkred'], ['darkblue', 'darkblue'], ['darkgreen', 'darkgreen'], ['darkmagenta', 'darkmagenta'], ['darkcyan', 'darkcyan'], ['red', 'red'], ['blue', 'blue'], ['green', 'green'], ['magenta', 'magenta'], ['NONE', 'NONE']]
 
 
 let s:pairs = exists('g:rcsv_colorpairs') ? g:rcsv_colorpairs : s:pairs
@@ -914,6 +903,8 @@ func! rainbow_csv#enable_rainbow(delim)
     if (len(s:pairs) < 2 || s:is_rainbow_table())
         return
     endif
+
+    set laststatus=2
 
     nnoremap <buffer> <F5> :RbSelect<cr>
     nnoremap <buffer> <Leader>d :RbGetColumn<cr>
