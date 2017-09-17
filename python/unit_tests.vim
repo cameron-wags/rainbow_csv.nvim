@@ -30,8 +30,6 @@
 :bd!
 
 
-:call rainbow_csv#dbg_set_system_python_interpreter("")
-
 :let g:rbql_meta_language = 'python'
 :RbSelect
 :call setline(11, "Select top 20 a1, * where a7.find('Adventure') != -1 order by int(a4) desc")
