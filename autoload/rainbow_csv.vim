@@ -900,6 +900,15 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 endfunc
 
+func! rainbow_csv#regenerate_syntax(delim)
+    syntax clear
+    if a:delim == ','
+        call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
+    else
+        call rainbow_csv#generate_rainbow_syntax(a:delim)
+    endif
+endfunc
+
 
 func! rainbow_csv#enable_rainbow(delim)
     if (len(s:pairs) < 2 || s:is_rainbow_table())
@@ -912,13 +921,8 @@ func! rainbow_csv#enable_rainbow(delim)
     nnoremap <buffer> <F5> :RbSelect<cr>
     nnoremap <buffer> <Leader>d :RbGetColumn<cr>
 
-    if a:delim == ','
-        call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
-    else
-        call rainbow_csv#generate_rainbow_syntax(a:delim)
-    endif
+    call rainbow_csv#regenerate_syntax(a:delim)
     call s:generate_status_highlighting()
-
     highlight status_line_default_hl ctermbg=black guibg=black
 
     cnoreabbrev <expr> <buffer> Select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'

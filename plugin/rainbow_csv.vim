@@ -6,8 +6,11 @@
 func! s:TryLoadHighlighting()
     if !exists("b:current_syntax") && !exists("g:disable_rainbow_csv_autodetect") && !exists("b:rainbow_csv_delim")
         call rainbow_csv#run_autodetection()
+    elseif exists("b:rainbow_csv_delim")
+        call rainbow_csv#regenerate_syntax(b:rainbow_csv_delim)
     endif
 endfunc
+
 
 augroup RainbowAutodetectAuGrp
     autocmd!
