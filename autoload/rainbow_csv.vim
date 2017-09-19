@@ -868,7 +868,6 @@ endfunc
 
 
 func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
-    "INFO csv escaped highlighting doesn't have to follow all excel rules and the worst outcome is broken highlighting in some lines
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
@@ -879,9 +878,9 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
 
         let match = 'escaped_column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
-        let cmd = 'syntax match %s /%s"[^"]*"$/'
+        let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"$/'
         exe printf(cmd, match, a:delim)
-        let cmd = 'syntax match %s /%s"[^"]*"%s/me=e-1 nextgroup=escaped_column%d,column%d'
+        let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column%d,column%d'
         exe printf(cmd, match, a:delim, a:delim, nextgroup, nextgroup)
 
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
@@ -892,9 +891,9 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
     let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 
-    let cmd = 'syntax match startcolumn_escaped /^"[^"]*"$/'
+    let cmd = 'syntax match startcolumn_escaped /^"\([^"]*""\)*[^"]*"$/'
     exe cmd
-    let cmd = 'syntax match startcolumn_escaped /^"[^"]*"%s/me=e-1 nextgroup=escaped_column1,column1'
+    let cmd = 'syntax match startcolumn_escaped /^"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column1,column1'
     exe printf(cmd, a:delim)
     let cmd = 'highlight startcolumn_escaped ctermfg=%s guifg=%s'
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
