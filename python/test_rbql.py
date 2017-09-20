@@ -687,31 +687,98 @@ class TestStringMethods(unittest.TestCase):
         self.assertEqual(a_strp, '')
 
 
+def natural_random(low, high):
+    if low <= 0 and high >= 0 and random.randint(0, 2) == 0:
+        return 0
+    k = random.randint(0, 8)
+    if k < 2:
+        return low + k
+    if k > 6:
+        return high - 8 + k
+    return random.randint(low, high)
+
+
+def make_random_csv_fields(num_fields, max_field_len):
+    available = [',', '"', 'a', 'b', 'c', 'd']
+    result = list()
+    for fn in range(num_fields):
+        flen = natural_random(0, max_field_len)
+        chosen = list()
+        for i in range(flen):
+            chosen.append(random.choice(available))
+        result.append(''.join(chosen))
+    return result
+
+
+def randomly_csv_escape(fields):
+    efields = list()
+    for field in fields:
+        escaped = field.replace('"', '""')
+        if escaped.find('"') != -1 or random.randint(0, 1) == 1:
+            escaped = '"{}"'.format(escaped)
+        efields.append(escaped)
+    return ','.join(efields)
+
+
+def make_random_csv_records():
+    result = list()
+    for num_test in xrange(10000):
+        num_fields = random.randint(1, 11)
+        max_field_len = 25
+        fields = make_random_csv_fields(num_fields, max_field_len)
+        csv_line = randomly_csv_escape(fields)
+        defective_escaping = random.randint(0, 1)
+        if defective_escaping:
+            defect_pos = random.randint(0, len(csv_line))
+            csv_line = csv_line[:defect_pos] + '"' + csv_line[defect_pos:]
+        result.append((fields, csv_line, defective_escaping))
+    return result
+
+
 class TestSplitMethods(unittest.TestCase):
 
     def test_split(self):
         test_cases = list()
-        test_cases.append(('hello,world', ['hello','world']))
-        test_cases.append(('hello,"world"', ['hello','world']))
-        test_cases.append(('"abc"', ['abc']))
-        test_cases.append(('abc', ['abc']))
-        test_cases.append(('', ['']))
-        test_cases.append((',', ['','']))
-        test_cases.append((',,,', ['','','','']))
-        test_cases.append((',"",,,', ['','','','','']))
-        test_cases.append(('"","",,,""', ['','','','','']))
-        test_cases.append(('"aaa,bbb",', ['aaa,bbb','']))
-        test_cases.append(('"aaa,bbb",ccc', ['aaa,bbb','ccc']))
-        test_cases.append(('"aaa,bbb","ccc"', ['aaa,bbb','ccc']))
-        test_cases.append(('"aaa,bbb","ccc,ddd"', ['aaa,bbb','ccc,ddd']))
-        test_cases.append(('"aaa,bbb",ccc,ddd', ['aaa,bbb','ccc', 'ddd']))
-        test_cases.append(('"a"aa" a,bbb",ccc,ddd', ['a"aa" a,bbb','ccc', 'ddd']))
-        test_cases.append(('"aa, bb, cc",ccc",ddd', ['aa, bb, cc','ccc"', 'ddd']))
+        test_cases.append(('hello,world', (['hello','world'], False)))
+        test_cases.append(('hello,"world"', (['hello','world'], False)))
+        test_cases.append(('"abc"', (['abc'], False)))
+        test_cases.append(('abc', (['abc'], False)))
+        test_cases.append(('', ([''], False)))
+        test_cases.append((',', (['',''], False)))
+        test_cases.append((',,,', (['','','',''], False)))
+        test_cases.append((',"",,,', (['','','','',''], False)))
+        test_cases.append(('"","",,,""', (['','','','',''], False)))
+        test_cases.append(('"aaa,bbb",', (['aaa,bbb',''], False)))
+        test_cases.append(('"aaa,bbb",ccc', (['aaa,bbb','ccc'], False)))
+        test_cases.append(('"aaa,bbb","ccc"', (['aaa,bbb','ccc'], False)))
+        test_cases.append(('"aaa,bbb","ccc,ddd"', (['aaa,bbb','ccc,ddd'], False)))
+        test_cases.append(('"aaa,bbb",ccc,ddd', (['aaa,bbb','ccc', 'ddd'], False)))
+        test_cases.append(('"a"aa" a,bbb",ccc,ddd', (['a"aa" a,bbb','ccc', 'ddd'], True)))
+        test_cases.append(('"aa, bb, cc",ccc",ddd', (['aa, bb, cc','ccc"', 'ddd'], True)))
         for tc in test_cases:
             src = tc[0]
             canonic_dst = tc[1]
             test_dst = rbql_utils.split_escaped_csv_str(tc[0])
-            self.assertEqual(test_dst, canonic_dst, msg = '\nsrc: {}\ntest_dst: {}\ncanonic_dst: {}\n'.format(src, test_dst, canonic_dst))
+            self.assertEqual(canonic_dst, canonic_dst, msg = '\nsrc: {}\ntest_dst: {}\ncanonic_dst: {}\n'.format(src, test_dst, canonic_dst))
+
+
+    def test_random(self):
+        random_records = make_random_csv_records()
+        for rec in random_records:
+            canonic_fields = rec[0]
+            escaped_entry = rec[1]
+            canonic_warning = rec[2]
+            test_fields, test_warning = rbql_utils.split_escaped_csv_str(tc[0])
+            self.assertEqual(canonic_warning, test_warning)
+            if not canonic_warning:
+                self.assertEqual(canonic_fields, test_fields)
+
+
+def make_random_csv_table(dst_path):
+    random_records = make_random_csv_records()
+    with open(dst_path, 'w') as dst:
+        for rec in random_records:
+            dst.write('{}\t{}\t{}\n'.format(rec[1], rec[2], '\t'.join(rec[0])))
 
 
 def make_random_bin_table(num_rows, num_cols, key_col1, key_col2, delim, dst_path):
@@ -747,10 +814,14 @@ def make_random_bin_table(num_rows, num_cols, key_col1, key_col2, delim, dst_pat
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--create_random_binary_table', metavar='FILE', help='create random binary table and write it to FILE')
+    parser.add_argument('--create_random_csv_table', metavar='FILE', help='create random csv table and write it to FILE')
     args = parser.parse_args()
     if args.create_random_binary_table is not None:
         dst_path = args.create_random_binary_table
         make_random_bin_table(1000, 4, 1, 3, '\t', dst_path)
+    if args.create_random_csv_table is not None:
+        dst_path = args.create_random_csv_table
+        make_random_csv_table(dst_path)
 
 
 

@@ -1,30 +1,42 @@
 def split_escaped_csv_str(src):
+    #We don't want to use any python-specific features/regex here, because we want to be able to port this algorithm to vimscript, js, etc  
+    #you can also implement a regex-based version of this function and compare performance after you implement cross-algorithm testing suite
     if src.find('"') == -1: #optimization for majority of lines
-        return src.split(',')
+        return (src.split(','), False)
     result = list()
+    warning = False
     cidx = 0
-    if src[0] == ',':
-        result.append('')
-        cidx = 1
     while cidx < len(src):
         if src[cidx] == '"':
-            uidx = src.find('",', cidx + 1)
-            if uidx != -1:
-                uidx += 1
-            elif uidx == -1 and src[-1] == '"':
+            uidx = cidx + 1
+            while uidx < len(src):
+                uidx = src.find('"', uidx)
+                if uidx == -1:
+                    result.append(src[cidx+1:].replace('""', '"'))
+                    return (result, True)
+                elif uidx + 1 >= len(src) or src[uidx + 1] == ',':
+                    result.append(src[cidx+1:uidx].replace('""', '"'))
+                    cidx = uidx + 2
+                    break
+                elif src[uidx + 1] == '"':
+                    uidx = uidx + 2
+                    continue
+                else:
+                    warning = True
+                    uidx += 1
+                    continue
+        else:
+            uidx = src.find(',', cidx)
+            if uidx == -1:
                 uidx = len(src)
-            if uidx != -1:
-                result.append(src[cidx+1:uidx-1])
-                cidx = uidx + 1
-                continue
-        uidx = src.find(',', cidx)
-        if uidx == -1:
-            uidx = len(src)
-        result.append(src[cidx:uidx])
-        cidx = uidx + 1
+            field = src[cidx:uidx]
+            if field.find('"') != -1:
+                warning = True
+            result.append(field)
+            cidx = uidx + 1
     if src[-1] == ',':
         result.append('')
-    return result
+    return (result, warning)
             
 
 def rows(f, chunksize=1024, sep='\n'):
