@@ -194,6 +194,7 @@ endfunc
 
 func! rainbow_csv#split_escaped_csv_str(line)
     if stridx(a:line, '"') == -1
+        "Optimization for majority of lines
         return split(a:line, ',', 1)
     endif
     let result = []
