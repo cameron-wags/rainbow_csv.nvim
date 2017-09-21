@@ -616,16 +616,12 @@ def make_inconsistent_num_fields_hr_warning(table_name, inconsistent_lines_info)
 def make_warnings_human_readable(warnings):
     result = list()
     for warning_type, warning_value in warnings.items():
-        if warning_type == 'input_table_has_double_quote':
-            result.append('Consecutive quotes in input table. Incorrect interpretation is possible.')
-        elif warning_type == 'input_table_has_escaped_quote':
-            result.append('Backslash-escaped quotes in input table. Incorrect interpretation is possible.')
-        elif warning_type == 'join_table_has_double_quote':
-            result.append('Consecutive quotes in join table. Incorrect interpretation is possible.')
-        elif warning_type == 'join_table_has_escaped_quote':
-            result.append('Backslash-escaped quotes in join table. Incorrect interpretation is possible.')
-        elif warning_type == 'null_value_in_output':
+        if warning_type == 'null_value_in_output':
             result.append('None/null values in output were replaced by empty strings.')
+        elif warning_type == 'defective_csv_line_in_input':
+            result.append('Defective double quote escaping in input table. E.g. at line {}.'.format(warning_value))
+        elif warning_type == 'defective_csv_line_in_join':
+            result.append('Defective double quote escaping in join table. E.g. at line {}.'.format(warning_value))
         elif warning_type == 'output_fields_info':
             result.append(make_inconsistent_num_fields_hr_warning('output', warning_value))
         elif warning_type == 'input_fields_info':
