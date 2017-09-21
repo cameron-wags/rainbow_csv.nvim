@@ -31,7 +31,6 @@ Minimalistic SQL-like language that supports "select" queries with Python or Jav
 * Use one of the "join" keywords to run join query
 * Input csv/tsv table may contain varying number of entries (but select query must be written in a way that prevents output of missing values)
 * UTF-8 and unicode are supported
-* you can enter select query in vim command line 
 
 ### Supported SQL Keywords (Keywords are case insensitive)
 * select 
