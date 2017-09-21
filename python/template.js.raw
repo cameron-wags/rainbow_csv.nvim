@@ -12,7 +12,7 @@ function smart_split(line) {
     if (DLM == ',') {
         return rbql_utils.split_escaped_csv_str(line);
     } else {
-        return line.split(DLM)
+        return [line.split(DLM), false];
     }
 }
 
@@ -49,10 +49,8 @@ var join_fields_info = new Object();
 var input_fields_info = new Object();
 var output_fields_info = new Object();
 var null_value_in_output = false;
-var join_table_has_double_quote = false;
-var join_table_has_escaped_quote = false;
-var input_table_has_double_quote = false;
-var input_table_has_escaped_quote = false;
+var defective_csv_line_in_input = 0
+var defective_csv_line_in_join = 0
 
 
 function exit_with_error_msg(error_msg) {
@@ -120,11 +118,11 @@ function read_join_table(table_path) {
         var line = strip_cr(lines[i]);
         if (i + 1 == lines.length && line.length == 0)
             break;
-        if (DLM == ',') {
-            join_table_has_double_quote = join_table_has_double_quote || (line.indexOf('""') != -1);
-            join_table_has_escaped_quote = join_table_has_escaped_quote || (line.indexOf('\\"') != -1);
-        }
-        var bfields = smart_split(line);
+        var split_result = smart_split(line);
+        var bfields = split_result[0];
+        var warning = split_result[1];
+        if (warning && !defective_csv_line_in_join)
+            defective_csv_line_in_join = i + 1;
         var num_fields = bfields.length;
         if (!join_fields_info.hasOwnProperty(num_fields))
             join_fields_info[num_fields] = i + 1;
@@ -195,12 +193,12 @@ var unsorted_entries = [];
 lineReader.on('line', function (line) {
     NR += 1;
     //readline strips last '\r'
-    var fields = smart_split(line);
+    var split_result = smart_split(line);
+    var fields = split_result[0];
+    var warning = split_result[1];
+    if (warning && !defective_csv_line_in_input)
+        defective_csv_line_in_input = NR;
     var NF = fields.length;
-    if (DLM == ',') {
-        input_table_has_double_quote = input_table_has_double_quote || (line.indexOf('""') != -1);
-        input_table_has_escaped_quote = input_table_has_escaped_quote || (line.indexOf('\\"') != -1);
-    }
     if (!input_fields_info.hasOwnProperty(NF))
         input_fields_info[NF] = NR;
     var bfields = null;
@@ -243,16 +241,12 @@ lineReader.on('line', function (line) {
 function generate_warnings() {
     var warnings = new Object();
 
-    if (input_table_has_double_quote)
-        warnings['input_table_has_double_quote'] = true;
-    if (input_table_has_escaped_quote)
-        warnings['input_table_has_escaped_quote'] = true;
-    if (join_table_has_double_quote)
-        warnings['join_table_has_double_quote'] = true;
-    if (join_table_has_escaped_quote)
-        warnings['join_table_has_escaped_quote'] = true;
     if (null_value_in_output)
         warnings['null_value_in_output'] = true;
+    if (defective_csv_line_in_input)
+        warnings['defective_csv_line_in_input'] = defective_csv_line_in_input;
+    if (defective_csv_line_in_join)
+        warnings['defective_csv_line_in_join'] = defective_csv_line_in_join;
     if (Object.keys(output_fields_info).length > 1)
         warnings['output_fields_info'] = output_fields_info;
     if (Object.keys(input_fields_info).length > 1)
