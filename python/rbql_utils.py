@@ -19,7 +19,7 @@ def split_escaped_csv_str(src):
                     cidx = uidx + 2
                     break
                 elif src[uidx + 1] == '"':
-                    uidx = uidx + 2
+                    uidx += 2
                     continue
                 else:
                     warning = True
