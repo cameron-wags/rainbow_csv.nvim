@@ -32,13 +32,6 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def smart_split(line):
-    if DLM == ',':
-        return rbql_utils.split_escaped_csv_str(line)
-    else:
-        return line.split(DLM)
-
-
 class BadFieldError(Exception):
     def __init__(self, bad_idx):
         self.bad_idx = bad_idx
@@ -61,10 +54,15 @@ join_fields_info = dict()
 input_fields_info = dict()
 output_fields_info = dict()
 null_value_in_output = False
-join_table_has_double_quote = False
-join_table_has_escaped_quote = False
-input_table_has_double_quote = False
-input_table_has_escaped_quote = False
+defective_csv_line_in_input = 0
+defective_csv_line_in_join = 0
+
+
+def smart_split(line):
+    if DLM == ',':
+        return rbql_utils.split_escaped_csv_str(line)
+    else:
+        return (line.split(DLM), 0)
 
 
 def register_num_fields(line_num, line):
@@ -103,9 +101,8 @@ class UniqWriter:
 
 
 def read_join_table(join_table_path):
-    global join_table_has_double_quote
-    global join_table_has_escaped_quote
     global join_fields_info
+    global defective_csv_line_in_join
     fields_max_len = 0
     if not os.path.isfile(join_table_path):
         raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
@@ -113,10 +110,9 @@ def read_join_table(join_table_path):
     with codecs.open(join_table_path, encoding='__RBQLMP__join_encoding') as src_text:
         for il, line in enumerate(rbql_utils.rows(src_text), 1):
             line = line.rstrip('\r\n')
-            if DLM == ',':
-                join_table_has_double_quote = join_table_has_double_quote or line.find('""') != -1
-                join_table_has_escaped_quote = join_table_has_escaped_quote or line.find('\\"') != -1
-            bfields = smart_split(line)
+            bfields, warning = smart_split(line)
+            if warning and not defective_csv_line_in_join:
+                defective_csv_line_in_join = il
             num_fields = len(bfields)
             fields_max_len = max(fields_max_len, num_fields)
             if num_fields not in join_fields_info:
@@ -172,14 +168,10 @@ def replace_none_values(fields):
 
 def create_warnings_report():
     warnings = dict()
-    if input_table_has_double_quote:
-        warnings['input_table_has_double_quote'] = True
-    if input_table_has_escaped_quote:
-        warnings['input_table_has_escaped_quote'] = True
-    if join_table_has_double_quote:
-        warnings['join_table_has_double_quote'] = True
-    if join_table_has_escaped_quote:
-        warnings['join_table_has_escaped_quote'] = True
+    if defective_csv_line_in_join != 0:
+        warnings['defective_csv_line_in_join'] = defective_csv_line_in_join
+    if defective_csv_line_in_input != 0:
+        warnings['defective_csv_line_in_input'] = defective_csv_line_in_input
     if null_value_in_output:
         warnings['null_value_in_output'] = True
     if len(output_fields_info) > 1:
@@ -204,18 +196,16 @@ def rb_transform(source, destination):
     global module_was_used_failsafe
     assert not module_was_used_failsafe
     module_was_used_failsafe = True
-    global input_table_has_double_quote
-    global input_table_has_escaped_quote
     global input_fields_info
+    global defective_csv_line_in_input
     unsorted_entries = list()
     writer = __RBQLMP__writer_type(destination)
     joiner = __RBQLMP__joiner_type('__RBQLMP__rhs_table_path')
     for NR, line in enumerate(rbql_utils.rows(source), 1):
         line = line.rstrip('\r\n')
-        if DLM == ',':
-            input_table_has_double_quote = input_table_has_double_quote or line.find('""') != -1
-            input_table_has_escaped_quote = input_table_has_escaped_quote or line.find('\\"') != -1
-        fields = smart_split(line)
+        fields, warning = smart_split(line)
+        if warning and not defective_csv_line_in_input:
+            defective_csv_line_in_input = NR
         star_line = '\t'.join(fields)
         NF = len(fields)
         if NF not in input_fields_info:
