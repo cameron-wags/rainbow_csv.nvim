@@ -714,7 +714,7 @@ def randomly_csv_escape(fields):
     efields = list()
     for field in fields:
         escaped = field.replace('"', '""')
-        if escaped.find('"') != -1 or random.randint(0, 1) == 1:
+        if escaped.find('"') != -1 or escaped.find(',') != -1 or random.randint(0, 1) == 1:
             escaped = '"{}"'.format(escaped)
         efields.append(escaped)
     return ','.join(efields)
@@ -764,11 +764,11 @@ class TestSplitMethods(unittest.TestCase):
 
     def test_random(self):
         random_records = make_random_csv_records()
-        for rec in random_records:
+        for ir, rec in enumerate(random_records):
             canonic_fields = rec[0]
             escaped_entry = rec[1]
             canonic_warning = rec[2]
-            test_fields, test_warning = rbql_utils.split_escaped_csv_str(tc[0])
+            test_fields, test_warning = rbql_utils.split_escaped_csv_str(escaped_entry)
             self.assertEqual(canonic_warning, test_warning)
             if not canonic_warning:
                 self.assertEqual(canonic_fields, test_fields)

@@ -9,7 +9,7 @@ def split_escaped_csv_str(src):
     while cidx < len(src):
         if src[cidx] == '"':
             uidx = cidx + 1
-            while uidx < len(src):
+            while True:
                 uidx = src.find('"', uidx)
                 if uidx == -1:
                     result.append(src[cidx+1:].replace('""', '"'))
