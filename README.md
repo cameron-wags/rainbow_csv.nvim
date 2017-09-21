@@ -51,8 +51,8 @@ Minimalistic SQL-like language that supports "select" queries with Python or Jav
 * `b1`, `b2`, ... , `bN` - column names in right table B in join operations
 
 ### Join query rules
-* keywords `join` (`inner join`) and `left join` work exactly like their SQL equivalents with only difference that join key in right table "B" must be unique.  
-* keyword `strict left join` is like `left join`, but generates error if some keys in left table "A" don't have matching key in right table "B".
+* Keywords `join` (`inner join`) and `left join` work exactly like their SQL equivalents with only difference that join key in right table "B" must be unique.  
+* Keyword `strict left join` is like `left join`, but generates error if some keys in left table "A" don't have matching key in right table "B".
 * Join statement must have the following form: `<join_keyword> /path/to/table.tsv on ai == bj`
 
 ### RBQL Query examples with Python expressions
