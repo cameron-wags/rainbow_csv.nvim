@@ -778,7 +778,30 @@ def make_random_csv_table(dst_path):
     random_records = make_random_csv_records()
     with open(dst_path, 'w') as dst:
         for rec in random_records:
-            dst.write('{}\t{}\t{}\n'.format(rec[1], rec[2], '\t'.join(rec[0])))
+            canonic_fields = rec[0]
+            escaped_entry = rec[1]
+            canonic_warning = rec[2]
+            dst.write('{}\t{}\t{}\n'.format(escaped_entry, canonic_warning, ';'.join(canonic_fields)))
+
+
+def test_random_csv_table(src_path):
+    with open(src_path) as src:
+        for line in src:
+            line = line.rstrip('\n')
+            rec = line.split('\t')
+            assert len(rec) == 3
+            escaped_entry = rec[0]
+            canonic_warning = int(rec[1])
+            canonic_fields = rec[2].split(';')
+            test_fields, test_warning = rbql_utils.split_escaped_csv_str(escaped_entry)
+            assert int(test_warning) == canonic_warning
+            if not test_warning and (test_fields != canonic_fields):
+                print( "Errror", file=sys.stderr) #FOR_DEBUG
+                print( "escaped_entry:", escaped_entry, file=sys.stderr) #FOR_DEBUG
+                print( "canonic_fields:", canonic_fields, file=sys.stderr) #FOR_DEBUG
+                print( "test_fields:", test_fields, file=sys.stderr) #FOR_DEBUG
+                sys.exit(1)
+
 
 
 def make_random_bin_table(num_rows, num_cols, key_col1, key_col2, delim, dst_path):
@@ -815,6 +838,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--create_random_binary_table', metavar='FILE', help='create random binary table and write it to FILE')
     parser.add_argument('--create_random_csv_table', metavar='FILE', help='create random csv table and write it to FILE')
+    parser.add_argument('--test_random_csv_table', metavar='FILE', help='test split method using samples from FILE')
     args = parser.parse_args()
     if args.create_random_binary_table is not None:
         dst_path = args.create_random_binary_table
@@ -822,6 +846,9 @@ def main():
     if args.create_random_csv_table is not None:
         dst_path = args.create_random_csv_table
         make_random_csv_table(dst_path)
+    if args.test_random_csv_table is not None:
+        src_path = args.test_random_csv_table
+        test_random_csv_table(src_path)
 
 
 
