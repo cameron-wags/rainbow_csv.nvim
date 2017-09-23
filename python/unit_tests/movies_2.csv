@@ -10,10 +10,10 @@ Groundhog Day,United States,English,1993,Harold Ramis,101,Color,"Comedy,Fantasy,
 ,,,,,,,
 "","","","","","","",""
 The Incredible Hulk,"United, States",English,2008,Louis Leterrier,135,Color,Action|Adventure|Sci-Fi
-"Battle for the "Planet" of the Apes",United States,English,1973,J. Lee Thompson,96,Color,Action|Sci-Fi
+"Battle for the ""Planet"" of the Apes",United States,English,1973,J. Lee Thompson,96,Color,Action|Sci-Fi
 Hereafter,United States,English,2010,Clint Eastwood,129,Color,Drama|Fantasy
-"Detroit" Rock City,United States,English,1999,Adam Rifkin,95,Color,Comedy|Music
-Winnie Mandela,South Africa,English,2011,Darrell Roodt,104,Color,Biography|Drama|"History"
+"""Detroit"" Rock City",United States,English,1999,Adam Rifkin,95,Color,Comedy|Music
+Winnie Mandela,South Africa,English,2011,Darrell Roodt,104,Color,"Biography|Drama|""History"""
 The Mighty Macs,"United States",English,2009,Tim Chambers,99,Color,Drama|Sport
 Crazy Stone,China,Mandarin,2006,Hao Ning,98,Color,Comedy|Crime
 Fifty Shades of Black,United States,English,2016,Michael Tiddes,92,Color,Comedy
@@ -38,7 +38,7 @@ Before Midnight,United States,English,2013,Richard Linklater,109,Color,Drama|Rom
 Woodstock,United States,English,1970,Michael Wadleigh,215,Color,Documentary|History|Music
 Mystic Pizza,United States,English,1988,Donald Petrie,104,Color,Comedy|Drama|Romance
 The Game of Their Lives,United States,English,2005,David Anspaugh,101,Color,Drama|History|Sport
-One \"Direction\": This Is Us,United States,English,2013,Morgan Spurlock,106,Color,Documentary|Music
+"One ""Direction"": This Is Us",United States,English,2013,Morgan Spurlock,106,Color,Documentary|Music
 Timeline,United States,English,2003,Richard Donner,116,Color,Action|Adventure|Sci-Fi
 Resident Evil: Retribution,"Germany",English,2012,Paul W.S. Anderson,96,Color,Action|Horror|Sci-Fi|Thriller
 Crash,Germany,English,2004,Paul Haggis,115,Color,Crime|Drama|Thriller
