@@ -144,26 +144,16 @@ You will still be able to use manual csv delimiter selection.
 Autodetection will fail if buffer has more than `g:rcsv_max_columns` columns.
 You can rise or lower this limit.
 
+## Other
 
-## Optional "Header" file feature
+### Optional "Header" file feature
+
 Rainbow csv allows you to create a special "header" file for your table files. It should have the same name as the table file but with ".header" suffix (e.g. for "input.tsv" the header file is "input.tsv.header"). The only purpose of header file is to provide csv column names for `:RbGetColumn` command.
 
 
-## Installation
+### Installation
 
 Install with your favorite plugin manager.
 
 If you want to use RBQL with JavaScript expressions, make sure you have Node.js installed
 
-
-## Requirements
-
-#### Highlighting mode only:
-* vim
-
-#### RBQL queries with Python expressions:
-* vim compiled with python 2.7 or python 3
-
-#### RBQL queries with JavaScript expressions:
-* vim compiled with python 2.7 or python 3
-* Node.js
