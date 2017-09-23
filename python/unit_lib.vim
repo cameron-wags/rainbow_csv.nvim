@@ -3,6 +3,7 @@ let g:rbql_test_log_records = []
 
 func! AssertEqual(lhs, rhs)
     if a:lhs != a:rhs
+        let msg = 'FAIL. Equal assertion failed: "' . a:lhs . '" != "' . a:rhs . '"'
         throw msg
     endif
 endfunc
@@ -10,6 +11,7 @@ endfunc
 
 func! AssertTrue(expr, error_msg)
     if !a:expr
+        let msg = 'FAIL. True assertion failed: ' . a:error_msg
         throw msg
     endif
 endfunc
@@ -39,13 +41,10 @@ func! RunUnitTests()
     call add(test_cases, ['abc,"cdef"', 'abc;"cdef"'])
     call add(test_cases, ['"a,bc",cdef', '"a,bc";cdef'])
     call add(test_cases, ['abc,"c,def"', 'abc;"c,def"'])
-    call add(test_cases, ['abc,"cdef,"acdf,"asddf', 'abc;"cdef;"acdf;"asddf'])
     call add(test_cases, [',', ';'])
     call add(test_cases, [', ', '; '])
     call add(test_cases, ['"abc"', '"abc"'])
     call add(test_cases, [',"haha,hoho",', ';"haha,hoho";'])
-    call add(test_cases, [',"bbbb,"cccc,"', ';"bbbb,"cccc,"'])
-    call add(test_cases, [',",","', ';",";"'])
     call add(test_cases, ['"a,bc","adf,asf","asdf,asdf,","as,df"', '"a,bc";"adf,asf";"asdf,asdf,";"as,df"'])
 
     for nt in range(len(test_cases))

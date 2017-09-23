@@ -27,7 +27,11 @@ else
     echo "Skipping python unit tests"
 fi
 
-node ./unit_tests.js
+rm random_ut.csv 2> /dev/null
+
+python test_rbql.py --create_random_csv_table random_ut.csv
+
+node ./unit_tests.js random_ut.csv
 
 #Some CLI tests:
 md5sum_test=($( ./rbql.py --query "select a1,a2,a7,b2,b3,b4 left join test_datasets/countries.tsv on a2 == b1 where 'Sci-Fi' in a7.split('|') and b2!='US' and int(a4) > 2010" < test_datasets/movies.tsv | md5sum))
@@ -84,6 +88,8 @@ rm movies.tsv.system_py.js.rs 2> /dev/null
 rm movies.tsv.f5_ui.py.rs 2> /dev/null
 
 rm vim_unit_tests.log 2> /dev/null
+
+rm random_ut.csv 2> /dev/null
 
 if [ $errors != 0 ] || [ ! -e vim_debug.log ] ; then
     echo "Warning: some errors were detected during vim integration testing, see vim_debug.log"  1>&2
