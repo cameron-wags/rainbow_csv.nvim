@@ -1,4 +1,5 @@
 :source unit_lib.vim
+:call TestSplitRandomCsv()
 :call RunUnitTests()
 
 :call add(g:rbql_test_log_records, 'Starting full integration tests')

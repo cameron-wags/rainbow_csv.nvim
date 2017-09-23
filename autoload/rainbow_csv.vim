@@ -192,49 +192,55 @@ func! rainbow_csv#rstrip(line)
 endfunc
 
 
-func! rainbow_csv#split_escaped_csv_str(line)
-    if stridx(a:line, '"') == -1
+func! rainbow_csv#preserving_escaped_split(line)
+    let src = a:line
+    if stridx(src, '"') == -1
         "Optimization for majority of lines
-        return split(a:line, ',', 1)
+        return split(src, ',', 1)
     endif
     let result = []
     let cidx = 0
-    if a:line[0] == ','
-        call add(result, '')
-        let cidx = 1
-    endif
-    while cidx < len(a:line)
-        if a:line[cidx] == '"'
-            let uidx = stridx(a:line, '",', cidx + 1)
-            if uidx != -1
-                let uidx = uidx + 1
-            elseif uidx == -1 && a:line[len(a:line) - 1] == '"'
-                let uidx = len(a:line)
+    while cidx < len(src)
+        if src[cidx] == '"'
+            let uidx = cidx + 1
+            while 1
+                let uidx = stridx(src, '"', uidx)
+                if uidx == -1
+                    call add(result, strpart(src, cidx))
+                    return result
+                elseif uidx + 1 >= len(src) || src[uidx + 1] == ','
+                    call add(result, strpart(src, cidx, uidx + 1 - cidx))
+                    let cidx = uidx + 2
+                    break
+                elseif src[uidx + 1] == '"'
+                    let uidx += 2
+                    continue
+                else
+                    let uidx += 1
+                    continue
+                endif
+            endwhile
+        else
+            let uidx = stridx(src, ',', cidx)
+            if uidx == -1
+                let uidx = len(src)
             endif
-            if uidx != -1
-                call add(result, strpart(a:line, cidx, uidx - cidx))
-                let cidx = uidx + 1
-                continue
-            endif
+            let field = strpart(src, cidx, uidx - cidx)
+            call add(result, field)
+            let cidx = uidx + 1
         endif
-        let uidx = stridx(a:line, ',', cidx)
-        if uidx == -1
-            let uidx = len(a:line)
-        endif
-        call add(result, strpart(a:line, cidx, uidx - cidx))
-        let cidx = uidx + 1
     endwhile
-    if a:line[len(a:line) - 1] == ','
+    if src[len(src) - 1] == ','
         call add(result, '')
     endif
-    return result
+    return result 
 endfunc
 
 
-func! s:smart_split(line, dlm)
+func! s:preserving_smart_split(line, dlm)
     let stripped = rainbow_csv#rstrip(a:line)
     if a:dlm == ','
-        return rainbow_csv#split_escaped_csv_str(stripped)
+        return rainbow_csv#preserving_escaped_split(stripped)
     else
         return split(stripped, a:dlm, 1)
     endif
@@ -242,12 +248,12 @@ endfunc
 
 
 func! s:lines_are_delimited(lines, delim)
-    let num_fields = len(s:smart_split(a:lines[0], a:delim))
+    let num_fields = len(s:preserving_smart_split(a:lines[0], a:delim))
     if (num_fields < 2 || num_fields > s:max_columns)
         return 0
     endif
     for line in a:lines
-        let nfields = len(s:smart_split(line, a:delim))
+        let nfields = len(s:preserving_smart_split(line, a:delim))
         if (num_fields != nfields)
             return 0
         endif
@@ -393,7 +399,7 @@ func! rainbow_csv#set_statusline_columns()
         let indent = s:single_char_sring(indent_len, ' ')
     endif
     let bottom_line = getline(line('w$'))
-    let bottom_fields = s:smart_split(bottom_line, delim)
+    let bottom_fields = s:preserving_smart_split(bottom_line, delim)
     let status_labels = []
     if delim == "\t"
         let status_labels = rainbow_csv#generate_tab_statusline(&tabstop, bottom_fields)
@@ -622,7 +628,7 @@ func! rainbow_csv#select_mode()
         return
     endif
 
-    let fields = s:smart_split(lines[0], delim)
+    let fields = s:preserving_smart_split(lines[0], delim)
     let num_fields = len(fields)
 
     set splitbelow
@@ -1025,7 +1031,7 @@ func! rainbow_csv#get_column()
     endif
     let delim = b:rainbow_csv_delim
 
-    let fields = s:smart_split(line, delim)
+    let fields = s:preserving_smart_split(line, delim)
     let numCols = len(fields)
 
     let col_num = 0

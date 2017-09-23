@@ -722,7 +722,7 @@ def randomly_csv_escape(fields):
 
 def make_random_csv_records():
     result = list()
-    for num_test in xrange(10000):
+    for num_test in xrange(1000):
         num_fields = random.randint(1, 11)
         max_field_len = 25
         fields = make_random_csv_fields(num_fields, max_field_len)

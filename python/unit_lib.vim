@@ -3,8 +3,14 @@ let g:rbql_test_log_records = []
 
 func! AssertEqual(lhs, rhs)
     if a:lhs != a:rhs
-        let msg = 'FAIL. Equal assertion failed: "' . a:lhs . '" != "' . a:rhs '"'
-        call add(g:rbql_test_log_records, msg)
+        throw msg
+    endif
+endfunc
+
+
+func! AssertTrue(expr, error_msg)
+    if !a:expr
+        throw msg
     endif
 endfunc
 
@@ -43,10 +49,42 @@ func! RunUnitTests()
     call add(test_cases, ['"a,bc","adf,asf","asdf,asdf,","as,df"', '"a,bc";"adf,asf";"asdf,asdf,";"as,df"'])
 
     for nt in range(len(test_cases))
-        let test_str = join(rainbow_csv#split_escaped_csv_str(test_cases[nt][0]), ';')
+        let test_str = join(rainbow_csv#preserving_escaped_split(test_cases[nt][0]), ';')
         let canonic_str = test_cases[nt][1]
         call AssertEqual(test_str, canonic_str)
     endfor
 
     call add(g:rbql_test_log_records, 'Finished Test: Statusline')
+endfunc
+
+
+func! UnescapeQuotedFields(src)
+    let res = a:src
+    for nt in range(len(res))
+        if len(res[nt]) >= 2 && res[nt][0] == '"'
+            let res[nt] = strpart(res[nt], 1, len(res[nt]) - 2)
+        endif
+        let res[nt] = substitute(res[nt], '""', '"', 'g')
+    endfor
+    return res
+endfunc
+
+
+func! TestSplitRandomCsv()
+    let lines = readfile('./random_ut.csv')
+    for line in lines
+        let records = split(line, "\t", 1)
+        call AssertEqual(len(records), 3)
+        let escaped_entry = records[0]
+        let canonic_warning = str2nr(records[1])
+        call AssertTrue(canonic_warning == 0 || canonic_warning == 1, 'warning must be either 0 or 1')
+        let canonic_dst = split(records[2], ';', 1)
+        let test_dst = rainbow_csv#preserving_escaped_split(escaped_entry)
+        if !canonic_warning
+            call AssertEqual(len(canonic_dst), len(test_dst))
+            call AssertEqual(join(test_dst, ','), escaped_entry)
+            let unescaped_dst = UnescapeQuotedFields(test_dst)
+            call AssertEqual(join(unescaped_dst, ';'), records[2])
+        endif
+    endfor
 endfunc
