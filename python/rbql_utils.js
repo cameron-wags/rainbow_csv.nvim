@@ -10,10 +10,10 @@ function split_escaped_csv_str(src) {
             while (true) {
                 uidx = src.indexOf('"', uidx);
                 if (uidx == -1) {
-                    result.push(src.substring(cidx + 1).replace('""', '"'));
+                    result.push(src.substring(cidx + 1).replace(/""/g, '"'));
                     return [result, true];
                 } else if (uidx + 1 >= src.length || src.charAt(uidx + 1) == ',') {
-                    result.push(src.substring(cidx + 1, uidx).replace('""', '"'));
+                    result.push(src.substring(cidx + 1, uidx).replace(/""/g, '"'));
                     cidx = uidx + 2;
                     break;
                 } else if (src.charAt(uidx + 1) == '"') {
