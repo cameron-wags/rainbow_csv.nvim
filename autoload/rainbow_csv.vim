@@ -7,6 +7,7 @@ let s:script_folder_path = fnamemodify(resolve(expand('<sfile>:p')), ':h')
 let s:python_env_initialized = 0
 let s:system_python_interpreter = ''
 
+let s:magic_chars = '^*$.~/[]\'
 
 func! s:is_rainbow_table()
     return exists("b:rainbow_csv_delim")
@@ -145,6 +146,18 @@ function! s:py_source_escape(src)
     let dst = substitute(dst, '\t', '\\t', "g")
     return dst
 endfunc
+
+
+function! s:char_class_escape(src)
+    if a:src == ']'
+        return '\]'
+    endif
+    if a:src == '\'
+        return '\\'
+    endif
+    return a:src
+endfunc
+
 
 function! s:EnsurePythonInitialization()
     if (s:python_env_initialized)
@@ -858,50 +871,53 @@ endfunc
 
 
 func! rainbow_csv#generate_rainbow_syntax(delim)
-    "TODO make function internal: add 's:' prefix instead of 'rainbow_csv#'
+    let regex_delim = escape(a:delim, s:magic_chars)
+    let char_class_delim = s:char_class_escape(a:delim)
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
         let cmd = 'syntax match %s /%s[^%s]*/ nextgroup=column%d'
-        exe printf(cmd, match, a:delim, a:delim, nextgroup)
+        exe printf(cmd, match, regex_delim, char_class_delim, nextgroup)
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
         exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
     endfor
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=column1'
-    exe printf(cmd, a:delim)
+    exe printf(cmd, char_class_delim)
     let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 endfunc
 
 
 func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
+    let regex_delim = escape(a:delim, s:magic_chars)
+    let char_class_delim = s:char_class_escape(a:delim)
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
         let cmd = 'syntax match %s /%s[^%s]*/ nextgroup=escaped_column%d,column%d'
-        exe printf(cmd, match, a:delim, a:delim, nextgroup, nextgroup)
+        exe printf(cmd, match, regex_delim, char_class_delim, nextgroup, nextgroup)
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
         exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
 
         let match = 'escaped_column' . groupid
         let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
         let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"$/'
-        exe printf(cmd, match, a:delim)
+        exe printf(cmd, match, regex_delim)
         let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column%d,column%d'
-        exe printf(cmd, match, a:delim, a:delim, nextgroup, nextgroup)
+        exe printf(cmd, match, regex_delim, regex_delim, nextgroup, nextgroup)
 
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
         exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
     endfor
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=escaped_column1,column1'
-    exe printf(cmd, a:delim)
+    exe printf(cmd, char_class_delim)
     let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 
     let cmd = 'syntax match startcolumn_escaped /^"\([^"]*""\)*[^"]*"$/'
     exe cmd
     let cmd = 'syntax match startcolumn_escaped /^"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column1,column1'
-    exe printf(cmd, a:delim)
+    exe printf(cmd, regex_delim)
     let cmd = 'highlight startcolumn_escaped ctermfg=%s guifg=%s'
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 endfunc
