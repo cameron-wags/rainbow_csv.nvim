@@ -20,7 +20,7 @@ The demo table is demo/movies.tsv. There are also some other test datasets in py
 
 
 ## RBQL (RainBow Query Language) Description
-Minimalistic SQL-like language that supports "select" queries with Python or JavaScript expressions.
+RBQL is a technology which provides SQL-like language that supports "select" queries with Python or JavaScript expressions.
 
 ### Main Features
 * Use Python or JavaScript expressions inside "select", "where" and "order by" statements
