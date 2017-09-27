@@ -1,7 +1,7 @@
 ## Overview
 Rainbow CSV has two main features:
 * Highlights csv columns in different rainbow colors. 
-* Allows to run "select" queries in SQL-like language.
+* Allows to run "select" queries in RBQL: SQL-like transprogramming language.
 
 To enter a "select" query either press 'F5' or enter the query in vim command line e.g. `:Select a1, a2`
 
@@ -78,18 +78,6 @@ RBQL is a technology which provides SQL-like language that supports "select" que
 * `select NR, *` - enumerate lines, NR is 1-based
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1` - an example of join query
 
-### rbql.py script
-rainbow_csv comes with rbql.py script which is located in ~/.vim extension folder.  
-You can use it in standalone mode to execute RBQL queries from command line. Example:
-```
-./rbql.py --query "select a1, a2 order by a1" < input.tsv
-```
-To find out more about rbql.py and available options, execute:
-```
-./rbql.py -h
-```
-
-
 ### How does it work?
 Python script rbql.py parses RBQL query, creates a new .py module, then imports and executes it.
 
@@ -145,6 +133,19 @@ Autodetection will fail if buffer has more than `g:rcsv_max_columns` columns.
 You can rise or lower this limit.
 
 ## Other
+
+### cli_rbql.py script
+
+rainbow_csv comes with cli_rbql.py script which is located in ~/.vim extension folder.  
+You can use it in standalone mode to execute RBQL queries from command line. Example:
+```
+./cli_rbql.py --query "select a1, a2 order by a1" < input.tsv
+```
+To find out more about cli_rbql.py and available options, execute:
+```
+./cli_rbql.py -h
+```
+
 
 ### Optional "Header" file feature
 
