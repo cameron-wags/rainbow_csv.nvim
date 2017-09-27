@@ -21,7 +21,7 @@ class RBParsingError(Exception):
     pass
 
 
-def replace_string_literals(rbql_expression):
+def separate_string_literals(rbql_expression):
     # regex is improved expression from here: https://stackoverflow.com/a/14366904/2898283
     matches = list(re.finditer(r'''(\"\"\"|\'\'\'|\"|\')((?<!\\)(\\\\)*\\\1|.)*?\1''', rbql_expression))
     string_literals = list()
@@ -35,7 +35,14 @@ def replace_string_literals(rbql_expression):
         idx_before = m.end()
     format_parts.append(rbql_expression[idx_before:])
     format_expression = ''.join(format_parts)
+    format_expression = format_expression.replace('\t', ' ')
     return (format_expression, string_literals)
+
+
+def combine_string_literals(host_expression, string_literals):
+    for i in range(len(string_literals)):
+        host_expression = host_expression.replace('###RBQL_STRING_LITERAL###{}'.format(i), string_literals[i])
+    return host_expression
 
 
 def separate_actions(rbql_expression):
@@ -81,12 +88,13 @@ def separate_actions(rbql_expression):
         assert span_start <= span_end
         span = rbql_expression[span_start:span_end]
         if statement == ORDER_BY:
-            result[statement]['reverse'] = False
             span = re.sub('(?i)[ ]ASC[ ]*$', '', span)
             new_span = re.sub('(?i)[ ]DESC[ ]*$', '', span)
             if new_span != span:
                 span = new_span
                 result[statement]['reverse'] = True
+            else:
+                result[statement]['reverse'] = False
         result[statement]['text'] = span.strip()
     return result
 
@@ -104,7 +112,7 @@ class TestParsing(unittest.TestCase):
         test_cases.append((r'Select "hello", "world", "hello \" world", "hello \\\" world", "hello \\\\\\\" world" order by "world"', ['"hello"', '"world"', r'"hello \" world"', r'"hello \\\" world"', r'"hello \\\\\\\" world"', '"world"']))
 
         for tc in test_cases:
-            format_expression, string_literals = replace_string_literals(tc[0])
+            format_expression, string_literals = separate_string_literals(tc[0])
             canonic_literals = tc[1]
             self.assertEqual(canonic_literals, string_literals)
 
