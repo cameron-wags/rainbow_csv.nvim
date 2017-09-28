@@ -1,13 +1,13 @@
 ## Overview
-Rainbow CSV has two main features:
+Rainbow CSV has 2 main features:
 * Highlights csv columns in different rainbow colors. 
-* Allows to run "select" queries in RBQL: SQL-like transprogramming language.
-
-To enter a "select" query either press 'F5' or enter the query in vim command line e.g. `:Select a1, a2`
+* Allows to run "SELECT" queries in RBQL: SQL-like transprogramming language.
 
 There are 2 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
 2. Manual CSV delimiter selection with `:RainbowDelim` command (So you can use it even for non-csv files, e.g. to highlight function arguments in different colors)
+
+To run an RBQL query either press 'F5' or enter the query in vim command line e.g. `:Select a1, a2`
 
 ### Demonstration of rainbow_csv highlighting and RBQL queries 
 1-st query with Python expressions and 2-nd query with JavaScript:
@@ -50,10 +50,10 @@ RBQL is a technology which provides SQL-like language that supports "select" que
 * `NF` - Number of Fields in the current line/record
 * `b1`, `b2`, ... , `bN` - Column names in right table B in JOIN operations
 
-### Join query rules
+### JOIN statement rules
 * Keywords `join` (`inner join`) and `left join` work exactly like their SQL equivalents with only difference that join key in right table "B" must be unique.  
 * Keyword `strict left join` is like `left join`, but generates error if some keys in left table "A" don't have matching key in right table "B".
-* Join statement must have the following form: `<join_keyword> /path/to/table.tsv on ai == bj`
+* JOIN statement must have the following form: `<join_keyword> /path/to/table.tsv on ai == bj`
 
 ### RBQL Query examples with Python expressions
 
@@ -82,7 +82,9 @@ RBQL is a technology which provides SQL-like language that supports "select" que
 Python script rbql.py parses RBQL query, creates a new .py module, then imports and executes it.
 
 
-## Mappings
+## Plugin description
+
+### Mappings
 
 |Key           | Action                                                      |
 |--------------|-------------------------------------------------------------|
@@ -91,27 +93,29 @@ Python script rbql.py parses RBQL query, creates a new .py module, then imports 
 |`F5`          | Execute currently edited "select" query                     |
 
 
-## Commands
+### Commands
 
 #### :Select ...
 
-Most useful command: allows to enter RBQL query in vim command line.
+Allows to enter RBQL query in vim command line.
 The query must start with `:Select` command e.g. `:Select a1, a2 order by a1`
 
 #### :RainbowDelim
 
-Mark current file as csv and highlight columns in rainbow colors, character
-under the cursor will be used as delimiter. Selection will be recorded in the
+Mark current file as csv and highlight columns in rainbow colors. Character
+under the cursor will be used as a delimiter. The delimiter will be saved in a
 config file for future vim sessions.
+
+You can also use this command for non-csv files, e.g. to highlight function arguments
+in source code in different colors. To return back to original syntax highlighting run `:NoRainbowDelim`
 
 #### :NoRainbowDelim
 
 This command will disable rainbow columns highlighting for the current file.
-Usefull when autodection mechanism has failed and marked non csv file as csv
-this command also has an alias `:NoRainbowDelim`
+Useful when autodection mechanism has failed and marked non-csv file as csv.
 
 
-## Configuration
+### Configuration
 
 #### g:rbql_meta_language
 *Default: 'python'*
@@ -124,13 +128,26 @@ By default plugin checks only TAB and comma characters during autodetection stag
 You can override this variable to autodetect tables with other separators. e.g. `let g:rcsv_delimiters = [	;:,]`
 
 #### g:disable_rainbow_csv_autodetect
-You can disable csv files autodetection mechanism by setting this variable value to 1.
-You will still be able to use manual csv delimiter selection.
+csv autodetection mechanism can be disabled by setting this variable value to 1.
+Manual delimiter selection would still be possible.
 
 #### g:rcsv_max_columns
 *Default: 30*
 Autodetection will fail if buffer has more than `g:rcsv_max_columns` columns.
-You can rise or lower this limit.
+You can increase or decrease this limit.
+
+
+### Optional "Header" file feature
+
+Rainbow csv allows you to create a special "header" file for your table files. It should have the same name as the table file but with ".header" suffix (e.g. for "input.tsv" the header file is "input.tsv.header"). The only purpose of header file is to provide csv column names for `:RbGetColumn` command.
+
+
+### Installation
+
+Install with your favorite plugin manager.
+
+If you want to use RBQL with JavaScript expressions, make sure you have Node.js installed
+
 
 ## Other
 
@@ -147,14 +164,4 @@ To find out more about cli_rbql.py and available options, execute:
 ```
 
 
-### Optional "Header" file feature
-
-Rainbow csv allows you to create a special "header" file for your table files. It should have the same name as the table file but with ".header" suffix (e.g. for "input.tsv" the header file is "input.tsv.header"). The only purpose of header file is to provide csv column names for `:RbGetColumn` command.
-
-
-### Installation
-
-Install with your favorite plugin manager.
-
-If you want to use RBQL with JavaScript expressions, make sure you have Node.js installed
 
