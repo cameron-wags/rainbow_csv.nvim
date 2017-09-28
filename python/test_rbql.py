@@ -877,6 +877,12 @@ class TestParsing(unittest.TestCase):
         self.assertTrue(str(e).find('Incorrect join syntax') != -1)
 
 
+    def test_column_vars_replacement(self):
+        rbql_src = 'select top   100 *, a2,a3 inner  join /path/to/the/file.tsv on a1 == b3 where a4 == "hello" and int(b3) == 100 order by int(a7) desc '
+        replaced = 'select top   100 *, safe_get(afields, 2),safe_get(afields, 3) inner  join /path/to/the/file.tsv on safe_get(afields, 1) == safe_get(bfields, 3) where safe_get(afields, 4) == "hello" and int(safe_get(bfields, 3)) == 100 order by int(safe_get(afields, 7)) desc '
+        self.assertEqual(replaced, rbql.replace_column_vars(rbql_src))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--create_random_binary_table', metavar='FILE', help='create random binary table and write it to FILE')
