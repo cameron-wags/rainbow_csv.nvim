@@ -10,9 +10,6 @@ import importlib
 import codecs
 import io
 
-#FIXME move parse_utils into this module
-import parse_utils
-
 
 #This module must be both python2 and python3 compatible
 
@@ -98,7 +95,7 @@ def py_source_escape(src):
 
 
 def parse_join_expression(src):
-    match = re.match(r'(?i)^ *([^ ]+) *on *([ab][0-9]+) *== *([ab][0-9]+) *$', src)
+    match = re.match(r'(?i)^ *([^ ]+) +on +([ab][0-9]+) *== *([ab][0-9]+) *$', src)
     if match is None:
         raise RBParsingError('Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"')
     table_path = match.group(1)
@@ -133,11 +130,11 @@ def replace_column_vars(rbql_expression):
 
 
 def replace_star_vars_py(rbql_expression):
-    return re.sub('(?:^|,) *\* *(?:$|,)', '] + star_fields + [', rbql_expression)
+    return re.sub(r'(?:^|,) *\* *(?:$|,)', '] + star_fields + [', rbql_expression)
 
 
 def replace_star_vars_js(rbql_expression):
-    return re.sub('(?:^|,) *\* *(?:$|,)', ']).concat(star_fields).concat([', rbql_expression)
+    return re.sub(r'(?:^|,) *\* *(?:$|,)', ']).concat(star_fields).concat([', rbql_expression)
 
 
 def translate_update_expression(update_expression):
@@ -170,6 +167,83 @@ def translate_select_expression_js(select_expression):
     return translated
 
 
+def separate_string_literals(rbql_expression):
+    # regex is improved expression from here: https://stackoverflow.com/a/14366904/2898283
+    matches = list(re.finditer(r'''(\"\"\"|\'\'\'|\"|\')((?<!\\)(\\\\)*\\\1|.)*?\1''', rbql_expression))
+    string_literals = list()
+    format_parts = list()
+    idx_before = 0
+    for m in matches:
+        literal_id = len(string_literals)
+        string_literals.append(m.group(0))
+        format_parts.append(rbql_expression[idx_before:m.start()])
+        format_parts.append('###RBQL_STRING_LITERAL###{}'.format(literal_id))
+        idx_before = m.end()
+    format_parts.append(rbql_expression[idx_before:])
+    format_expression = ''.join(format_parts)
+    format_expression = format_expression.replace('\t', ' ')
+    return (format_expression, string_literals)
+
+
+def combine_string_literals(host_expression, string_literals):
+    for i in range(len(string_literals)):
+        host_expression = host_expression.replace('###RBQL_STRING_LITERAL###{}'.format(i), string_literals[i])
+    return host_expression
+
+
+def separate_actions(rbql_expression):
+    #TODO implement SELECT_TOP_DISTINCT
+    statement_groups = list()
+    statement_groups.append([STRICT_LEFT_JOIN, LEFT_JOIN, INNER_JOIN, JOIN])
+    statement_groups.append([SELECT_DISTINCT, SELECT_TOP, SELECT])
+    statement_groups.append([ORDER_BY])
+    statement_groups.append([WHERE])
+    statement_groups.append([UPDATE])
+
+    result = dict()
+
+    ordered_statements = list()
+
+    for st_group in statement_groups:
+        for statement in st_group:
+            rgxp = None
+            if statement == SELECT_TOP:
+                rgxp = r'(?i)(?:^|[ ])SELECT *TOP *([0-9][0-9]*)(?:$|[ ])'
+            else:
+                rgxp = r'(?i)(?:^|[ ]){}(?:$|[ ])'.format(statement.replace(' ', ' *'))
+            matches = list(re.finditer(rgxp, rbql_expression))
+            if not len(matches):
+                continue
+            if len(matches) > 1:
+                raise RBParsingError('More than one "{}" statements found'.format(statement))
+            assert len(matches) == 1
+            match = matches[0]
+            result[statement] = dict()
+            if statement == SELECT_TOP:
+                result[statement]['top'] = int(match.group(1))
+            ordered_statements.append((match.start(), match.end(), statement))
+            break #there must be only one statement maximum in each group
+
+    ordered_statements = sorted(ordered_statements)
+    for i in range(len(ordered_statements)):
+        statement_start = ordered_statements[i][0]
+        span_start = ordered_statements[i][1]
+        statement = ordered_statements[i][2]
+        span_end = ordered_statements[i + 1][0] if i + 1 < len(ordered_statements) else len(rbql_expression)
+        assert statement_start < span_start
+        assert span_start <= span_end
+        span = rbql_expression[span_start:span_end]
+        if statement == ORDER_BY:
+            span = re.sub('(?i)[ ]ASC[ ]*$', '', span)
+            new_span = re.sub('(?i)[ ]DESC[ ]*$', '', span)
+            if new_span != span:
+                span = new_span
+                result[statement]['reverse'] = True
+            else:
+                result[statement]['reverse'] = False
+        result[statement]['text'] = span.strip()
+    return result
+
 def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encoding, import_modules=None):
     if not py_dst.endswith('.py'):
         raise RBParsingError('python module file must have ".py" extension')
@@ -177,8 +251,8 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     rbql_lines = [strip_py_comments(l) for l in rbql_lines]
     rbql_lines = [l for l in rbql_lines if len(l)]
     full_rbql_expression = ' '.join(rbql_lines)
-    format_expression, string_literals = parse_utils.separate_string_literals(full_rbql_expression)
-    rb_actions = parse_utils.separate_actions(format_expression)
+    format_expression, string_literals = separate_string_literals(full_rbql_expression)
+    rb_actions = separate_actions(format_expression)
 
     select_op = None
     writer_name = None
@@ -223,20 +297,20 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     py_meta_params['where_expression'] = 'True'
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])
-        py_meta_params['where_expression'] = parse_utils.combine_string_literals(where_expression, string_literals)
+        py_meta_params['where_expression'] = combine_string_literals(where_expression, string_literals)
 
     py_meta_params['top_count'] = str(rb_actions[select_op]['top']) if select_op == SELECT_TOP else 'None'
 
     if select_op == UPDATE:
         update_expression = translate_update_expression(rb_actions[select_op]['text'])
-        py_meta_params['update_expression'] = parse_utils.combine_string_literals(update_expression, string_literals)
+        py_meta_params['update_expression'] = combine_string_literals(update_expression, string_literals)
     else:
         select_expression = translate_select_expression_py(rb_actions[select_op]['text'])
-        py_meta_params['select_expression'] = parse_utils.combine_string_literals(select_expression, string_literals)
+        py_meta_params['select_expression'] = combine_string_literals(select_expression, string_literals)
 
     if ORDER_BY in rb_actions:
         order_expression = replace_column_vars(rb_actions[ORDER_BY]['text'])
-        py_meta_params['sort_key_expression'] = parse_utils.combine_string_literals(order_expression, string_literals)
+        py_meta_params['sort_key_expression'] = combine_string_literals(order_expression, string_literals)
         py_meta_params['reverse_flag'] = 'True' if rb_actions[ORDER_BY]['reverse'] else 'False'
         py_meta_params['sort_flag'] = 'True'
     else:
@@ -252,8 +326,8 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     rbql_lines = [strip_js_comments(l) for l in rbql_lines]
     rbql_lines = [l for l in rbql_lines if len(l)]
     full_rbql_expression = ' '.join(rbql_lines)
-    format_expression, string_literals = parse_utils.separate_string_literals(full_rbql_expression)
-    rb_actions = parse_utils.separate_actions(format_expression)
+    format_expression, string_literals = separate_string_literals(full_rbql_expression)
+    rb_actions = separate_actions(format_expression)
 
     select_op = None
     writer_name = None
@@ -297,20 +371,20 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     js_meta_params['where_expression'] = 'true'
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])
-        js_meta_params['where_expression'] = parse_utils.combine_string_literals(where_expression, string_literals)
+        js_meta_params['where_expression'] = combine_string_literals(where_expression, string_literals)
 
     js_meta_params['top_count'] = str(rb_actions[select_op]['top']) if select_op == SELECT_TOP else 'null'
 
     if select_op == UPDATE:
         update_expression = translate_update_expression(rb_actions[select_op]['text'])
-        js_meta_params['update_expression'] = parse_utils.combine_string_literals(update_expression, string_literals)
+        js_meta_params['update_expression'] = combine_string_literals(update_expression, string_literals)
     else:
         select_expression = translate_select_expression_js(rb_actions[select_op]['text'])
-        js_meta_params['select_expression'] = parse_utils.combine_string_literals(select_expression, string_literals)
+        js_meta_params['select_expression'] = combine_string_literals(select_expression, string_literals)
 
     if ORDER_BY in rb_actions:
         order_expression = replace_column_vars(rb_actions[ORDER_BY]['text'])
-        js_meta_params['sort_key_expression'] = parse_utils.combine_string_literals(order_expression, string_literals)
+        js_meta_params['sort_key_expression'] = combine_string_literals(order_expression, string_literals)
         js_meta_params['reverse_flag'] = 'true' if rb_actions[ORDER_BY]['reverse'] else 'false'
         js_meta_params['sort_flag'] = 'true'
     else:
