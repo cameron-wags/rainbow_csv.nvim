@@ -849,6 +849,7 @@ class TestParsing(unittest.TestCase):
             format_expression, string_literals = rbql.separate_string_literals(tc[0])
             canonic_literals = tc[1]
             self.assertEqual(canonic_literals, string_literals)
+            self.assertEqual(tc[0], rbql.combine_string_literals(format_expression, string_literals))
 
     def test_separate_actions(self):
         query = 'select top   100 *, a2, a3 inner  join /path/to/the/file.tsv on a1 == b3 where a4 == "hello" and int(b3) == 100 order by int(a7) desc '
@@ -881,6 +882,69 @@ class TestParsing(unittest.TestCase):
         rbql_src = 'select top   100 *, a2,a3 inner  join /path/to/the/file.tsv on a1 == b3 where a4 == "hello" and int(b3) == 100 order by int(a7) desc '
         replaced = 'select top   100 *, safe_get(afields, 2),safe_get(afields, 3) inner  join /path/to/the/file.tsv on safe_get(afields, 1) == safe_get(bfields, 3) where safe_get(afields, 4) == "hello" and int(safe_get(bfields, 3)) == 100 order by int(safe_get(afields, 7)) desc '
         self.assertEqual(replaced, rbql.replace_column_vars(rbql_src))
+
+
+    def test_select_translation(self):
+        rbql_src = ' *, a1,  a2,a1,*,*,b1, * ,   * '
+        test_dst = rbql.translate_select_expression_py(rbql_src)
+        canonic_dst = '[] + star_fields + [ safe_get(afields, 1),  safe_get(afields, 2),safe_get(afields, 1)] + star_fields + [] + star_fields + [safe_get(bfields, 1)] + star_fields + [] + star_fields + []'
+        self.assertEqual(canonic_dst, test_dst)
+
+        rbql_src = ' *, a1,  a2,a1,*,*,*,b1, * ,   * '
+        test_dst = rbql.translate_select_expression_py(rbql_src)
+        canonic_dst = '[] + star_fields + [ safe_get(afields, 1),  safe_get(afields, 2),safe_get(afields, 1)] + star_fields + [] + star_fields + [] + star_fields + [safe_get(bfields, 1)] + star_fields + [] + star_fields + []'
+        self.assertEqual(canonic_dst, test_dst)
+
+        rbql_src = ' * '
+        test_dst = rbql.translate_select_expression_py(rbql_src)
+        canonic_dst = '[] + star_fields + []'
+        self.assertEqual(canonic_dst, test_dst)
+
+        rbql_src = ' *,* '
+        test_dst = rbql.translate_select_expression_py(rbql_src)
+        canonic_dst = '[] + star_fields + [] + star_fields + []'
+        self.assertEqual(canonic_dst, test_dst)
+
+        rbql_src = ' *,*, * '
+        test_dst = rbql.translate_select_expression_py(rbql_src)
+        canonic_dst = '[] + star_fields + [] + star_fields + [] + star_fields + []'
+        self.assertEqual(canonic_dst, test_dst)
+
+        rbql_src = ' *,*, * , *'
+        test_dst = rbql.translate_select_expression_py(rbql_src)
+        canonic_dst = '[] + star_fields + [] + star_fields + [] + star_fields + [] + star_fields + []'
+        self.assertEqual(canonic_dst, test_dst)
+
+
+        rbql_src = ' *, a1,  a2,a1,*,*,b1, * ,   * '
+        test_dst = rbql.translate_select_expression_js(rbql_src)
+        canonic_dst = '[].concat([]).concat(star_fields).concat([ safe_get(afields, 1),  safe_get(afields, 2),safe_get(afields, 1)]).concat(star_fields).concat([]).concat(star_fields).concat([safe_get(bfields, 1)]).concat(star_fields).concat([]).concat(star_fields).concat([])'
+        self.assertEqual(canonic_dst, test_dst)
+
+        rbql_src = ' *, a1,  a2,a1,*,*,*,b1, * ,   * '
+        test_dst = rbql.translate_select_expression_js(rbql_src)
+        canonic_dst = '[].concat([]).concat(star_fields).concat([ safe_get(afields, 1),  safe_get(afields, 2),safe_get(afields, 1)]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([safe_get(bfields, 1)]).concat(star_fields).concat([]).concat(star_fields).concat([])'
+        self.assertEqual(canonic_dst, test_dst)
+
+        rbql_src = ' * '
+        test_dst = rbql.translate_select_expression_js(rbql_src)
+        canonic_dst = '[].concat([]).concat(star_fields).concat([])'
+        self.assertEqual(canonic_dst, test_dst)
+
+        rbql_src = ' *,* '
+        test_dst = rbql.translate_select_expression_js(rbql_src)
+        canonic_dst = '[].concat([]).concat(star_fields).concat([]).concat(star_fields).concat([])'
+        self.assertEqual(canonic_dst, test_dst)
+
+        rbql_src = ' *,*, * '
+        test_dst = rbql.translate_select_expression_js(rbql_src)
+        canonic_dst = '[].concat([]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([])'
+        self.assertEqual(canonic_dst, test_dst)
+
+        rbql_src = ' *,*, * , *'
+        test_dst = rbql.translate_select_expression_js(rbql_src)
+        canonic_dst = '[].concat([]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([])'
+        self.assertEqual(canonic_dst, test_dst)
 
 
 def main():
