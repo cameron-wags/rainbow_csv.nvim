@@ -130,20 +130,25 @@ def replace_column_vars(rbql_expression):
 
 
 def replace_star_vars_py(rbql_expression):
-    return re.sub(r'(?:^|,) *\* *(?:$|,)', '] + star_fields + [', rbql_expression)
+    rbql_expression = re.sub(r'(?:^|,) *\* *(?=, *\* *($|,))', '] + star_fields + [', rbql_expression)
+    rbql_expression = re.sub(r'(?:^|,) *\* *(?:$|,)', '] + star_fields + [', rbql_expression)
+    return rbql_expression
 
 
 def replace_star_vars_js(rbql_expression):
-    return re.sub(r'(?:^|,) *\* *(?:$|,)', ']).concat(star_fields).concat([', rbql_expression)
+    rbql_expression = re.sub(r'(?:^|,) *\* *(?=, *\* *($|,))', ']).concat(star_fields).concat([', rbql_expression)
+    rbql_expression = re.sub(r'(?:^|,) *\* *(?:$|,)', ']).concat(star_fields).concat([', rbql_expression)
+    return rbql_expression
 
 
 def translate_update_expression(update_expression):
-    translated = re.sub('(?:^|,) *a([1-9][0-9]*) *=(?=[^=])', '\nsafe_set(fields, \\1,', update_expression)
+    translated = re.sub('(?:^|,) *a([1-9][0-9]*) *=(?=[^=])', '\nsafe_set(afields, \\1,', update_expression)
     update_statements = translated.split('\n')
     update_statements = [s.strip() for s in update_statements]
-    update_statements = [s + ')' for s in update_statements if len(s)]
-    if not len(update_statements):
-        raise RBParsingError('"UPDATE" expression is empty')
+    if len(update_statements) < 2 or len(update_statements[0]) > 0:
+        raise RBParsingError('Unable to parse "UPDATE" expression')
+    update_statements = update_statements[1:]
+    update_statements = [s + ')' for s in update_statements]
     translated = '\n'.join(update_statements)
     translated = replace_column_vars(translated)
     return translated
@@ -155,7 +160,7 @@ def translate_select_expression_py(select_expression):
     translated = translated.strip()
     if not len(translated):
         raise RBParsingError('"SELECT" expression is empty')
-    return translated
+    return '[{}]'.format(translated)
 
 
 def translate_select_expression_js(select_expression):
@@ -164,7 +169,7 @@ def translate_select_expression_js(select_expression):
     translated = translated.strip()
     if not len(translated):
         raise RBParsingError('"SELECT" expression is empty')
-    return translated
+    return '[].concat([{}])'.format(translated)
 
 
 def separate_string_literals(rbql_expression):
