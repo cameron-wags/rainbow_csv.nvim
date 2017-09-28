@@ -30,25 +30,25 @@ RBQL is a technology which provides SQL-like language that supports "select" que
 * Use double equality "==" instead of single "=" to check for equality
 * Use one of the "join" keywords to run join query
 * Input csv/tsv table may contain varying number of entries (but select query must be written in a way that prevents output of missing values)
-* UTF-8 and unicode are supported
+* Unicode support
 
 ### Supported SQL Keywords (Keywords are case insensitive)
-* select 
-* where 
-* order by
-* desc/asc
-* distinct
-* top
-* (inner) join
-* left join
-* strict left join
+
+* SELECT 
+* WHERE 
+* ORDER BY ... [DESC|ASC]
+* DISTINCT
+* TOP
+* [INNER] JOIN
+* LEFT JOIN
+* STRICT LEFT JOIN
 
 ### Special variables
-* `a1`, `a2`, ... , `aN` - column names
-* `*` - whole line/entry
-* `NR` - line (record) number (1-based)
-* `NF` - number of fields in the current line/record
-* `b1`, `b2`, ... , `bN` - column names in right table B in join operations
+* `a1`, `a2`, ... , `aN` - Column names
+* `*` - Current record
+* `NR` - Number of Records being processed (or line number). NR is 1-based
+* `NF` - Number of Fields in the current line/record
+* `b1`, `b2`, ... , `bN` - Column names in right table B in JOIN operations
 
 ### Join query rules
 * Keywords `join` (`inner join`) and `left join` work exactly like their SQL equivalents with only difference that join key in right table "B" must be unique.  
