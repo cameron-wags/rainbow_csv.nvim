@@ -834,6 +834,49 @@ def make_random_bin_table(num_rows, num_cols, key_col1, key_col2, delim, dst_pat
                 f.write('\n')
 
 
+class TestParsing(unittest.TestCase):
+
+    def test_literals_replacement(self):
+        #TODO generate some random examples: Generate some strings randomly and then parse them
+        test_cases = list()
+        test_cases.append((r'Select 100 order by a1', []))
+        test_cases.append((r'Select "hello" order by a1', ['"hello"']))
+        test_cases.append((r"Select 'hello', 100 order by a1 desc", ["'hello'"]))
+        test_cases.append((r'Select "hello", *, "world" 100 order by a1 desc', ['"hello"', '"world"']))
+        test_cases.append((r'Select "hello", "world", "hello \" world", "hello \\\" world", "hello \\\\\\\" world" order by "world"', ['"hello"', '"world"', r'"hello \" world"', r'"hello \\\" world"', r'"hello \\\\\\\" world"', '"world"']))
+
+        for tc in test_cases:
+            format_expression, string_literals = rbql.separate_string_literals(tc[0])
+            canonic_literals = tc[1]
+            self.assertEqual(canonic_literals, string_literals)
+
+    def test_separate_actions(self):
+        query = 'select top   100 *, a2, a3 inner  join /path/to/the/file.tsv on a1 == b3 where a4 == "hello" and int(b3) == 100 order by int(a7) desc '
+        canonic_res = {'INNER JOIN': {'text': '/path/to/the/file.tsv on a1 == b3'}, 'SELECT TOP': {'text': '*, a2, a3', 'top': 100}, 'WHERE': {'text': 'a4 == "hello" and int(b3) == 100'}, 'ORDER BY': {'text': 'int(a7)', 'reverse': True}}
+        test_res = rbql.separate_actions(query)
+        assert test_res == canonic_res
+
+
+    def test_join_parsing(self):
+        join_part = '/path/to/the/file.tsv on a1 == b3'
+        self.assertEqual(('/path/to/the/file.tsv', 'safe_get(afields, 1)', 'safe_get(bfields, 3)'), rbql.parse_join_expression(join_part))
+
+        join_part = ' file.tsv on b20== a12  '
+        self.assertEqual(('file.tsv', 'safe_get(afields, 12)', 'safe_get(bfields, 20)'), rbql.parse_join_expression(join_part))
+
+        join_part = '/path/to/the/file.tsv on a1==a12  '
+        with self.assertRaises(Exception) as cm:
+            rbql.parse_join_expression(join_part)
+        e = cm.exception
+        self.assertTrue(str(e).find('Incorrect join syntax') != -1)
+
+        join_part = ' Bon b1 == a12 '
+        with self.assertRaises(Exception) as cm:
+            rbql.parse_join_expression(join_part)
+        e = cm.exception
+        self.assertTrue(str(e).find('Incorrect join syntax') != -1)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--create_random_binary_table', metavar='FILE', help='create random binary table and write it to FILE')
