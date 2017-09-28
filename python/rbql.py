@@ -132,9 +132,12 @@ def replace_column_vars(rbql_expression):
     return translated
 
 
-def replace_star_vars(rbql_expression):
-    #FIXME need implementation for js
+def replace_star_vars_py(rbql_expression):
     return re.sub('(?:^|,) *\* *(?:$|,)', '] + star_fields + [', rbql_expression)
+
+
+def replace_star_vars_js(rbql_expression):
+    return re.sub('(?:^|,) *\* *(?:$|,)', ']).concat(star_fields).concat([', rbql_expression)
 
 
 def translate_update_expression(update_expression):
@@ -149,9 +152,18 @@ def translate_update_expression(update_expression):
     return translated
 
 
-def translate_select_expression(select_expression):
+def translate_select_expression_py(select_expression):
     translated = replace_column_vars(select_expression)
-    translated = replace_star_vars(translated)
+    translated = replace_star_vars_py(translated)
+    translated = translated.strip()
+    if not len(translated):
+        raise RBParsingError('"SELECT" expression is empty')
+    return translated
+
+
+def translate_select_expression_js(select_expression):
+    translated = replace_column_vars(select_expression)
+    translated = replace_star_vars_js(translated)
     translated = translated.strip()
     if not len(translated):
         raise RBParsingError('"SELECT" expression is empty')
@@ -178,12 +190,13 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
 
     if select_op is None:
         raise RBParsingError('Query must have a "SELECT" or "UPDATE" statement')
+    assert writer_name is not None
 
     joiner_name = 'none_joiner'
     join_op = None
     rhs_table_path = 'None'
-    lhs_join_var = None
-    rhs_join_var = None
+    lhs_join_var = 'None'
+    rhs_join_var = 'None'
     join_ops = {JOIN: 'InnerJoiner', INNER_JOIN: 'InnerJoiner', LEFT_JOIN: 'LeftJoiner', STRICT_LEFT_JOIN: 'StrictLeftJoiner'}
     for k, v in join_ops.items():
         if k in rb_actions:
@@ -218,7 +231,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
         update_expression = translate_update_expression(rb_actions[select_op]['text'])
         py_meta_params['update_expression'] = parse_utils.combine_string_literals(update_expression, string_literals)
     else:
-        select_expression = translate_select_expression(rb_actions[select_op]['text'])
+        select_expression = translate_select_expression_py(rb_actions[select_op]['text'])
         py_meta_params['select_expression'] = parse_utils.combine_string_literals(select_expression, string_literals)
 
     if ORDER_BY in rb_actions:
@@ -236,17 +249,11 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
 
 
 def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_encoding=default_csv_encoding, import_modules=None):
-    for il in xrange6(len(rbql_lines)):
-        cline = rbql_lines[il]
-        rbql_lines[il] = strip_js_comments(cline)
-
+    rbql_lines = [strip_js_comments(l) for l in rbql_lines]
     rbql_lines = [l for l in rbql_lines if len(l)]
-
-    tokens = tokenize_string_literals(rbql_lines, ['"', "'", '`'])
-    tokens = tokenize_terms(tokens)
-    tokens = merge_consecutive_whitespaces(tokens)
-    tokens = strip_tokens(tokens)
-    rb_actions = separate_actions(tokens)
+    full_rbql_expression = ' '.join(rbql_lines)
+    format_expression, string_literals = parse_utils.separate_string_literals(full_rbql_expression)
+    rb_actions = parse_utils.separate_actions(format_expression)
 
     select_op = None
     writer_name = None
@@ -258,12 +265,13 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
 
     if select_op is None:
         raise RBParsingError('Query must have a "SELECT" or "UPDATE" statement')
+    assert writer_name is not None
 
     join_function = 'null_join'
     join_op = None
     rhs_table_path = 'null'
-    lhs_join_var = None
-    rhs_join_var = None
+    lhs_join_var = 'null'
+    rhs_join_var = 'null'
     join_funcs = {JOIN: 'inner_join', INNER_JOIN: 'inner_join', LEFT_JOIN: 'left_join', STRICT_LEFT_JOIN: 'strict_left_join'}
     for k, v in join_funcs.items():
         if k in rb_actions:
@@ -288,31 +296,27 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     js_meta_params['lhs_join_var'] = lhs_join_var
     js_meta_params['where_expression'] = 'true'
     if WHERE in rb_actions:
-        js_meta_params['where_expression'] = replace_column_vars(rb_actions[WHERE]['text'])
-    js_meta_params['top_count'] = -1
-    if select_op == SELECT_TOP:
-        try:
-            js_meta_params['top_count'] = int(rb_actions[select_op][0].content)
-            assert rb_actions[select_op][1].content == ' '
-            rb_actions[select_op] = rb_actions[select_op][2:]
-        except Exception:
-            raise RBParsingError('Unable to parse "TOP" expression')
-    if select_op == UPDATE:
-        update_expression = translate_update_expression(join_tokens(select_tokens))
-        js_meta_params['update_expression'] = update_expression
-    else:
-        select_expression = translate_select_expression(join_tokens(select_tokens))
-        js_meta_params['select_expression'] = select_expression
+        where_expression = replace_column_vars(rb_actions[WHERE]['text'])
+        js_meta_params['where_expression'] = parse_utils.combine_string_literals(where_expression, string_literals)
 
-    js_meta_params['sort_flag'] = 'false'
-    js_meta_params['reverse_flag'] = 'false'
-    js_meta_params['sort_key_expression'] = 'None'
+    js_meta_params['top_count'] = str(rb_actions[select_op]['top']) if select_op == SELECT_TOP else 'null'
+
+    if select_op == UPDATE:
+        update_expression = translate_update_expression(rb_actions[select_op]['text'])
+        js_meta_params['update_expression'] = parse_utils.combine_string_literals(update_expression, string_literals)
+    else:
+        select_expression = translate_select_expression_js(rb_actions[select_op]['text'])
+        js_meta_params['select_expression'] = parse_utils.combine_string_literals(select_expression, string_literals)
+
     if ORDER_BY in rb_actions:
-        js_meta_params['sort_flag'] = 'True'
-        order_expression, reverse_flag = parse_order_expression(rb_actions[ORDER_BY]['text']) 
-        if reverse_flag:
-            js_meta_params['reverse_flag'] = 'True'
-        js_meta_params['sort_key_expression'] = order_expression
+        order_expression = replace_column_vars(rb_actions[ORDER_BY]['text'])
+        js_meta_params['sort_key_expression'] = parse_utils.combine_string_literals(order_expression, string_literals)
+        js_meta_params['reverse_flag'] = 'true' if rb_actions[ORDER_BY]['reverse'] else 'false'
+        js_meta_params['sort_flag'] = 'true'
+    else:
+        js_meta_params['sort_key_expression'] = 'null'
+        js_meta_params['reverse_flag'] = 'false'
+        js_meta_params['sort_flag'] = 'false'
 
     with codecs.open(js_dst, 'w', encoding='utf-8') as dst:
         dst.write(rbql_meta_format(js_script_body, js_meta_params))
