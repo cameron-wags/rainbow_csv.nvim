@@ -64,14 +64,28 @@ def get_encoded_stdout(encoding_name):
         return codecs.getwriter(encoding_name)(sys.stdout)
 
 
-class RBParsingError(Exception):
-    pass
-
-
 def xrange6(x):
     if PY3:
         return range(x)
     return xrange(x)
+
+
+def rbql_meta_format(template_src, meta_params):
+    for k, v in meta_params.items():
+        template_marker = '__RBQLMP__{}'.format(k)
+        template_src = template_src.replace(template_marker, v)
+    return template_src
+
+
+def remove_if_possible(file_path):
+    try:
+        os.remove(file_path)
+    except Exception:
+        pass
+
+
+class RBParsingError(Exception):
+    pass
 
 
 def strip_py_comments(cline):
@@ -108,20 +122,6 @@ def parse_join_expression(src):
     lhs_join_var = 'safe_get(afields, {})'.format(int(avar[1:]))
     rhs_join_var = 'safe_get(bfields, {})'.format(int(bvar[1:]))
     return (table_path, lhs_join_var, rhs_join_var)
-
-
-def rbql_meta_format(template_src, meta_params):
-    for k, v in meta_params.items():
-        template_marker = '__RBQLMP__{}'.format(k)
-        template_src = template_src.replace(template_marker, v)
-    return template_src
-
-
-def remove_if_possible(file_path):
-    try:
-        os.remove(file_path)
-    except Exception:
-        pass
 
 
 def replace_column_vars(rbql_expression):
@@ -248,6 +248,7 @@ def separate_actions(rbql_expression):
                 result[statement]['reverse'] = False
         result[statement]['text'] = span.strip()
     return result
+
 
 def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encoding, import_modules=None):
     if not py_dst.endswith('.py'):
