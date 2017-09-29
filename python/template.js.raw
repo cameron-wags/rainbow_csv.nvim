@@ -102,10 +102,18 @@ function BadFieldError(idx) {
 
 
 function safe_get(record, idx) {
-    if (idx < record.length) {
-        return record[idx];
+    if (idx - 1 < record.length) {
+        return record[idx - 1];
     }
-    throw new BadFieldError(idx);
+    throw new BadFieldError(idx - 1);
+}
+
+
+function safe_set(record, idx, value) {
+    if (idx - 1 < record.length) {
+        record[idx - 1] = value;
+    }
+    throw new BadFieldError(idx - 1);
 }
 
 
@@ -194,45 +202,52 @@ lineReader.on('line', function (line) {
     NR += 1;
     //readline strips last '\r'
     var split_result = smart_split(line);
-    var fields = split_result[0];
+    var afields = split_result[0];
     var warning = split_result[1];
     if (warning && !defective_csv_line_in_input)
         defective_csv_line_in_input = NR;
-    var NF = fields.length;
+    var NF = afields.length;
     if (!input_fields_info.hasOwnProperty(NF))
         input_fields_info[NF] = NR;
     var bfields = null;
-    var star_line = fields.join('\t');
+    var star_fields = afields;
     if (join_map != null) {
         bfields = __RBQLMP__join_function(join_map, max_join_fields, __RBQLMP__lhs_join_var);
         if (bfields == null)
             return;
-        star_line = fields.concat(bfields).join('\t')
+        star_fields = afields.concat(bfields)
     }
-    if (!(__RBQLMP__where_expression))
-        return;
-    var out_fields = null;
     try {
-        out_fields = [__RBQLMP__select_expression]
+        if (__RBQLMP__is_select_query) {
+            if (!(__RBQLMP__where_expression))
+                return;
+            out_fields = __RBQLMP__select_expression;
+        } else {
+            if (__RBQLMP__where_expression) {
+                __RBQLMP__update_statements
+            }
+            out_fields = afields;
+        }
+        for (var i = 0; i < out_fields.length; i++) {
+            if (out_fields[i] == null) {
+                null_value_in_output = true;
+            }
+        }
+        if (__RBQLMP__sort_flag) {
+            var sort_entry = [__RBQLMP__sort_key_expression, NR, out_fields.join('\t')];
+            unsorted_entries.push(sort_entry);
+        } else {
+            if (top_count !== null && writer.NW >= top_count) {
+                lineReader.close();
+                return;
+            }
+            writer.write(out_fields.join('\t'));
+        }
     } catch (e) {
         if (e instanceof BadFieldError) {
             exit_with_error_msg('No "a' + (e.idx + 1) + '" column at line: ' + NR);
         }
-    }
-    for (var i = 0; i < out_fields.length; i++) {
-        if (out_fields[i] == null) {
-            null_value_in_output = true;
-        }
-    }
-    if (__RBQLMP__sort_flag) {
-        var sort_entry = [__RBQLMP__sort_key_expression, NR, out_fields.join('\t')];
-        unsorted_entries.push(sort_entry);
-    } else {
-        if (top_count != -1 && writer.NW >= top_count) {
-            lineReader.close();
-            return;
-        }
-        writer.write(out_fields.join('\t'));
+        throw(e);
     }
 
 });
@@ -264,7 +279,7 @@ lineReader.on('close', function () {
         if (__RBQLMP__reverse_flag)
             unsorted_entries.reverse();
         for (var i = 0; i < unsorted_entries.length; i++) {
-            if (top_count != -1 && writer.NW >= top_count)
+            if (top_count !== null && writer.NW >= top_count)
                 break;
             writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]);
         }

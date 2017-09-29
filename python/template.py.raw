@@ -42,9 +42,16 @@ class RbqlRuntimeError(Exception):
 
 def safe_get(record, idx):
     try:
-        return record[idx]
+        return record[idx - 1]
     except IndexError as e:
-        raise BadFieldError(idx)
+        raise BadFieldError(idx - 1)
+
+
+def safe_set(record, idx, value):
+    try:
+        record[idx - 1] = value
+    except IndexError as e:
+        raise BadFieldError(idx - 1)
 
 
 module_was_used_failsafe = False
@@ -203,11 +210,11 @@ def rb_transform(source, destination):
     joiner = __RBQLMP__joiner_type('__RBQLMP__rhs_table_path')
     for NR, line in enumerate(rbql_utils.rows(source), 1):
         line = line.rstrip('\r\n')
-        fields, warning = smart_split(line)
+        afields, warning = smart_split(line)
         if warning and not defective_csv_line_in_input:
             defective_csv_line_in_input = NR
-        star_line = '\t'.join(fields)
-        NF = len(fields)
+        star_fields = afields
+        NF = len(afields)
         if NF not in input_fields_info:
             input_fields_info[NF] = NR
         bfields = None
@@ -216,16 +223,21 @@ def rb_transform(source, destination):
                 bfields = joiner.get(__RBQLMP__lhs_join_var)
                 if bfields is None:
                     continue
-                star_line = '\t'.join([line] + [str6(f) for f in bfields])
-            if not (__RBQLMP__where_expression):
-                continue
-            out_fields = [__RBQLMP__select_expression]
+                star_fields = afields + bfields
+            if __RBQLMP__is_select_query:
+                if not (__RBQLMP__where_expression):
+                    continue
+                out_fields = __RBQLMP__select_expression
+            else:
+                if (__RBQLMP__where_expression):
+                    __RBQLMP__update_statements
+                out_fields = afields
             replace_none_values(out_fields)
             if __RBQLMP__sort_flag:
                 sort_key_value = (__RBQLMP__sort_key_expression)
                 unsorted_entries.append((sort_key_value, '\t'.join([str6(f) for f in out_fields])))
             else:
-                if __RBQLMP__top_count != -1 and writer.NW >= __RBQLMP__top_count:
+                if __RBQLMP__top_count is not None and writer.NW >= __RBQLMP__top_count:
                     break
                 writer.write('\t'.join([str6(f) for f in out_fields]))
         except BadFieldError as e:
@@ -238,7 +250,7 @@ def rb_transform(source, destination):
         if __RBQLMP__reverse_flag:
             sorted_entries.reverse()
         for e in sorted_entries:
-            if __RBQLMP__top_count != -1 and writer.NW >= __RBQLMP__top_count:
+            if __RBQLMP__top_count is not None and writer.NW >= __RBQLMP__top_count:
                 break
             writer.write(e[1])
     return create_warnings_report()

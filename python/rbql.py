@@ -73,6 +73,7 @@ def xrange6(x):
 def rbql_meta_format(template_src, meta_params):
     for k, v in meta_params.items():
         template_marker = '__RBQLMP__{}'.format(k)
+        #TODO make special replace for multiple statements, like in update, it should be indent-aware
         template_src = template_src.replace(template_marker, v)
     return template_src
 
@@ -141,14 +142,16 @@ def replace_star_vars_js(rbql_expression):
     return rbql_expression
 
 
-def translate_update_expression(update_expression):
+def translate_update_expression(update_expression, indent):
     translated = re.sub('(?:^|,) *a([1-9][0-9]*) *=(?=[^=])', '\nsafe_set(afields, \\1,', update_expression)
     update_statements = translated.split('\n')
     update_statements = [s.strip() for s in update_statements]
     if len(update_statements) < 2 or len(update_statements[0]) > 0:
         raise RBParsingError('Unable to parse "UPDATE" expression')
     update_statements = update_statements[1:]
-    update_statements = [s + ')' for s in update_statements]
+    update_statements = ['{})'.format(s) for s in update_statements]
+    for i in range(1, len(update_statements)):
+        update_statements[i] = indent + update_statements[i]
     translated = '\n'.join(update_statements)
     translated = replace_column_vars(translated)
     return translated
@@ -172,9 +175,20 @@ def translate_select_expression_js(select_expression):
     return '[].concat([{}])'.format(translated)
 
 
-def separate_string_literals(rbql_expression):
+def separate_string_literals_py(rbql_expression):
+    string_literals_regex = r'''(\"\"\"|\'\'\'|\"|\')((?<!\\)(\\\\)*\\\1|.)*?\1'''
+    return do_separate_string_literals(rbql_expression, string_literals_regex)
+
+
+def separate_string_literals_js(rbql_expression):
+    string_literals_regex = r'''(`|\"|\')((?<!\\)(\\\\)*\\\1|.)*?\1'''
+    return do_separate_string_literals(rbql_expression, string_literals_regex)
+
+
+def do_separate_string_literals(rbql_expression, string_literals_regex):
     # regex is improved expression from here: https://stackoverflow.com/a/14366904/2898283
-    matches = list(re.finditer(r'''(\"\"\"|\'\'\'|\"|\')((?<!\\)(\\\\)*\\\1|.)*?\1''', rbql_expression))
+    # FIXME use different expression for js
+    matches = list(re.finditer(string_literals_regex, rbql_expression))
     string_literals = list()
     format_parts = list()
     idx_before = 0
@@ -257,7 +271,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     rbql_lines = [strip_py_comments(l) for l in rbql_lines]
     rbql_lines = [l for l in rbql_lines if len(l)]
     full_rbql_expression = ' '.join(rbql_lines)
-    format_expression, string_literals = separate_string_literals(full_rbql_expression)
+    format_expression, string_literals = separate_string_literals_py(full_rbql_expression)
     rb_actions = separate_actions(format_expression)
 
     select_op = None
@@ -308,11 +322,15 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     py_meta_params['top_count'] = str(rb_actions[select_op]['top']) if select_op == SELECT_TOP else 'None'
 
     if select_op == UPDATE:
-        update_expression = translate_update_expression(rb_actions[select_op]['text'])
-        py_meta_params['update_expression'] = combine_string_literals(update_expression, string_literals)
+        update_expression = translate_update_expression(rb_actions[select_op]['text'], ' ' * 20)
+        py_meta_params['select_expression'] = 'None'
+        py_meta_params['update_statements'] = combine_string_literals(update_expression, string_literals)
+        py_meta_params['is_select_query'] = 'False'
     else:
         select_expression = translate_select_expression_py(rb_actions[select_op]['text'])
         py_meta_params['select_expression'] = combine_string_literals(select_expression, string_literals)
+        py_meta_params['update_statements'] = 'pass'
+        py_meta_params['is_select_query'] = 'True'
 
     if ORDER_BY in rb_actions:
         order_expression = replace_column_vars(rb_actions[ORDER_BY]['text'])
@@ -332,7 +350,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     rbql_lines = [strip_js_comments(l) for l in rbql_lines]
     rbql_lines = [l for l in rbql_lines if len(l)]
     full_rbql_expression = ' '.join(rbql_lines)
-    format_expression, string_literals = separate_string_literals(full_rbql_expression)
+    format_expression, string_literals = separate_string_literals_js(full_rbql_expression)
     rb_actions = separate_actions(format_expression)
 
     select_op = None
@@ -382,11 +400,15 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     js_meta_params['top_count'] = str(rb_actions[select_op]['top']) if select_op == SELECT_TOP else 'null'
 
     if select_op == UPDATE:
-        update_expression = translate_update_expression(rb_actions[select_op]['text'])
-        js_meta_params['update_expression'] = combine_string_literals(update_expression, string_literals)
+        update_expression = translate_update_expression(rb_actions[select_op]['text'], ' ' * 16)
+        js_meta_params['select_expression'] = 'null'
+        js_meta_params['update_statements'] = combine_string_literals(update_expression, string_literals)
+        js_meta_params['is_select_query'] = 'false'
     else:
         select_expression = translate_select_expression_js(rb_actions[select_op]['text'])
         js_meta_params['select_expression'] = combine_string_literals(select_expression, string_literals)
+        js_meta_params['update_statements'] = ''
+        js_meta_params['is_select_query'] = 'true'
 
     if ORDER_BY in rb_actions:
         order_expression = replace_column_vars(rb_actions[ORDER_BY]['text'])

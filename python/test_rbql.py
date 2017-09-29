@@ -71,6 +71,7 @@ def run_conversion_test_py(query, input_table, testname, import_modules=None, jo
     module_name = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
     module_filename = '{}.py'.format(module_name)
     tmp_path = os.path.join(tmp_dir, module_filename)
+    #print( "tmp_path:", tmp_path) #FOR_DEBUG
     src = table_to_stream(input_table, delim)
     dst = io.StringIO()
     rbql.parse_to_py([query], tmp_path, delim, join_csv_encoding, import_modules)
@@ -116,7 +117,8 @@ def run_file_query_test_js(query, input_path, testname, import_modules=None, csv
 
 def run_conversion_test_js(query, input_table, testname, import_modules=None, csv_encoding=default_csv_encoding, delim='\t'):
     tmp_dir = tempfile.gettempdir()
-    script_name = '{}{}_{}_{}.js'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
+    script_name = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
+    script_name += '.js'
     tmp_path = os.path.join(tmp_dir, script_name)
     rbql.parse_to_js(None, None, [query], tmp_path, delim, csv_encoding, None)
     src = table_to_string(input_table, delim)
@@ -846,10 +848,15 @@ class TestParsing(unittest.TestCase):
         test_cases.append((r'Select "hello", "world", "hello \" world", "hello \\\" world", "hello \\\\\\\" world" order by "world"', ['"hello"', '"world"', r'"hello \" world"', r'"hello \\\" world"', r'"hello \\\\\\\" world"', '"world"']))
 
         for tc in test_cases:
-            format_expression, string_literals = rbql.separate_string_literals(tc[0])
+            format_expression, string_literals = rbql.separate_string_literals_py(tc[0])
             canonic_literals = tc[1]
             self.assertEqual(canonic_literals, string_literals)
             self.assertEqual(tc[0], rbql.combine_string_literals(format_expression, string_literals))
+
+        query = r'Select `hello` order by a1'
+        format_expression, string_literals = rbql.separate_string_literals_js(query)
+        self.assertEqual(['`hello`'], string_literals)
+
 
     def test_separate_actions(self):
         query = 'select top   100 *, a2, a3 inner  join /path/to/the/file.tsv on a1 == b3 where a4 == "hello" and int(b3) == 100 order by int(a7) desc '
@@ -886,12 +893,12 @@ class TestParsing(unittest.TestCase):
 
     def test_update_translation(self):
         rbql_src = '  a1 =  a2  + b3, a2=a4  if b3 == a2 else a8, a8=   100, a30  =200/3 + 1  '
-        test_dst = rbql.translate_update_expression(rbql_src)
+        test_dst = rbql.translate_update_expression(rbql_src, '    ')
         canonic_dst = list()
         canonic_dst.append('safe_set(afields, 1,  safe_get(afields, 2)  + safe_get(bfields, 3))')
-        canonic_dst.append('safe_set(afields, 2,safe_get(afields, 4)  if safe_get(bfields, 3) == safe_get(afields, 2) else safe_get(afields, 8))')
-        canonic_dst.append('safe_set(afields, 8,   100)')
-        canonic_dst.append('safe_set(afields, 30,200/3 + 1)')
+        canonic_dst.append('    safe_set(afields, 2,safe_get(afields, 4)  if safe_get(bfields, 3) == safe_get(afields, 2) else safe_get(afields, 8))')
+        canonic_dst.append('    safe_set(afields, 8,   100)')
+        canonic_dst.append('    safe_set(afields, 30,200/3 + 1)')
         canonic_dst = '\n'.join(canonic_dst)
         self.assertEqual(canonic_dst, test_dst)
 
