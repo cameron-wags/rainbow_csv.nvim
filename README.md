@@ -1,7 +1,7 @@
 ## Overview
 Rainbow CSV has 2 main features:
 * Highlights csv columns in different rainbow colors. 
-* Allows to run "SELECT" queries in RBQL: SQL-like transprogramming language.
+* Allows to run "SELECT" queries in RBQL: SQL-like transprogramming query language.
 
 There are 2 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
@@ -55,28 +55,17 @@ RBQL is a technology which provides SQL-like language that supports "select" que
 * Keyword `strict left join` is like `left join`, but generates error if some keys in left table "A" don't have matching key in right table "B".
 * JOIN statement must have the following form: `<join_keyword> /path/to/table.tsv on ai == bj`
 
-### RBQL Query examples with Python expressions
+### Examples
 
-* `select * where a1 == "Buy"` - use double equality "==" instead of single equality "="
-* `select a1, a2 where a2 in ["car", "plane", "boat"]` - use Python's "in" to emulate SQL's "in"
-* `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
-* `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
-* `select * order by int(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
+#### RBQL Query examples with Python expressions
+
+* `select top 100 a1, int(a2) * 10, len(a4) where a1 == "Buy" order by int(a2)`
 * `select * order by random.random()` - random sort, this is an equivalent of bash command "sort -R"
-* `select NR, *` - enumerate lines, NR is 1-based
-* `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
-* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1` - an example of join query
 
-### RBQL Query examples with JavaScript expressions
+#### RBQL Query examples with JavaScript expressions
 
-* `select * where a1 == "Buy"` - use double equality "==" instead of single equality "="
-* `select a1, a2 where ["car", "plane", "boat"].indexOf(a2) > -1`
-* `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
-* `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
-* `select * order by parseInt(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
+* `select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2)`
 * `select * order by Math.random()` - random sort, this is an equivalent of bash command "sort -R"
-* `select NR, *` - enumerate lines, NR is 1-based
-* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1` - an example of join query
 
 ### How does it work?
 Python script rbql.py parses RBQL query, creates a new .py module, then imports and executes it.
@@ -150,6 +139,28 @@ If you want to use RBQL with JavaScript expressions, make sure you have Node.js 
 
 
 ## Other
+
+### Some more examples of RBQL queries:
+
+#### RBQL Query examples with Python expressions
+
+* `select a1, a2 where a2 in ["car", "plane", "boat"]` - use Python's "in" to emulate SQL's "in"
+* `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
+* `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
+* `select * order by int(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
+* `select NR, *` - enumerate lines, NR is 1-based
+* `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
+* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1` - an example of join query
+
+#### RBQL Query examples with JavaScript expressions
+
+* `select a1, a2 where ["car", "plane", "boat"].indexOf(a2) > -1`
+* `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
+* `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
+* `select * order by parseInt(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
+* `select * order by Math.random()` - random sort, this is an equivalent of bash command "sort -R"
+* `select NR, *` - enumerate lines, NR is 1-based
+* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1` - an example of join query
 
 ### cli_rbql.py script
 
