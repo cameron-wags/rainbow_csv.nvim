@@ -19,7 +19,7 @@ To run an RBQL query either press 'F5' or enter the query in vim command line e.
 The demo table is demo/movies.tsv. There are also some other test datasets in python/test_datasets.
 
 
-## RBQL (RainBow Query Language) Description
+# RBQL (RainBow Query Language) Description
 RBQL is a technology which provides SQL-like language that supports "select" queries with Python or JavaScript expressions.
 
 ### Main Features
@@ -67,7 +67,7 @@ RBQL is a technology which provides SQL-like language that supports "select" que
 * `select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2)`
 * `select * order by Math.random()` - random sort, this is an equivalent of bash command "sort -R"
 
-## Plugin description
+# Plugin description
 
 ### Mappings
 
@@ -134,7 +134,7 @@ Install with your favorite plugin manager.
 If you want to use RBQL with JavaScript expressions, make sure you have Node.js installed
 
 
-## Other
+# Other
 
 ### How does it work?
 Python module rbql.py parses RBQL query, creates a new python worker module, then imports and executes it.
