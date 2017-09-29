@@ -884,6 +884,18 @@ class TestParsing(unittest.TestCase):
         self.assertEqual(replaced, rbql.replace_column_vars(rbql_src))
 
 
+    def test_update_translation(self):
+        rbql_src = '  a1 =  a2  + b3, a2=a4  if b3 == a2 else a8, a8=   100, a30  =200/3 + 1  '
+        test_dst = rbql.translate_update_expression(rbql_src)
+        canonic_dst = list()
+        canonic_dst.append('safe_set(afields, 1,  safe_get(afields, 2)  + safe_get(bfields, 3))')
+        canonic_dst.append('safe_set(afields, 2,safe_get(afields, 4)  if safe_get(bfields, 3) == safe_get(afields, 2) else safe_get(afields, 8))')
+        canonic_dst.append('safe_set(afields, 8,   100)')
+        canonic_dst.append('safe_set(afields, 30,200/3 + 1)')
+        canonic_dst = '\n'.join(canonic_dst)
+        self.assertEqual(canonic_dst, test_dst)
+
+
     def test_select_translation(self):
         rbql_src = ' *, a1,  a2,a1,*,*,b1, * ,   * '
         test_dst = rbql.translate_select_expression_py(rbql_src)
