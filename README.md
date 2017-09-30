@@ -44,15 +44,15 @@ RBQL is a technology which provides SQL-like language that supports "select" que
 * STRICT LEFT JOIN
 
 ### Special variables
-* `a1`, `a2`, ... , `aN` - Column names
 * `*` - Current record
-* `NR` - Number of Records being processed (or line number). NR is 1-based
-* `NF` - Number of Fields in the current line/record
-* `b1`, `b2`, ... , `bN` - Column names in right table B in JOIN operations
+* `a1`, `a2`, ... , `aN` _(string)_ - Value of i-th column
+* `b1`, `b2`, ... , `bN` _(string)_ - Value of i-th column in right hand side table B in JOIN operations
+* `NR` _(integer)_ - Number of Records being processed (or line number). NR is 1-based
+* `NF` _(integer)_ - Number of Fields in the current line/record
 
 ### JOIN statement rules
-* Keywords `join` (`inner join`) and `left join` work exactly like their SQL equivalents with only difference that join key in right table "B" must be unique.  
-* Keyword `strict left join` is like `left join`, but generates error if some keys in left table "A" don't have matching key in right table "B".
+* Keywords `JOIN` (`INNER JOIN`) and `LEFT JOIN` work exactly like their SQL equivalents with only difference that join key in right table "B" must be unique.  
+* Keyword `STRICT LEFT JOIN` is like `LEFT JOIN`, but generates error if some keys in left table "A" don't have matching key in right table "B".
 * JOIN statement must have the following form: `<join_keyword> /path/to/table.tsv on ai == bj`
 
 ### Examples of RBQL queries
