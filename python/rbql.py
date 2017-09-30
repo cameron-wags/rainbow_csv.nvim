@@ -228,6 +228,8 @@ def separate_actions(rbql_expression):
             rgxp = None
             if statement == SELECT_TOP:
                 rgxp = r'(?i)(?:^|[ ])SELECT *TOP *([0-9][0-9]*)(?:$|[ ])'
+            elif statement == UPDATE:
+                rgxp = r'(?i)(?:^|[ ])UPDATE( *SET)?(?:$|[ ])'.format(statement.replace(' ', ' *'))
             else:
                 rgxp = r'(?i)(?:^|[ ]){}(?:$|[ ])'.format(statement.replace(' ', ' *'))
             matches = list(re.finditer(rgxp, rbql_expression))

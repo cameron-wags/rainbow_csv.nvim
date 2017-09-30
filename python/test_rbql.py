@@ -627,6 +627,32 @@ class TestEverything(unittest.TestCase):
         compare_warnings(self, None, warnings)
 
 
+    def test_run15(self):
+        test_name = 'test15'
+
+        input_table = list()
+        input_table.append(['5', 'Петр Первый', 'hoho'])
+        input_table.append(['-20', 'Екатерина Великая', 'hioho\r'])
+        input_table.append(['50', 'Наполеон', 'dfdf\r'])
+        input_table.append(['20', 'Наполеон'])
+
+        canonic_table = list()
+        canonic_table.append(['5', 'Наполеон', 'hoho'])
+        canonic_table.append(['-20', 'Наполеон', 'hioho'])
+        canonic_table.append(['50', 'Наполеон', 'dfdf'])
+        canonic_table.append(['20', 'Наполеон'])
+
+        query = 'update set a2= "Наполеон" '
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, join_csv_encoding='utf-8')
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, ['output_fields_info', 'input_fields_info'], warnings)
+
+        query = 'update  set  a2= "Наполеон" '
+        test_table, warnings = run_conversion_test_js(query, input_table, test_name, csv_encoding='utf-8')
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, ['output_fields_info', 'input_fields_info'], warnings)
+
+
 def calc_file_md5(fname):
     import hashlib
     hash_md5 = hashlib.md5()

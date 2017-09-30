@@ -481,8 +481,8 @@ func! s:generate_microlang_syntax(nfields)
     endfor
 
     highlight RbCmd ctermbg=blue guibg=blue
-    syntax keyword RbCmd SELECT WHERE INITIALIZE DESC ASC
-    syntax keyword RbCmd select where initialize desc asc
+    syntax keyword RbCmd UPDATE SELECT WHERE INITIALIZE DESC ASC
+    syntax keyword RbCmd update select where initialize desc asc
     syntax match RbCmd "ORDER BY"
     syntax match RbCmd "order by"
     syntax match RbCmd "INNER JOIN"
