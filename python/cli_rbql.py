@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+from __future__ import unicode_literals
+from __future__ import print_function
+
 import os
 import sys
 import codecs
@@ -48,7 +51,7 @@ def run_with_python(args):
     sys.path.insert(0, tmp_dir)
     try:
         rbql.parse_to_py(rbql_lines, tmp_path, delim, csv_encoding, import_modules)
-    except RBParsingError as e:
+    except rbql.RBParsingError as e:
         print_error_and_exit('RBQL Parsing Error: \t{}'.format(e))
     if not os.path.isfile(tmp_path) or not os.access(tmp_path, os.R_OK):
         print_error_and_exit('Error: Unable to find generated python module at {}.'.format(tmp_path))
@@ -58,13 +61,13 @@ def run_with_python(args):
         if input_path:
             src = codecs.open(input_path, encoding=csv_encoding)
         else:
-            src = brql.get_encoded_stdin(csv_encoding)
+            src = rbql.get_encoded_stdin(csv_encoding)
         warnings = None
         if output_path:
             with codecs.open(output_path, 'w', encoding=csv_encoding) as dst:
                 warnings = rbconvert.rb_transform(src, dst)
         else:
-            dst = brql.get_encoded_stdout(csv_encoding)
+            dst = rbql.get_encoded_stdout(csv_encoding)
             warnings = rbconvert.rb_transform(src, dst)
         if warnings is not None:
             hr_warnings = rbql.make_warnings_human_readable(warnings)
@@ -139,7 +142,7 @@ def main():
     parser.add_argument('--output_table_path', metavar='FILE', help='Write output table to FILE instead of stdout')
     parser.add_argument('--meta_language', metavar='LANG', help='script language to use in query', default='python', choices=['python', 'js'])
     #parser.add_argument('--convert_only', action='store_true', help='Only generate script do not run query on csv table')
-    parser.add_argument('--csv_encoding', help='Manually set csv table encoding', default=default_csv_encoding, choices=['latin-1', 'utf-8'])
+    parser.add_argument('--csv_encoding', help='Manually set csv table encoding', default=rbql.default_csv_encoding, choices=['latin-1', 'utf-8'])
     parser.add_argument('-I', dest='libs', action='append', help='Import module to use in the result conversion script')
     args = parser.parse_args()
     if args.meta_language == 'python':
