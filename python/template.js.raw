@@ -112,8 +112,9 @@ function safe_get(record, idx) {
 function safe_set(record, idx, value) {
     if (idx - 1 < record.length) {
         record[idx - 1] = value;
+    } else {
+        throw new BadFieldError(idx - 1);
     }
-    throw new BadFieldError(idx - 1);
 }
 
 
