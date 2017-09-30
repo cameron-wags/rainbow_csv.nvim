@@ -782,9 +782,9 @@ func! s:run_select(table_buf_number, rb_script_path)
 endfunc
 
 
-func! rainbow_csv#run_cmd_query(...)
+func! rainbow_csv#run_cmd_query(query_type, ...)
     let fargs = a:000
-    let query = 'select ' . join(fargs, ' ')
+    let query = a:query_type . ' ' . join(fargs, ' ')
     if !s:is_rainbow_table()
         echomsg "Error: rainbow_csv is disabled for this buffer"
         return
@@ -950,6 +950,10 @@ func! rainbow_csv#enable_rainbow(delim)
     cnoreabbrev <expr> <buffer> Select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
     cnoreabbrev <expr> <buffer> select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
     cnoreabbrev <expr> <buffer> SELECT rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
+
+    cnoreabbrev <expr> <buffer> Update rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
+    cnoreabbrev <expr> <buffer> update rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
+    cnoreabbrev <expr> <buffer> UPDATE rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
 
     let b:rainbow_csv_delim = a:delim
 
