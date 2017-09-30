@@ -601,6 +601,32 @@ class TestEverything(unittest.TestCase):
         compare_warnings(self, None, warnings)
 
 
+    def test_run14(self):
+        test_name = 'test14'
+
+        input_table = list()
+        input_table.append(['5', 'haha   asdf', 'hoho'])
+        input_table.append(['50', 'haha  asdf', 'dfdf'])
+        input_table.append(['20', 'haha    asdf', ''])
+        input_table.append(['-20', 'haha   asdf', 'hioho'])
+
+        canonic_table = list()
+        canonic_table.append(['5', 'haha   asdf', 'hoho'])
+        canonic_table.append(['100', 'haha  asdf hoho', 'dfdf'])
+        canonic_table.append(['100', 'haha    asdf hoho', ''])
+        canonic_table.append(['-20', 'haha   asdf', 'hioho'])
+
+        query = r'update a2 = a2 + " hoho", a1 = 100 where int(a1) > 10'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        query = r'update a2 = a2 + " hoho", a1 = 100 where parseInt(a1) > 10'
+        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+
 def calc_file_md5(fname):
     import hashlib
     hash_md5 = hashlib.md5()
