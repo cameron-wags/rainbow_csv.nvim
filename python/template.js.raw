@@ -212,19 +212,22 @@ lineReader.on('line', function (line) {
         input_fields_info[NF] = NR;
     var bfields = null;
     var star_fields = afields;
+    var join_flag = true;
     if (join_map != null) {
         bfields = __RBQLMP__join_function(join_map, max_join_fields, __RBQLMP__lhs_join_var);
-        if (bfields == null)
-            return;
-        star_fields = afields.concat(bfields)
+        if (bfields == null) {
+            join_flag = false;
+        } else {
+            star_fields = afields.concat(bfields)
+        }
     }
     try {
         if (__RBQLMP__is_select_query) {
-            if (!(__RBQLMP__where_expression))
+            if (!(join_flag && (__RBQLMP__where_expression)))
                 return;
             out_fields = __RBQLMP__select_expression;
         } else {
-            if (__RBQLMP__where_expression) {
+            if (join_flag && (__RBQLMP__where_expression)) {
                 __RBQLMP__update_statements
             }
             out_fields = afields;
