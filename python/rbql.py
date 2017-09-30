@@ -377,7 +377,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
             join_function = v
 
     if join_op is not None:
-        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op])
+        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op]['text'])
         rhs_table_path = "'{}'".format(rhs_table_path)
 
     js_meta_params = dict()
