@@ -71,16 +71,21 @@ RBQL is a technology which provides SQL-like language that supports "SELECT" and
 |Key           | Action                                                      |
 |--------------|-------------------------------------------------------------|
 |`<leader>d`   | Print info about current column (under the cursor)          |
-|`F5`          | Start "select" query editing for the current csv file       |
-|`F5`          | Execute currently edited "select" query                     |
+|`F5`          | Start query editing for the current csv file                |
+|`F5`          | Execute currently edited query                              |
 
 
 ### Commands
 
 #### :Select ...
 
-Allows to enter RBQL query in vim command line.
+Allows to enter RBQL select query in vim command line.
 The query must start with `:Select` command e.g. `:Select a1, a2 order by a1`
+
+#### :Update ...
+
+Allows to enter RBQL update query in vim command line.
+The query must start with `:Update` command e.g. `:Update a1 = a1 + " " + a2`
 
 #### :RainbowDelim
 
