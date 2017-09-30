@@ -187,7 +187,6 @@ def separate_string_literals_js(rbql_expression):
 
 def do_separate_string_literals(rbql_expression, string_literals_regex):
     # regex is improved expression from here: https://stackoverflow.com/a/14366904/2898283
-    # FIXME use different expression for js
     matches = list(re.finditer(string_literals_regex, rbql_expression))
     string_literals = list()
     format_parts = list()
