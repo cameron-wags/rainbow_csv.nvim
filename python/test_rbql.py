@@ -346,16 +346,6 @@ class TestEverything(unittest.TestCase):
 
     def test_run6(self):
         test_name = 'test6'
-        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
-
-        join_table = list()
-        join_table.append(['bicycle', 'legs'])
-        join_table.append(['car', 'gas '])
-        join_table.append(['plane', 'wings  \r'])
-        join_table.append(['boat', 'wind\r'])
-        join_table.append(['rocket', 'some stuff'])
-
-        table_to_file(join_table, join_table_path)
 
         input_table = list()
         input_table.append(['5', 'car', 'lada'])
@@ -365,6 +355,16 @@ class TestEverything(unittest.TestCase):
         input_table.append(['10', 'boat', 'yacht '])
         input_table.append(['200', 'plane', 'boeing 737'])
         input_table.append(['80', 'train', 'Thomas'])
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas '])
+        join_table.append(['plane', 'wings  \r'])
+        join_table.append(['boat', 'wind\r'])
+        join_table.append(['rocket', 'some stuff'])
+
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+        table_to_file(join_table, join_table_path)
 
         canonic_table = list()
         canonic_table.append(['5', '10', 'boat', 'yacht ', 'boat', 'wind'])
@@ -387,15 +387,6 @@ class TestEverything(unittest.TestCase):
 
     def test_run7(self):
         test_name = 'test7'
-        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
-
-        join_table = list()
-        join_table.append(['bicycle', 'legs'])
-        join_table.append(['car', 'gas'])
-        join_table.append(['plane', 'wings'])
-        join_table.append(['rocket', 'some stuff'])
-
-        table_to_file(join_table, join_table_path)
 
         input_table = list()
         input_table.append(['100', 'magic carpet', 'nimbus 3000'])
@@ -405,6 +396,15 @@ class TestEverything(unittest.TestCase):
         input_table.append(['20', 'boat', 'destroyer'])
         input_table.append(['10', 'boat', 'yacht'])
         input_table.append(['200', 'plane', 'boeing 737'])
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas'])
+        join_table.append(['plane', 'wings'])
+        join_table.append(['rocket', 'some stuff'])
+
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+        table_to_file(join_table, join_table_path)
 
         canonic_table = list()
         canonic_table.append(['', '', '100'])
@@ -426,15 +426,6 @@ class TestEverything(unittest.TestCase):
 
     def test_run8(self):
         test_name = 'test8'
-        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
-
-        join_table = list()
-        join_table.append(['bicycle', 'legs'])
-        join_table.append(['car', 'gas'])
-        join_table.append(['plane', 'wings'])
-        join_table.append(['rocket', 'some stuff'])
-
-        table_to_file(join_table, join_table_path)
 
         input_table = list()
         input_table.append(['5', 'car', 'lada'])
@@ -444,6 +435,15 @@ class TestEverything(unittest.TestCase):
         input_table.append(['10', 'boat', 'yacht'])
         input_table.append(['200', 'plane', 'boeing 737'])
         input_table.append(['100', 'magic carpet', 'nimbus 3000'])
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas'])
+        join_table.append(['plane', 'wings'])
+        join_table.append(['rocket', 'some stuff'])
+
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+        table_to_file(join_table, join_table_path)
 
         query = r'select b1,b2,   a1 strict left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
         with self.assertRaises(Exception) as cm:
@@ -460,7 +460,12 @@ class TestEverything(unittest.TestCase):
 
     def test_run9(self):
         test_name = 'test9'
-        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+
+        input_table = list()
+        input_table.append(['5', 'car', 'lada'])
+        input_table.append(['-20', 'car', 'ferrari'])
+        input_table.append(['50', 'plane', 'tu-134'])
+        input_table.append(['200', 'plane', 'boeing 737'])
 
         join_table = list()
         join_table.append(['bicycle', 'legs'])
@@ -469,13 +474,8 @@ class TestEverything(unittest.TestCase):
         join_table.append(['plane', 'air'])
         join_table.append(['rocket', 'some stuff'])
 
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
         table_to_file(join_table, join_table_path)
-
-        input_table = list()
-        input_table.append(['5', 'car', 'lada'])
-        input_table.append(['-20', 'car', 'ferrari'])
-        input_table.append(['50', 'plane', 'tu-134'])
-        input_table.append(['200', 'plane', 'boeing 737'])
 
         query = r'select b1,b2,a1 inner join {} on a2 == b1 where b1 != "car"'.format(join_table_path)
         with self.assertRaises(Exception) as cm:
@@ -539,16 +539,6 @@ class TestEverything(unittest.TestCase):
 
     def test_run12(self):
         test_name = 'test12'
-        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
-
-        join_table = list()
-        join_table.append(['bicycle', 'legs'])
-        join_table.append(['car', 'gas'])
-        join_table.append(['plane', 'wings'])
-        join_table.append(['boat', 'wind'])
-        join_table.append(['rocket', 'some stuff'])
-
-        table_to_file(join_table, join_table_path)
 
         input_table = list()
         input_table.append(['5', 'car', 'lada'])
@@ -558,6 +548,16 @@ class TestEverything(unittest.TestCase):
         input_table.append(['10', 'boat', 'yacht'])
         input_table.append(['200', 'plane', 'boeing 737'])
         input_table.append(['80', 'train', 'Thomas'])
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas'])
+        join_table.append(['plane', 'wings'])
+        join_table.append(['boat', 'wind'])
+        join_table.append(['rocket', 'some stuff'])
+
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+        table_to_file(join_table, join_table_path)
 
         canonic_table = list()
         canonic_table.append(['5', '10', 'boat', 'yacht', 'boat', 'wind'])
@@ -651,6 +651,47 @@ class TestEverything(unittest.TestCase):
         test_table, warnings = run_conversion_test_js(query, input_table, test_name, csv_encoding='utf-8')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['output_fields_info', 'input_fields_info'], warnings)
+
+
+    def test_run16(self):
+        test_name = 'test16'
+
+        input_table = list()
+        input_table.append(['100', 'magic carpet', 'nimbus 3000'])
+        input_table.append(['5', 'car', 'lada'])
+        input_table.append(['-20', 'car', 'ferrari'])
+        input_table.append(['50', 'plane', 'tu-134'])
+        input_table.append(['20', 'boat', 'destroyer'])
+        input_table.append(['10', 'boat', 'yacht'])
+        input_table.append(['200', 'plane', 'boeing 737'])
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas'])
+        join_table.append(['plane', 'wings'])
+        join_table.append(['rocket', 'some stuff'])
+
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+        table_to_file(join_table, join_table_path)
+
+        canonic_table = list()
+        canonic_table.append(['100', 'magic carpet', 'nimbus 3000'])
+        canonic_table.append(['5', 'car (gas)', 'lada'])
+        canonic_table.append(['-20', 'car (gas)', 'ferrari'])
+        canonic_table.append(['50', 'plane', 'tu-134'])
+        canonic_table.append(['20', 'boat', 'destroyer'])
+        canonic_table.append(['10', 'boat', 'yacht'])
+        canonic_table.append(['200', 'plane', 'boeing 737'])
+
+        query = r'update set a2 = "{} ({})".format(a2, b2) inner join ' + join_table_path + ' on a2 == b1 where b2 != "wings"'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        query = r'update set a2 = a2 + " (" + b2 + ")" inner join ' + join_table_path + ' on a2 == b1 where b2 != "wings"'
+        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
 
 
 def calc_file_md5(fname):
