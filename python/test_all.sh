@@ -51,7 +51,8 @@ rm movies.tsv.py.rs 2> /dev/null
 rm movies.tsv.js.rs 2> /dev/null
 rm movies.tsv.system_py.py.rs 2> /dev/null
 rm movies.tsv.system_py.js.rs 2> /dev/null
-rm movies.tsv.f5_ui.py.rs 2> /dev/null
+#rm movies.tsv.f5_ui.py.rs 2> /dev/null
+rm university_ranking.rs.tsv 2> /dev/null
 
 rm vim_unit_tests.log 2> /dev/null
 rm vim_debug.log 2> /dev/null
@@ -71,13 +72,19 @@ md5sum_test_1=($( md5sum movies.tsv.py.rs ))
 md5sum_test_2=($( md5sum movies.tsv.js.rs ))
 md5sum_test_3=($( md5sum movies.tsv.system_py.py.rs ))
 md5sum_test_4=($( md5sum movies.tsv.system_py.js.rs ))
-md5sum_test_5=($( md5sum movies.tsv.f5_ui.py.rs ))
+#md5sum_test_5=($( md5sum movies.tsv.f5_ui.py.rs ))
+md5sum_update=($( md5sum university_ranking.rs.tsv ))
 
 md5sum_canonic=($( md5sum unit_tests/canonic_integration_1.tsv ))
 sanity_len=$( printf "$md5sum_canonic" | wc -c )
 
-if [ "$sanity_len" != 32 ] || [ "$md5sum_test_1" != $md5sum_canonic ] || [ "$md5sum_test_2" != $md5sum_canonic ] || [ "$md5sum_test_3" != $md5sum_canonic ] || [ "$md5sum_test_4" != $md5sum_canonic ] || [ "$md5sum_test_5" != $md5sum_canonic ] ; then
+if [ "$sanity_len" != 32 ] || [ "$md5sum_test_1" != $md5sum_canonic ] || [ "$md5sum_test_2" != $md5sum_canonic ] || [ "$md5sum_test_3" != $md5sum_canonic ] || [ "$md5sum_test_4" != $md5sum_canonic ] ; then
     echo "FAIL! Integration tests failed: md5sums"  1>&2
+    exit 1
+fi
+
+if [ $md5sum_update != "fcc44cf2080ec88b56062472bbd89c3b" ] ; then
+    echo "FAIL! Update integration tests failed: md5sums"  1>&2
     exit 1
 fi
 
@@ -85,7 +92,8 @@ rm movies.tsv.py.rs 2> /dev/null
 rm movies.tsv.js.rs 2> /dev/null
 rm movies.tsv.system_py.py.rs 2> /dev/null
 rm movies.tsv.system_py.js.rs 2> /dev/null
-rm movies.tsv.f5_ui.py.rs 2> /dev/null
+#rm movies.tsv.f5_ui.py.rs 2> /dev/null
+rm university_ranking.rs.tsv 2> /dev/null
 
 rm vim_unit_tests.log 2> /dev/null
 

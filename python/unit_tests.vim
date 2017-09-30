@@ -32,10 +32,11 @@
 
 
 :let g:rbql_meta_language = 'python'
+:e test_datasets/university_ranking.csv
 :RbSelect
-:call setline(11, "Select top 20 a1, * where a7.find('Adventure') != -1 order by int(a4) desc")
+:call setline(11, "Update set a3 = 'United States' where a3.find('of America') != -1")
 :RbRun
-:w! ./movies.tsv.f5_ui.py.rs
+:w! ./university_ranking.rs.tsv
 :bd!
 
 
