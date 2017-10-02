@@ -23,6 +23,9 @@ import rbql_utils
 
 default_csv_encoding = rbql.default_csv_encoding
 
+#TEST_JS = True
+TEST_JS = False
+
 def table_to_string(array2d, delim):
     result = '\n'.join([delim.join(ln) for ln in array2d])
     if len(array2d):
@@ -240,8 +243,9 @@ class TestEverything(unittest.TestCase):
             test_table, warnings = run_conversion_test_py(query, input_table, test_name, delim=delim)
             self.compare_tables(canonic_table, test_table)
 
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name, delim=delim)
-            self.compare_tables(canonic_table, test_table)
+            if TEST_JS:
+                test_table, warnings = run_conversion_test_js(query, input_table, test_name, delim=delim)
+                self.compare_tables(canonic_table, test_table)
 
 
     def test_run1(self):
@@ -262,10 +266,11 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
-        query = 'select NR, a1, a3.length where a1 > 5'
-        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, None, warnings)
+        if TEST_JS:
+            query = 'select NR, a1, a3.length where a1 > 5'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
 
 
     def test_run2(self):
@@ -291,10 +296,11 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['input_fields_info'], warnings)
 
-        query = '\tselect    distinct\ta2 where a1 > 10  '
-        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, ['input_fields_info'], warnings)
+        if TEST_JS:
+            query = '\tselect    distinct\ta2 where a1 > 10  '
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, ['input_fields_info'], warnings)
 
 
     def test_run4(self):
@@ -316,10 +322,11 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['input_fields_info'], warnings)
 
-        query = r'select Math.floor(Math.sqrt(a1)), String.raw`\'\"a1   bc`'
-        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, ['input_fields_info'], warnings)
+        if TEST_JS:
+            query = r'select Math.floor(Math.sqrt(a1)), String.raw`\'\"a1   bc`'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, ['input_fields_info'], warnings)
 
 
     #TODO add test with js regex with multiple spaces and check that it is preserved during parsing
@@ -338,10 +345,11 @@ class TestEverything(unittest.TestCase):
         e = cm.exception
         self.assertTrue(str(e).find('No "a2" column at line: 2') != -1)
 
-        with self.assertRaises(Exception) as cm:
-            run_conversion_test_js(query, input_table, test_name)
-        e = cm.exception
-        self.assertTrue(str(e).find('No "a2" column at line: 2') != -1)
+        if TEST_JS:
+            with self.assertRaises(Exception) as cm:
+                run_conversion_test_js(query, input_table, test_name)
+            e = cm.exception
+            self.assertTrue(str(e).find('No "a2" column at line: 2') != -1)
 
 
     def test_run6(self):
@@ -379,10 +387,11 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None,  warnings)
 
-        query = r'select NR, * inner join {} on a2 == b1 where   b2 !=  "haha" &&  a1 > -100 &&  b2.length >  1 order by a2, parseInt(a1)'.format(join_table_path)
-        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, None, warnings)
+        if TEST_JS:
+            query = r'select NR, * inner join {} on a2 == b1 where   b2 !=  "haha" &&  a1 > -100 &&  b2.length >  1 order by a2, parseInt(a1)'.format(join_table_path)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
 
 
     def test_run7(self):
@@ -418,10 +427,11 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['null_value_in_output'], warnings)
 
-        query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
-        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, ['null_value_in_output'], warnings)
+        if TEST_JS:
+            query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, ['null_value_in_output'], warnings)
 
 
     def test_run8(self):
@@ -451,11 +461,12 @@ class TestEverything(unittest.TestCase):
         e = cm.exception
         self.assertTrue(str(e).find('all A table keys must be present in table B') != -1)
 
-        query = r'select b1,b2,   a1 strict left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
-        with self.assertRaises(Exception) as cm:
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        e = cm.exception
-        self.assertTrue(str(e).find('all A table keys must be present in table B') != -1)
+        if TEST_JS:
+            query = r'select b1,b2,   a1 strict left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
+            with self.assertRaises(Exception) as cm:
+                test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            e = cm.exception
+            self.assertTrue(str(e).find('all A table keys must be present in table B') != -1)
 
 
     def test_run9(self):
@@ -483,11 +494,12 @@ class TestEverything(unittest.TestCase):
         e = cm.exception
         self.assertTrue(str(e).find('Join column must be unique in right-hand-side "B" table') != -1)
 
-        query = r'select b1,b2,a1 inner join {} on a2 == b1 where b1 != "car"'.format(join_table_path)
-        with self.assertRaises(Exception) as cm:
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        e = cm.exception
-        self.assertTrue(str(e).find('Join column must be unique in right-hand-side "B" table') != -1)
+        if TEST_JS:
+            query = r'select b1,b2,a1 inner join {} on a2 == b1 where b1 != "car"'.format(join_table_path)
+            with self.assertRaises(Exception) as cm:
+                test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            e = cm.exception
+            self.assertTrue(str(e).find('Join column must be unique in right-hand-side "B" table') != -1)
 
 
     def test_run10(self):
@@ -507,10 +519,12 @@ class TestEverything(unittest.TestCase):
         test_table, warnings = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
-        query = 'select * where a3 =="hoho" || parseInt(a1)==50 || a1 == "aaaa" || a2== "bbbbb" '
-        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = 'select * where a3 =="hoho" || parseInt(a1)==50 || a1 == "aaaa" || a2== "bbbbb" '
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
 
 
     def test_run11(self):
@@ -531,10 +545,11 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
-        query = 'select * where a2== "Наполеон" '
-        test_table, warnings = run_conversion_test_js(query, input_table, test_name, csv_encoding='utf-8')
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, None, warnings)
+        if TEST_JS:
+            query = 'select * where a2== "Наполеон" '
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, csv_encoding='utf-8')
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
 
 
     def test_run12(self):
@@ -572,10 +587,11 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
-        query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" && a1 > -100 && b2.length > 1 order    by a2, parseInt(a1)'.format(join_table_path)
-        test_table, warnings= run_conversion_test_js(query, input_table, test_name)
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, None, warnings)
+        if TEST_JS:
+            query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" && a1 > -100 && b2.length > 1 order    by a2, parseInt(a1)'.format(join_table_path)
+            test_table, warnings= run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
 
 
     def test_run13(self):
@@ -595,10 +611,12 @@ class TestEverything(unittest.TestCase):
         test_table, warnings = run_conversion_test_py(query, input_table, test_name)
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
-        query = r'select * where /a   as/.test(a2)'
-        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = r'select * where /a   as/.test(a2)'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
 
 
     def test_run14(self):
@@ -621,10 +639,11 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
-        query = r'update a2 = a2 + " hoho", a1 = 100 where parseInt(a1) > 10'
-        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, None, warnings)
+        if TEST_JS:
+            query = r'update a2 = a2 + " hoho", a1 = 100 where parseInt(a1) > 10'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
 
 
     def test_run15(self):
@@ -647,10 +666,11 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['output_fields_info', 'input_fields_info'], warnings)
 
-        query = 'update  set  a2= "Наполеон" '
-        test_table, warnings = run_conversion_test_js(query, input_table, test_name, csv_encoding='utf-8')
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, ['output_fields_info', 'input_fields_info'], warnings)
+        if TEST_JS:
+            query = 'update  set  a2= "Наполеон" '
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, csv_encoding='utf-8')
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, ['output_fields_info', 'input_fields_info'], warnings)
 
 
     def test_run16(self):
@@ -688,10 +708,11 @@ class TestEverything(unittest.TestCase):
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
-        query = r'update set a2 = a2 + " (" + b2 + ")" inner join ' + join_table_path + ' on a2 == b1 where b2 != "wings"'
-        test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-        self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, None, warnings)
+        if TEST_JS:
+            query = r'update set a2 = a2 + " (" + b2 + ")" inner join ' + join_table_path + ' on a2 == b1 where b2 != "wings"'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
 
 
 def calc_file_md5(fname):
@@ -753,7 +774,7 @@ class TestFiles(unittest.TestCase):
                     self.assertEqual(test_md5, canonic_md5, msg='Tables missmatch. Canonic: {}; Actual: {}'.format(canonic_path, test_path))
                     compare_warnings(self, canonic_warnings, warnings)
                 
-                else:
+                elif TEST_JS:
                     assert meta_language == 'js'
                     if not has_node:
                         continue
@@ -953,7 +974,7 @@ class TestParsing(unittest.TestCase):
 
     def test_separate_actions(self):
         query = 'select top   100 *, a2, a3 inner  join /path/to/the/file.tsv on a1 == b3 where a4 == "hello" and int(b3) == 100 order by int(a7) desc '
-        canonic_res = {'INNER JOIN': {'text': '/path/to/the/file.tsv on a1 == b3'}, 'SELECT TOP': {'text': '*, a2, a3', 'top': 100}, 'WHERE': {'text': 'a4 == "hello" and int(b3) == 100'}, 'ORDER BY': {'text': 'int(a7)', 'reverse': True}}
+        canonic_res = {'INNER JOIN': {'text': '/path/to/the/file.tsv on a1 == b3'}, 'SELECT': {'text': '*, a2, a3', 'top': 100}, 'WHERE': {'text': 'a4 == "hello" and int(b3) == 100'}, 'ORDER BY': {'text': 'int(a7)', 'reverse': True}}
         test_res = rbql.separate_actions(query)
         assert test_res == canonic_res
 

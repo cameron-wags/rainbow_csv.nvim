@@ -209,28 +209,19 @@ def combine_string_literals(host_expression, string_literals):
     return host_expression
 
 
-def separate_actions(rbql_expression):
-    #TODO implement SELECT_TOP_DISTINCT
+def locate_statements(rbql_expression):
     statement_groups = list()
     statement_groups.append([STRICT_LEFT_JOIN, LEFT_JOIN, INNER_JOIN, JOIN])
-    statement_groups.append([SELECT_DISTINCT, SELECT_TOP, SELECT])
+    statement_groups.append([SELECT])
     statement_groups.append([ORDER_BY])
     statement_groups.append([WHERE])
     statement_groups.append([UPDATE])
 
-    result = dict()
-
-    ordered_statements = list()
-
+    result = list()
     for st_group in statement_groups:
         for statement in st_group:
             rgxp = None
-            if statement == SELECT_TOP:
-                rgxp = r'(?i)(?:^|[ ])SELECT *TOP *([0-9][0-9]*)(?:$|[ ])'
-            elif statement == UPDATE:
-                rgxp = r'(?i)(?:^|[ ])UPDATE( *SET)?(?:$|[ ])'.format(statement.replace(' ', ' *'))
-            else:
-                rgxp = r'(?i)(?:^|[ ]){}(?:$|[ ])'.format(statement.replace(' ', ' *'))
+            rgxp = r'(?i)(?:^| ){} '.format(statement.replace(' ', ' *'))
             matches = list(re.finditer(rgxp, rbql_expression))
             if not len(matches):
                 continue
@@ -238,30 +229,58 @@ def separate_actions(rbql_expression):
                 raise RBParsingError('More than one "{}" statements found'.format(statement))
             assert len(matches) == 1
             match = matches[0]
-            result[statement] = dict()
-            if statement == SELECT_TOP:
-                result[statement]['top'] = int(match.group(1))
-            ordered_statements.append((match.start(), match.end(), statement))
+            result.append((match.start(), match.end(), statement))
             break #there must be only one statement maximum in each group
+    return sorted(result)
 
-    ordered_statements = sorted(ordered_statements)
+
+def separate_actions(rbql_expression):
+    #TODO add more checks: 
+    #make sure all rbql_expression was separated and SELECT or UPDATE is at the beginning
+    ordered_statements = locate_statements(rbql_expression)
+    result = dict()
     for i in range(len(ordered_statements)):
         statement_start = ordered_statements[i][0]
         span_start = ordered_statements[i][1]
         statement = ordered_statements[i][2]
+        result[statement] = dict()
         span_end = ordered_statements[i + 1][0] if i + 1 < len(ordered_statements) else len(rbql_expression)
         assert statement_start < span_start
         assert span_start <= span_end
         span = rbql_expression[span_start:span_end]
+
+        if statement == UPDATE:
+            if len(result) > 1:
+                raise RBParsingError('UPDATE must be the first statement in query')
+            span = re.sub('(?i)^ *SET ', '', span)
+
         if statement == ORDER_BY:
-            span = re.sub('(?i)[ ]ASC[ ]*$', '', span)
-            new_span = re.sub('(?i)[ ]DESC[ ]*$', '', span)
+            span = re.sub('(?i) ASC *$', '', span)
+            new_span = re.sub('(?i) DESC *$', '', span)
             if new_span != span:
                 span = new_span
                 result[statement]['reverse'] = True
             else:
                 result[statement]['reverse'] = False
+
+        if statement == SELECT:
+            if len(result) > 1:
+                raise RBParsingError('SELECT must be the first statement in query')
+            match = re.match('(?i)^ *TOP *([0-9]+) ', span)
+            if match is not None:
+                result[statement]['top'] = int(match.group(1))
+                span = span[match.end():]
+            match = re.match('(?i)^ *DISTINCT *(COUNT)? ', span)
+            if match is not None:
+                result[statement]['distinct'] = True
+                if match.group(1) is not None:
+                    result[statement]['distinct_count'] = True
+                span = span[match.end():]
+
         result[statement]['text'] = span.strip()
+    if SELECT not in result and UPDATE not in result:
+        raise RBParsingError('Query must contain either SELECT or UPDATE statement')
+    assert (SELECT in result) != (UPDATE in result)
     return result
 
 
@@ -275,18 +294,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     format_expression, string_literals = separate_string_literals_py(full_rbql_expression)
     rb_actions = separate_actions(format_expression)
 
-    select_op = None
-    writer_name = None
-    select_ops = {SELECT: 'SimpleWriter', SELECT_TOP: 'SimpleWriter', SELECT_DISTINCT: 'UniqWriter', UPDATE: 'SimpleWriter'}
-    for k, v in select_ops.items():
-        if k in rb_actions:
-            select_op = k
-            writer_name = v
-
-    if select_op is None:
-        raise RBParsingError('Query must have a "SELECT" or "UPDATE" statement')
-    assert writer_name is not None
-
+    #TODO refactor: try to convert all join ops into one with params
     joiner_name = 'none_joiner'
     join_op = None
     rhs_table_path = 'None'
@@ -301,34 +309,45 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     if join_op is not None:
         rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op]['text'])
 
-    py_meta_params = dict()
     import_expression = ''
     if import_modules is not None:
         for mdl in import_modules:
             import_expression += 'import {}\n'.format(mdl)
+
+    py_meta_params = dict()
     py_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
     py_meta_params['import_expression'] = import_expression
     py_meta_params['dlm'] = py_source_escape(delim)
     py_meta_params['join_encoding'] = join_csv_encoding
     py_meta_params['rhs_join_var'] = rhs_join_var
-    py_meta_params['writer_type'] = writer_name
     py_meta_params['joiner_type'] = joiner_name
     py_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
     py_meta_params['lhs_join_var'] = lhs_join_var
-    py_meta_params['where_expression'] = 'True'
+
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])
         py_meta_params['where_expression'] = combine_string_literals(where_expression, string_literals)
+    else:
+        py_meta_params['where_expression'] = 'True'
 
-    py_meta_params['top_count'] = str(rb_actions[select_op]['top']) if select_op == SELECT_TOP else 'None'
-
-    if select_op == UPDATE:
-        update_expression = translate_update_expression(rb_actions[select_op]['text'], ' ' * 20)
+    if UPDATE in rb_actions:
+        update_expression = translate_update_expression(rb_actions[UPDATE]['text'], ' ' * 20)
+        py_meta_params['writer_type'] = 'SimpleWriter'
         py_meta_params['select_expression'] = 'None'
         py_meta_params['update_statements'] = combine_string_literals(update_expression, string_literals)
         py_meta_params['is_select_query'] = 'False'
-    else:
-        select_expression = translate_select_expression_py(rb_actions[select_op]['text'])
+        py_meta_params['top_count'] = 'None'
+
+    if SELECT in rb_actions:
+        top_count = rb_actions[SELECT].get('top', None)
+        py_meta_params['top_count'] = str(top_count) if top_count is not None else 'None'
+        if 'distinct_count' in rb_actions[SELECT]:
+            py_meta_params['writer_type'] = 'UniqCountWriter'
+        elif 'distinct' in rb_actions[SELECT]:
+            py_meta_params['writer_type'] = 'UniqWriter'
+        else:
+            py_meta_params['writer_type'] = 'SimpleWriter'
+        select_expression = translate_select_expression_py(rb_actions[SELECT]['text'])
         py_meta_params['select_expression'] = combine_string_literals(select_expression, string_literals)
         py_meta_params['update_statements'] = 'pass'
         py_meta_params['is_select_query'] = 'True'
@@ -394,6 +413,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     js_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
     js_meta_params['lhs_join_var'] = lhs_join_var
     js_meta_params['where_expression'] = 'true'
+
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])
         js_meta_params['where_expression'] = combine_string_literals(where_expression, string_literals)

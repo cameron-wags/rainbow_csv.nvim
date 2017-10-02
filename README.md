@@ -30,12 +30,10 @@ RBQL is a technology which provides SQL-like language that supports "SELECT" and
 
 ### Supported SQL Keywords (Keywords are case insensitive)
 
-* SELECT
+* SELECT \[TOP N\] \[DISTINCT [COUNT]\]
 * UPDATE [SET]
 * WHERE
-* ORDER BY ... [DESC|ASC]
-* DISTINCT
-* TOP
+* ORDER BY ... [DESC | ASC]
 * [INNER] JOIN
 * LEFT JOIN
 * STRICT LEFT JOIN

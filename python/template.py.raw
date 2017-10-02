@@ -8,6 +8,8 @@ import random #for random sort
 import datetime #for date manipulations
 import re #for regexes
 import codecs
+from collections import OrderedDict
+
 sys.path.insert(0, '__RBQLMP__rbql_home_dir')
 import rbql_utils
 
@@ -15,6 +17,13 @@ __RBQLMP__import_expression
 
 
 PY3 = sys.version_info[0] == 3
+
+
+def iteritems6(x):
+    if PY3:
+        return x.items()
+    return x.iteritems()
+
 
 def str6(obj):
     #we have to use this function because str() for python2.7 tries to ascii-encode unicode strings
@@ -85,10 +94,24 @@ class SimpleWriter:
         self.NW = 0
 
     def write(self, record):
+        if __RBQLMP__top_count is not None and self.NW >= __RBQLMP__top_count:
+            return False
         self.dst.write(record)
         self.dst.write('\n')
         self.NW += 1
         register_num_fields(self.NW, record)
+        return True
+
+    def finish(self):
+        pass
+
+
+def add_to_set(dst_set, value):
+    # https://stackoverflow.com/a/27427447/2898283
+    # TODO run tests to compare performance
+    len_before = len(dst_set)
+    dst_set.add(value)
+    return len_before != len(dst_set)
 
 
 class UniqWriter:
@@ -98,13 +121,42 @@ class UniqWriter:
         self.NW = 0
 
     def write(self, record):
-        if record in self.seen:
-            return
-        self.seen.add(record)
+        if __RBQLMP__top_count is not None and self.NW >= __RBQLMP__top_count:
+            return False
+        if not add_to_set(self.seen, record):
+            return True
         self.dst.write(record)
         self.dst.write('\n')
         self.NW += 1
         register_num_fields(self.NW, record)
+        return True
+
+    def finish(self):
+        pass
+
+
+class UniqCountWriter:
+    # we can't optimize this for ordered result set:
+    # they might be ordered not by output records, but by some other expression
+    def __init__(self, dst):
+        self.dst = dst
+        self.records = OrderedDict()
+
+    def write(self, record):
+        if record in self.records:
+            self.records[record] += 1
+        else:
+            self.records[record] = 1
+        return True
+
+    def finish(self):
+        NW = 0
+        for record, count in iteritems6(self.records):
+            if __RBQLMP__top_count is not None and NW >= __RBQLMP__top_count:
+                break
+            self.dst.write('{}\t{}\n'.format(count, record))
+            NW += 1
+            register_num_fields(NW, record)
 
 
 def read_join_table(join_table_path):
@@ -239,9 +291,8 @@ def rb_transform(source, destination):
                 sort_key_value = (__RBQLMP__sort_key_expression)
                 unsorted_entries.append((sort_key_value, '\t'.join([str6(f) for f in out_fields])))
             else:
-                if __RBQLMP__top_count is not None and writer.NW >= __RBQLMP__top_count:
+                if not writer.write('\t'.join([str6(f) for f in out_fields])):
                     break
-                writer.write('\t'.join([str6(f) for f in out_fields]))
         except BadFieldError as e:
             bad_idx = e.bad_idx
             raise RbqlRuntimeError('No "a' + str(bad_idx + 1) + '" column at line: ' + str(NR))
@@ -252,9 +303,9 @@ def rb_transform(source, destination):
         if __RBQLMP__reverse_flag:
             sorted_entries.reverse()
         for e in sorted_entries:
-            if __RBQLMP__top_count is not None and writer.NW >= __RBQLMP__top_count:
+            if not writer.write(e[1]):
                 break
-            writer.write(e[1])
+    writer.finish()
     return create_warnings_report()
 
 
