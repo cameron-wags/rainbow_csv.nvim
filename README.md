@@ -49,13 +49,13 @@ Some other rules:
 
 ### Special variables
 
-| Variable Name      | Variable Type | Variable Description                 |
-|--------------------|---------------|--------------------------------------|
-| *                  |N/A            | Current record                       |
-| a1, a2, ... , a_N_ |string         | Value of i-th column                 |
-| b1, b2, ... , b_N_ |string         | Value of i-th column in join table B |
-| NR                 |integer        | Line number (1-based)                |
-| NF                 |integer        | Number of fields                     |
+| Variable Name          | Variable Type | Variable Description                 |
+|------------------------|---------------|--------------------------------------|
+| *                      |N/A            | Current record                       |
+| a1, a2, ... , a**N**   |string         | Value of i-th column                 |
+| b1, b2, ... , b**N**   |string         | Value of i-th column in join table B |
+| NR                     |integer        | Line number (1-based)                |
+| NF                     |integer        | Number of fields                     |
 
 ### Examples of RBQL queries
 
