@@ -154,9 +154,10 @@ class UniqCountWriter:
         for record, count in iteritems6(self.records):
             if __RBQLMP__top_count is not None and NW >= __RBQLMP__top_count:
                 break
-            self.dst.write('{}\t{}\n'.format(count, record))
+            new_record = '{}\t{}\n'.format(count, record)
+            self.dst.write(new_record)
             NW += 1
-            register_num_fields(NW, record)
+            register_num_fields(NW, new_record)
 
 
 def read_join_table(join_table_path):

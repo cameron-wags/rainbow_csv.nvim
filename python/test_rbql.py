@@ -23,8 +23,7 @@ import rbql_utils
 
 default_csv_encoding = rbql.default_csv_encoding
 
-#TEST_JS = True
-TEST_JS = False
+TEST_JS = True
 
 def table_to_string(array2d, delim):
     result = '\n'.join([delim.join(ln) for ln in array2d])
@@ -710,6 +709,66 @@ class TestEverything(unittest.TestCase):
 
         if TEST_JS:
             query = r'update set a2 = a2 + " (" + b2 + ")" inner join ' + join_table_path + ' on a2 == b1 where b2 != "wings"'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
+
+
+    def test_run17(self):
+        test_name = 'test17'
+
+        input_table = list()
+        input_table.append(['cde', '1234'])
+        input_table.append(['abc', '1234'])
+        input_table.append(['abc', '1234'])
+        input_table.append(['efg', '100'])
+        input_table.append(['abc', '100'])
+        input_table.append(['cde', '12999'])
+        input_table.append(['aaa', '2000'])
+        input_table.append(['abc', '100'])
+
+        canonic_table = list()
+        canonic_table.append(['2', 'cde'])
+        canonic_table.append(['4', 'abc'])
+        canonic_table.append(['1', 'efg'])
+        canonic_table.append(['1', 'aaa'])
+
+        query = r'select distinct count a1 where int(a2) > 10'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = r'select distinct count a1 where parseInt(a2) > 10'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
+
+
+    def test_run18(self):
+        test_name = 'test18'
+
+        input_table = list()
+        input_table.append(['cde', '1234'])
+        input_table.append(['abc', '1234'])
+        input_table.append(['abc', '1234'])
+        input_table.append(['efg', '100'])
+        input_table.append(['abc', '100'])
+        input_table.append(['cde', '12999'])
+        input_table.append(['aaa', '2000'])
+        input_table.append(['abc', '100'])
+
+        canonic_table = list()
+        canonic_table.append(['1', 'efg'])
+        canonic_table.append(['4', 'abc'])
+
+        query = r'select top 2 distinct count a1 where int(a2) > 10 order by int(a2) asc'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = r'select top 2 distinct count a1 where parseInt(a2) > 10 order by parseInt(a2) asc'
             test_table, warnings = run_conversion_test_js(query, input_table, test_name)
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)

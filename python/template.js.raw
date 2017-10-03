@@ -5,7 +5,6 @@ rbql_utils = require('__RBQLMP__rbql_home_dir/rbql_utils.js')
 var csv_encoding = '__RBQLMP__csv_encoding';
 var DLM = '__RBQLMP__dlm';
 var join_table_path = __RBQLMP__rhs_table_path;
-var top_count = __RBQLMP__top_count;
 
 
 function smart_split(line) {
@@ -15,6 +14,7 @@ function smart_split(line) {
         return [line.split(DLM), false];
     }
 }
+
 
 function strip_cr(line) {
     if (line.charAt(line.length - 1) === '\r') {
@@ -72,11 +72,24 @@ function SimpleWriter(dst) {
     this.dst = dst;
     this.NW = 0;
     this.write = function(record) {
+        if (__RBQLMP__top_count !== null && this.NW >= __RBQLMP__top_count)
+            return false;
         this.dst.write(record);
         this.dst.write('\n');
         this.NW += 1;
         register_num_fields(this.NW, record);
+        return true;
     }
+    this.finish = function() {}
+}
+
+
+function add_to_set(dst_set, value) {
+    // https://stackoverflow.com/a/27427447/2898283
+    // TODO run tests to compare performance
+    var len_before = dst_set.size;
+    dst_set.add(value);
+    return len_before != dst_set.size;
 }
 
 function UniqWriter(dst) {
@@ -84,12 +97,41 @@ function UniqWriter(dst) {
     this.seen = new Set();
     this.NW = 0;
     this.write = function(record) {
-        if (!this.seen.has(record)) {
-            this.seen.add(record);
+        if (__RBQLMP__top_count !== null && this.NW >= __RBQLMP__top_count)
+            return false;
+        if (add_to_set(this.seen, record)) {
             this.dst.write(record);
             this.dst.write('\n');
             this.NW += 1;
             register_num_fields(this.NW, record);
+        }
+        return true;
+    }
+    this.finish = function() {}
+}
+
+
+function UniqCountWriter(dst) {
+    this.dst = dst;
+    this.records = new Map();
+    this.write = function(record) {
+        var old_val = this.records.get(record);
+        if (old_val) {
+            this.records.set(record, old_val + 1);
+        } else {
+            this.records.set(record, 1);
+        }
+        return true;
+    }
+    this.finish = function() {
+        var NW = 0;
+        for (var [record, count] of this.records) {
+            if (__RBQLMP__top_count !== null && NW >= __RBQLMP__top_count)
+                break;
+            var new_record = count + '\t' + record + '\n';
+            this.dst.write(new_record);
+            NW += 1;
+            register_num_fields(NW, new_record);
         }
     }
 }
@@ -152,6 +194,7 @@ function read_join_table(table_path) {
     return [result, fields_max_len];
 }
 
+
 function null_join(join_map, max_join_fields, lhs_key) {
     return null;
 }
@@ -199,6 +242,7 @@ if (join_table_path !== null) {
 var writer = new __RBQLMP__writer_type(dst_stream);
 var unsorted_entries = [];
 
+
 lineReader.on('line', function (line) {
     NR += 1;
     //readline strips last '\r'
@@ -241,11 +285,10 @@ lineReader.on('line', function (line) {
             var sort_entry = [__RBQLMP__sort_key_expression, NR, out_fields.join('\t')];
             unsorted_entries.push(sort_entry);
         } else {
-            if (top_count !== null && writer.NW >= top_count) {
+            if (!writer.write(out_fields.join('\t'))) {
                 lineReader.close();
                 return;
             }
-            writer.write(out_fields.join('\t'));
         }
     } catch (e) {
         if (e instanceof BadFieldError) {
@@ -277,17 +320,18 @@ function generate_warnings() {
     return JSON.stringify({'warnings': warnings});
 }
 
+
 lineReader.on('close', function () {
     if (unsorted_entries.length) {
         unsorted_entries.sort(stable_compare);
         if (__RBQLMP__reverse_flag)
             unsorted_entries.reverse();
         for (var i = 0; i < unsorted_entries.length; i++) {
-            if (top_count !== null && writer.NW >= top_count)
+            if (!writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]))
                 break;
-            writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]);
         }
     }
+    writer.finish();
     var warnings_report = generate_warnings();
     if (warnings_report)
         process.stderr.write(warnings_report);

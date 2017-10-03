@@ -373,18 +373,6 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     format_expression, string_literals = separate_string_literals_js(full_rbql_expression)
     rb_actions = separate_actions(format_expression)
 
-    select_op = None
-    writer_name = None
-    select_ops = {SELECT: 'SimpleWriter', SELECT_TOP: 'SimpleWriter', SELECT_DISTINCT: 'UniqWriter', UPDATE: 'SimpleWriter'}
-    for k, v in select_ops.items():
-        if k in rb_actions:
-            select_op = k
-            writer_name = v
-
-    if select_op is None:
-        raise RBParsingError('Query must have a "SELECT" or "UPDATE" statement')
-    assert writer_name is not None
-
     join_function = 'null_join'
     join_op = None
     rhs_table_path = 'null'
@@ -395,7 +383,6 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
         if k in rb_actions:
             join_op = k
             join_function = v
-
     if join_op is not None:
         rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op]['text'])
         rhs_table_path = "'{}'".format(rhs_table_path)
@@ -406,27 +393,36 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     js_meta_params['dlm'] = py_source_escape(delim)
     js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
     js_meta_params['rhs_join_var'] = rhs_join_var
-    js_meta_params['writer_type'] = writer_name
     js_meta_params['join_function'] = join_function
     js_meta_params['src_table_path'] = "null" if src_table_path is None else "'{}'".format(py_source_escape(src_table_path))
     js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(py_source_escape(dst_table_path))
     js_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
     js_meta_params['lhs_join_var'] = lhs_join_var
-    js_meta_params['where_expression'] = 'true'
 
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])
         js_meta_params['where_expression'] = combine_string_literals(where_expression, string_literals)
+    else:
+        js_meta_params['where_expression'] = 'true'
 
-    js_meta_params['top_count'] = str(rb_actions[select_op]['top']) if select_op == SELECT_TOP else 'null'
-
-    if select_op == UPDATE:
-        update_expression = translate_update_expression(rb_actions[select_op]['text'], ' ' * 16)
+    if UPDATE in rb_actions:
+        update_expression = translate_update_expression(rb_actions[UPDATE]['text'], ' ' * 16)
+        js_meta_params['writer_type'] = 'SimpleWriter'
         js_meta_params['select_expression'] = 'null'
         js_meta_params['update_statements'] = combine_string_literals(update_expression, string_literals)
         js_meta_params['is_select_query'] = 'false'
-    else:
-        select_expression = translate_select_expression_js(rb_actions[select_op]['text'])
+        js_meta_params['top_count'] = 'null'
+
+    if SELECT in rb_actions:
+        top_count = rb_actions[SELECT].get('top', None)
+        js_meta_params['top_count'] = str(top_count) if top_count is not None else 'null'
+        if 'distinct_count' in rb_actions[SELECT]:
+            js_meta_params['writer_type'] = 'UniqCountWriter'
+        elif 'distinct' in rb_actions[SELECT]:
+            js_meta_params['writer_type'] = 'UniqWriter'
+        else:
+            js_meta_params['writer_type'] = 'SimpleWriter'
+        select_expression = translate_select_expression_js(rb_actions[SELECT]['text'])
         js_meta_params['select_expression'] = combine_string_literals(select_expression, string_literals)
         js_meta_params['update_statements'] = ''
         js_meta_params['is_select_query'] = 'true'
