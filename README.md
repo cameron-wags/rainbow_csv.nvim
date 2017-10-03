@@ -5,9 +5,9 @@ Rainbow CSV has 2 main features:
 
 There are 2 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
-2. Manual CSV delimiter selection with `:RainbowDelim` command (So you can use it even for non-csv files, e.g. to highlight function arguments in different colors)
+2. Manual CSV delimiter selection with _:RainbowDelim_ command (So you can use it even for non-csv files, e.g. to highlight function arguments in different colors)
 
-To run an RBQL query either press 'F5' or enter the query in vim command line e.g. `:Select a1, a2`
+To run an RBQL query either press 'F5' or enter the query in vim command line e.g. _:Select a1, a2_
 
 ### Demonstration of rainbow_csv highlighting and RBQL queries 
 1-st query with Python expressions and 2-nd query with JavaScript:
@@ -38,14 +38,14 @@ RBQL is a technology which provides SQL-like language that supports "SELECT" and
 
 #### Keywords rules
 All keywords have the same meaning as in SQL queries. You can check them online e.g. here: https://www.w3schools.com/sql/default.asp
-But there are also two new keywords: `DISTINCT COUNT` and `STRICT LEFT JOIN`:
-* `DISTINCT COUNT` is like `DISTINCT`, but adds a new column to the "distinct" result set: number of occurences of the entry, similar to `uniq -c` unix command.
-* `STRICT LEFT JOIN` is like `LEFT JOIN`, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".
+But there are also two new keywords: _DISTINCT COUNT_ and _STRICT LEFT JOIN_:
+* _DISTINCT COUNT_ is like _DISTINCT_, but adds a new column to the "distinct" result set: number of occurences of the entry, similar to _uniq -c_ unix command.
+* _STRICT LEFT JOIN_ is like _LEFT JOIN_, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".
 
 Some other rules:
-* `UPDATE SET` is synonym to `UPDATE`, because in RBQL there is no need to specify the source table.
-* `UPDATE` has the same semantic as in SQL, but it is actually a special type of `SELECT` query.
-* `JOIN` statements must have the following form: `<join_keyword> /path/to/table.tsv on ai == bj`
+* _UPDATE SET_ is synonym to _UPDATE_, because in RBQL there is no need to specify the source table.
+* _UPDATE_ has the same semantic as in SQL, but it is actually a special type of _SELECT_ query.
+* _JOIN_ statements must have the following form: **<join_keyword> /path/to/table.tsv on a_i_ == b_j_**
 
 ### Special variables
 * `*` - Current record
