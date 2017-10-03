@@ -45,7 +45,7 @@ But there are also two new keywords: _DISTINCT COUNT_ and _STRICT LEFT JOIN_:
 Some other rules:
 * _UPDATE SET_ is synonym to _UPDATE_, because in RBQL there is no need to specify the source table.
 * _UPDATE_ has the same semantic as in SQL, but it is actually a special type of _SELECT_ query.
-* _JOIN_ statements must have the following form: **<join\_keyword> /path/to/table.tsv on a__i__ == b__j__**
+* _JOIN_ statements must have the following form: **<join\_keyword> /path/to/table.tsv on ai == bj**
 
 ### Special variables
 
