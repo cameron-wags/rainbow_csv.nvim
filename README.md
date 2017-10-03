@@ -34,7 +34,7 @@ RBQL is a technology which provides SQL-like language that supports "SELECT" and
 * UPDATE \[ SET \]
 * WHERE
 * ORDER BY ... [ DESC | ASC ]
-* [ [ [ STRICT ] LEFT ] | [ INNER ] ] JOIN
+* [ [ STRICT ] LEFT | INNER ] JOIN
 
 #### Keywords rules
 All keywords have the same meaning as in SQL queries. You can check them online e.g. here: https://www.w3schools.com/sql/default.asp
