@@ -37,7 +37,7 @@ RBQL is a technology which provides SQL-like language that supports "SELECT" and
 * [ [ STRICT ] LEFT | INNER ] JOIN
 
 #### Keywords rules
-All keywords have the same meaning as in SQL queries. You can check them online e.g. here: https://www.w3schools.com/sql/default.asp
+All keywords have the same meaning as in SQL queries. You can check them online e.g. [here](https://www.w3schools.com/sql/default.asp)
 But there are also two new keywords: _DISTINCT COUNT_ and _STRICT LEFT JOIN_:
 * _DISTINCT COUNT_ is like _DISTINCT_, but adds a new column to the "distinct" result set: number of occurences of the entry, similar to _uniq -c_ unix command.
 * _STRICT LEFT JOIN_ is like _LEFT JOIN_, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".
@@ -45,7 +45,7 @@ But there are also two new keywords: _DISTINCT COUNT_ and _STRICT LEFT JOIN_:
 Some other rules:
 * _UPDATE SET_ is synonym to _UPDATE_, because in RBQL there is no need to specify the source table.
 * _UPDATE_ has the same semantic as in SQL, but it is actually a special type of _SELECT_ query.
-* _JOIN_ statements must have the following form: **<join_keyword> /path/to/table.tsv on a_i_ == b_j_**
+* _JOIN_ statements must have the following form: **<join\_keyword> /path/to/table.tsv on a_i_ == b_j_**
 
 ### Special variables
 * `*` - Current record
@@ -59,12 +59,12 @@ Some other rules:
 #### With Python expressions
 
 * `select top 100 a1, int(a2) * 10, len(a4) where a1 == "Buy" order by int(a2)`
-* `select * order by random.random()` - random sort, this is an equivalent of bash command "sort -R"
+* `select * order by random.random()` - random sort, this is an equivalent of bash command _sort -R_
 
 #### With JavaScript expressions
 
 * `select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2)`
-* `select * order by Math.random()` - random sort, this is an equivalent of bash command "sort -R"
+* `select * order by Math.random()` - random sort, this is an equivalent of bash command _sort -R_
 
 # Plugin description
 
@@ -82,12 +82,12 @@ Some other rules:
 #### :Select ...
 
 Allows to enter RBQL select query in vim command line.
-The query must start with `:Select` command e.g. `:Select a1, a2 order by a1`
+The query must start with _:Select_ command e.g. _:Select a1, a2 order by a1_
 
 #### :Update ...
 
 Allows to enter RBQL update query in vim command line.
-The query must start with `:Update` command e.g. `:Update a1 = a1 + " " + a2`
+The query must start with _:Update_ command e.g. _:Update a1 = a1 + " " + a2_
 
 #### :RainbowDelim
 
@@ -96,7 +96,7 @@ under the cursor will be used as a delimiter. The delimiter will be saved in a
 config file for future vim sessions.
 
 You can also use this command for non-csv files, e.g. to highlight function arguments
-in source code in different colors. To return back to original syntax highlighting run `:NoRainbowDelim`
+in source code in different colors. To return back to original syntax highlighting run _:NoRainbowDelim_
 
 #### :NoRainbowDelim
 
@@ -109,12 +109,12 @@ Useful when autodection mechanism has failed and marked non-csv file as csv.
 #### g:rbql_meta_language
 *Default: 'python'*
 Scripting language to use in RBQL expression. Either 'js' or 'python'
-To use JavaScript add `let g:rbql_meta_language = 'js'` to .vimrc
+To use JavaScript add _let g:rbql_meta_language = 'js'_ to .vimrc
 
 #### g:rcsv_delimiters
 *Default: [	,]*
 By default plugin checks only TAB and comma characters during autodetection stage.
-You can override this variable to autodetect tables with other separators. e.g. `let g:rcsv_delimiters = [	;:,]`
+You can override this variable to autodetect tables with other separators. e.g. _let g:rcsv\_delimiters = [	;:,]_
 
 #### g:disable_rainbow_csv_autodetect
 csv autodetection mechanism can be disabled by setting this variable value to 1.
@@ -122,13 +122,13 @@ Manual delimiter selection would still be possible.
 
 #### g:rcsv_max_columns
 *Default: 30*
-Autodetection will fail if buffer has more than `g:rcsv_max_columns` columns.
+Autodetection will fail if buffer has more than _g:rcsv_max_columns_ columns.
 You can increase or decrease this limit.
 
 
 ### Optional "Header" file feature
 
-Rainbow csv allows you to create a special "header" file for your table files. It should have the same name as the table file but with ".header" suffix (e.g. for "input.tsv" the header file is "input.tsv.header"). The only purpose of header file is to provide csv column names for `:RbGetColumn` command.
+Rainbow csv allows you to create a special "header" file for your table files. It should have the same name as the table file but with ".header" suffix (e.g. for "input.tsv" the header file is "input.tsv.header"). The only purpose of header file is to provide csv column names for _:RbGetColumn_ command.
 
 
 ### Installation
