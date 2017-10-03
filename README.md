@@ -7,7 +7,7 @@ There are 2 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
 2. Manual CSV delimiter selection with _:RainbowDelim_ command (So you can use it even for non-csv files, e.g. to highlight function arguments in different colors)
 
-To run an RBQL query either press 'F5' or enter the query in vim command line e.g. _:Select a1, a2_
+To run an RBQL query either press _F5_ or enter the query in vim command line e.g. _:Select a1, a2_
 
 ### Demonstration of rainbow_csv highlighting and RBQL queries 
 1-st query with Python expressions and 2-nd query with JavaScript:
@@ -16,7 +16,7 @@ To run an RBQL query either press 'F5' or enter the query in vim command line e.
 ![demo_screencast](https://raw.githubusercontent.com/mechatroner/rainbow_csv/master/demo/rbql_demo_2.gif)
 
 
-The demo table is demo/movies.tsv. There are also some other test datasets in python/test_datasets.
+The demo table is _demo/movies.tsv_. There are also some other test datasets in _python/test\_datasets_.
 
 
 # RBQL (RainBow Query Language) Description
@@ -55,7 +55,7 @@ Some other rules:
 | a1, a2, ... , a**N**   |string         | Value of i-th column                 |
 | b1, b2, ... , b**N**   |string         | Value of i-th column in join table B |
 | NR                     |integer        | Line number (1-based)                |
-| NF                     |integer        | Number of fields                     |
+| NF                     |integer        | Number of fields in line             |
 
 ### Examples of RBQL queries
 
@@ -110,12 +110,14 @@ Useful when autodection mechanism has failed and marked non-csv file as csv.
 ### Configuration
 
 #### g:rbql_meta_language
-*Default: 'python'*
+Default: 'python'
+
 Scripting language to use in RBQL expression. Either 'js' or 'python'
 To use JavaScript add _let g:rbql_meta_language = 'js'_ to .vimrc
 
 #### g:rcsv_delimiters
-*Default: [	,]*
+Default: [	,]
+
 By default plugin checks only TAB and comma characters during autodetection stage.
 You can override this variable to autodetect tables with other separators. e.g. _let g:rcsv\_delimiters = [	;:,]_
 
@@ -124,7 +126,8 @@ csv autodetection mechanism can be disabled by setting this variable value to 1.
 Manual delimiter selection would still be possible.
 
 #### g:rcsv_max_columns
-*Default: 30*
+Default: 30
+
 Autodetection will fail if buffer has more than _g:rcsv\_max\_columns_ columns.
 You can increase or decrease this limit.
 
