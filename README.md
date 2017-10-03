@@ -1,7 +1,7 @@
 ## Overview
 Rainbow CSV has 2 main features:
 * Highlights csv columns in different rainbow colors. 
-* Allows to run "SELECT" and "UPDATE" queries in RBQL: SQL-like transprogramming query language.
+* Allows to run _SELECT_ and _UPDATE_ queries in RBQL: SQL-like transprogramming query language.
 
 There are 2 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
@@ -20,11 +20,11 @@ The demo table is demo/movies.tsv. There are also some other test datasets in py
 
 
 # RBQL (RainBow Query Language) Description
-RBQL is a technology which provides SQL-like language that supports "SELECT" and "UPDATE" queries with Python or JavaScript expressions.
+RBQL is a technology which provides SQL-like language that supports _SELECT_ and _UPDATE_ queries with Python or JavaScript expressions.
 
 ### Main Features
-* Use Python or Java Script expressions inside "select", "update", "where" and "order by" statements
-* Output entries appear in the same order as in input unless "ORDER BY" is provided.
+* Use Python or Java Script expressions inside _SELECT_, _UPDATE_, _WHERE_ and _ORDER BY_ statements
+* Output entries appear in the same order as in input unless _ORDER BY_ is provided.
 * Input csv/tsv table may contain varying number of entries (but select query must be written in a way that prevents output of missing values)
 * Unicode support
 
@@ -48,11 +48,11 @@ Some other rules:
 * _JOIN_ statements must have the following form: **<join\_keyword> /path/to/table.tsv on a_i_ == b_j_**
 
 ### Special variables
-* `*` - Current record
-* `a1`, `a2`, ... , `aN` _(string)_ - Value of i-th column
-* `b1`, `b2`, ... , `bN` _(string)_ - Value of i-th column in right hand side table B in JOIN operations
-* `NR` _(integer)_ - Number of Records being processed (or line number). NR is 1-based
-* `NF` _(integer)_ - Number of Fields in the current line/record
+* **\*** - Current record
+* **a1**, **a2**, ... , **a_N_** _(string)_ - Value of i-th column
+* **b1**, **b2**, ... , **b_N_** _(string)_ - Value of i-th column in right hand side table B in _JOIN_ operations
+* **NR** _(integer)_ - Number of Records being processed (or line number). **NR** is 1-based
+* **NF** _(integer)_ - Number of Fields in the current line/record
 
 ### Examples of RBQL queries
 
@@ -70,11 +70,11 @@ Some other rules:
 
 ### Mappings
 
-|Key           | Action                                                      |
-|--------------|-------------------------------------------------------------|
-|`<leader>d`   | Print info about current column (under the cursor)          |
-|`F5`          | Start query editing for the current csv file                |
-|`F5`          | Execute currently edited query                              |
+|Key                     | Action                                                      |
+|------------------------|-------------------------------------------------------------|
+|**<Leader>d**  (**\d**) | Print info about current column (under the cursor)          |
+|**F5**                  | Start query editing for the current csv file                |
+|**F5**                  | Execute currently edited query                              |
 
 
 ### Commands
@@ -122,14 +122,13 @@ Manual delimiter selection would still be possible.
 
 #### g:rcsv_max_columns
 *Default: 30*
-Autodetection will fail if buffer has more than _g:rcsv_max_columns_ columns.
+Autodetection will fail if buffer has more than _g:rcsv\_max\_columns_ columns.
 You can increase or decrease this limit.
 
 
 ### Optional "Header" file feature
 
-Rainbow csv allows you to create a special "header" file for your table files. It should have the same name as the table file but with ".header" suffix (e.g. for "input.tsv" the header file is "input.tsv.header"). The only purpose of header file is to provide csv column names for _:RbGetColumn_ command.
-
+Rainbow csv allows you to create a special "header" file for your table files. It should have the same name as the table file but with ".header" suffix (e.g. for "input.tsv" the header file is "input.tsv.header"). The only purpose of header file is to provide csv column names for **\d** key.
 
 ### Installation
 
