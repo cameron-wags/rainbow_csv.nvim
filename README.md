@@ -48,11 +48,14 @@ Some other rules:
 * _JOIN_ statements must have the following form: **<join\_keyword> /path/to/table.tsv on a_i_ == b_j_**
 
 ### Special variables
-* **\*** - Current record
-* **a1**, **a2**, ... , **a_N_** _(string)_ - Value of i-th column
-* **b1**, **b2**, ... , **b_N_** _(string)_ - Value of i-th column in right hand side table B in _JOIN_ operations
-* **NR** _(integer)_ - Number of Records being processed (or line number). **NR** is 1-based
-* **NF** _(integer)_ - Number of Fields in the current line/record
+
+| Variable Name      | Variable Type | Variable Description                 |
+|--------------------|---------------|--------------------------------------|
+| *                  |N/A            | Current record                       |
+| a1, a2, ... , a_N_ |string         | Value of i-th column                 |
+| b1, b2, ... , b_N_ |string         | Value of i-th column in join table B |
+| NR                 |integer        | Line number (1-based)                |
+| NF                 |integer        | Number of fields                     |
 
 ### Examples of RBQL queries
 
@@ -70,11 +73,11 @@ Some other rules:
 
 ### Mappings
 
-|Key                     | Action                                                      |
-|------------------------|-------------------------------------------------------------|
-|**<Leader>d**  (**\d**) | Print info about current column (under the cursor)          |
-|**F5**                  | Start query editing for the current csv file                |
-|**F5**                  | Execute currently edited query                              |
+|Key                       | Action                                             |
+|--------------------------|----------------------------------------------------|
+|**\<Leader\>d**  (**\d**) | Print info about current column (under the cursor) |
+|**F5**                    | Start query editing for the current csv file       |
+|**F5**                    | Execute currently edited query                     |
 
 
 ### Commands
