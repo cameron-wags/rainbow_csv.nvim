@@ -31,12 +31,21 @@ RBQL is a technology which provides SQL-like language that supports "SELECT" and
 ### Supported SQL Keywords (Keywords are case insensitive)
 
 * SELECT \[ TOP _N_ \] \[ DISTINCT [ COUNT ] \]
-* UPDATE [ SET ]
+* UPDATE \[ SET \]
 * WHERE
 * ORDER BY ... [ DESC | ASC ]
-* [ INNER ] JOIN
-* LEFT JOIN
-* STRICT LEFT JOIN
+* [ [ [ STRICT ] LEFT ] | [ INNER ] ] JOIN
+
+#### Keywords rules
+All keywords have the same meaning as in SQL queries. You can check them online e.g. here: https://www.w3schools.com/sql/default.asp
+But there are also two new keywords: `DISTINCT COUNT` and `STRICT LEFT JOIN`:
+* `DISTINCT COUNT` is like `DISTINCT`, but adds a new column to the "distinct" result set: number of occurences of the entry, similar to `uniq -c` unix command.
+* `STRICT LEFT JOIN` is like `LEFT JOIN`, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".
+
+Some other rules:
+* `UPDATE SET` is synonym to `UPDATE`, because in RBQL there is no need to specify the source table.
+* `UPDATE` has the same semantic as in SQL, but it is actually a special type of `SELECT` query.
+* `JOIN` statements must have the following form: `<join_keyword> /path/to/table.tsv on ai == bj`
 
 ### Special variables
 * `*` - Current record
@@ -44,11 +53,6 @@ RBQL is a technology which provides SQL-like language that supports "SELECT" and
 * `b1`, `b2`, ... , `bN` _(string)_ - Value of i-th column in right hand side table B in JOIN operations
 * `NR` _(integer)_ - Number of Records being processed (or line number). NR is 1-based
 * `NF` _(integer)_ - Number of Fields in the current line/record
-
-### JOIN statement rules
-* Keywords `JOIN` (`INNER JOIN`) and `LEFT JOIN` work exactly like their SQL equivalents with only difference that join key in right table "B" must be unique.  
-* Keyword `STRICT LEFT JOIN` is like `LEFT JOIN`, but generates error if some keys in left table "A" don't have matching key in right table "B".
-* JOIN statement must have the following form: `<join_keyword> /path/to/table.tsv on ai == bj`
 
 ### Examples of RBQL queries
 
