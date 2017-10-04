@@ -211,6 +211,7 @@ def combine_string_literals(host_expression, string_literals):
 
 def locate_statements(rbql_expression):
     statement_groups = list()
+    #'(?i)(?:^| )(?:(?:(?:STRICT *)?LEFT *)|(?:INNER *))?JOIN ' - you can use this regex for joins
     statement_groups.append([STRICT_LEFT_JOIN, LEFT_JOIN, INNER_JOIN, JOIN])
     statement_groups.append([SELECT])
     statement_groups.append([ORDER_BY])
@@ -243,14 +244,19 @@ def separate_actions(rbql_expression):
         statement_start = ordered_statements[i][0]
         span_start = ordered_statements[i][1]
         statement = ordered_statements[i][2]
-        result[statement] = dict()
         span_end = ordered_statements[i + 1][0] if i + 1 < len(ordered_statements) else len(rbql_expression)
         assert statement_start < span_start
         assert span_start <= span_end
         span = rbql_expression[span_start:span_end]
 
+        statement_params = dict()
+
+        if statement in [STRICT_LEFT_JOIN, LEFT_JOIN, INNER_JOIN, JOIN]:
+            statement_params['join_subtype'] = statement
+            statement = JOIN
+
         if statement == UPDATE:
-            if len(result) > 1:
+            if len(result):
                 raise RBParsingError('UPDATE must be the first statement in query')
             span = re.sub('(?i)^ *SET ', '', span)
 
@@ -259,25 +265,26 @@ def separate_actions(rbql_expression):
             new_span = re.sub('(?i) DESC *$', '', span)
             if new_span != span:
                 span = new_span
-                result[statement]['reverse'] = True
+                statement_params['reverse'] = True
             else:
-                result[statement]['reverse'] = False
+                statement_params['reverse'] = False
 
         if statement == SELECT:
-            if len(result) > 1:
+            if len(result):
                 raise RBParsingError('SELECT must be the first statement in query')
             match = re.match('(?i)^ *TOP *([0-9]+) ', span)
             if match is not None:
-                result[statement]['top'] = int(match.group(1))
+                statement_params['top'] = int(match.group(1))
                 span = span[match.end():]
             match = re.match('(?i)^ *DISTINCT *(COUNT)? ', span)
             if match is not None:
-                result[statement]['distinct'] = True
+                statement_params['distinct'] = True
                 if match.group(1) is not None:
-                    result[statement]['distinct_count'] = True
+                    statement_params['distinct_count'] = True
                 span = span[match.end():]
 
-        result[statement]['text'] = span.strip()
+        statement_params['text'] = span.strip()
+        result[statement] = statement_params
     if SELECT not in result and UPDATE not in result:
         raise RBParsingError('Query must contain either SELECT or UPDATE statement')
     assert (SELECT in result) != (UPDATE in result)
@@ -294,21 +301,6 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     format_expression, string_literals = separate_string_literals_py(full_rbql_expression)
     rb_actions = separate_actions(format_expression)
 
-    #TODO refactor: try to convert all join ops into one with params
-    joiner_name = 'none_joiner'
-    join_op = None
-    rhs_table_path = 'None'
-    lhs_join_var = 'None'
-    rhs_join_var = 'None'
-    join_ops = {JOIN: 'InnerJoiner', INNER_JOIN: 'InnerJoiner', LEFT_JOIN: 'LeftJoiner', STRICT_LEFT_JOIN: 'StrictLeftJoiner'}
-    for k, v in join_ops.items():
-        if k in rb_actions:
-            join_op = k
-            joiner_name = v
-
-    if join_op is not None:
-        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op]['text'])
-
     import_expression = ''
     if import_modules is not None:
         for mdl in import_modules:
@@ -319,10 +311,19 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     py_meta_params['import_expression'] = import_expression
     py_meta_params['dlm'] = py_source_escape(delim)
     py_meta_params['join_encoding'] = join_csv_encoding
-    py_meta_params['rhs_join_var'] = rhs_join_var
-    py_meta_params['joiner_type'] = joiner_name
-    py_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
-    py_meta_params['lhs_join_var'] = lhs_join_var
+
+    if JOIN in rb_actions:
+        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
+        joiners = {JOIN: 'InnerJoiner', INNER_JOIN: 'InnerJoiner', LEFT_JOIN: 'LeftJoiner', STRICT_LEFT_JOIN: 'StrictLeftJoiner'}
+        py_meta_params['joiner_type'] = joiners[rb_actions[JOIN]['join_subtype']]
+        py_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
+        py_meta_params['lhs_join_var'] = lhs_join_var
+        py_meta_params['rhs_join_var'] = rhs_join_var
+    else:
+        py_meta_params['joiner_type'] = 'none_joiner'
+        py_meta_params['rhs_table_path'] = 'None'
+        py_meta_params['lhs_join_var'] = 'None'
+        py_meta_params['rhs_join_var'] = 'None'
 
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])
@@ -373,31 +374,26 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     format_expression, string_literals = separate_string_literals_js(full_rbql_expression)
     rb_actions = separate_actions(format_expression)
 
-    join_function = 'null_join'
-    join_op = None
-    rhs_table_path = 'null'
-    lhs_join_var = 'null'
-    rhs_join_var = 'null'
-    join_funcs = {JOIN: 'inner_join', INNER_JOIN: 'inner_join', LEFT_JOIN: 'left_join', STRICT_LEFT_JOIN: 'strict_left_join'}
-    for k, v in join_funcs.items():
-        if k in rb_actions:
-            join_op = k
-            join_function = v
-    if join_op is not None:
-        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[join_op]['text'])
-        rhs_table_path = "'{}'".format(rhs_table_path)
-
     js_meta_params = dict()
-    #TODO require modules feature
+    #TODO add require modules feature
     js_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
     js_meta_params['dlm'] = py_source_escape(delim)
     js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
-    js_meta_params['rhs_join_var'] = rhs_join_var
-    js_meta_params['join_function'] = join_function
     js_meta_params['src_table_path'] = "null" if src_table_path is None else "'{}'".format(py_source_escape(src_table_path))
     js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(py_source_escape(dst_table_path))
-    js_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
-    js_meta_params['lhs_join_var'] = lhs_join_var
+
+    if JOIN in rb_actions:
+        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
+        join_funcs = {JOIN: 'inner_join', INNER_JOIN: 'inner_join', LEFT_JOIN: 'left_join', STRICT_LEFT_JOIN: 'strict_left_join'}
+        js_meta_params['join_function'] = join_funcs[rb_actions[JOIN]['join_subtype']]
+        js_meta_params['rhs_table_path'] ="'{}'".format(py_source_escape(rhs_table_path))
+        js_meta_params['lhs_join_var'] = lhs_join_var
+        js_meta_params['rhs_join_var'] = rhs_join_var
+    else:
+        js_meta_params['join_function'] = 'null_join'
+        js_meta_params['rhs_table_path'] = 'null'
+        js_meta_params['lhs_join_var'] = 'null'
+        js_meta_params['rhs_join_var'] = 'null'
 
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])
