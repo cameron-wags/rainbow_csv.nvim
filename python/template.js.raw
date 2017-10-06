@@ -68,6 +68,23 @@ function register_num_fields(line_num, line) {
 }
 
 
+function add_to_set(dst_set, value) {
+    // https://stackoverflow.com/a/27427447/2898283
+    // TODO run tests to compare performance
+    var len_before = dst_set.size;
+    dst_set.add(value);
+    return len_before != dst_set.size;
+}
+
+
+function stable_compare(a, b) {
+    for (var i = 0; i < a.length; i++) {
+        if (a[i] !== b[i])
+            return a[i] < b[i] ? -1 : 1;
+    }
+}
+
+
 function SimpleWriter(dst) {
     this.dst = dst;
     this.NW = 0;
@@ -83,14 +100,6 @@ function SimpleWriter(dst) {
     this.finish = function() {}
 }
 
-
-function add_to_set(dst_set, value) {
-    // https://stackoverflow.com/a/27427447/2898283
-    // TODO run tests to compare performance
-    var len_before = dst_set.size;
-    dst_set.add(value);
-    return len_before != dst_set.size;
-}
 
 function UniqWriter(dst) {
     this.dst = dst;
@@ -133,6 +142,30 @@ function UniqCountWriter(dst) {
             NW += 1;
             register_num_fields(NW, new_record);
         }
+    }
+}
+
+
+function SortedWriter(subwriter) {
+    this.subwriter = subwriter;
+    this.unsorted_entries = [];
+
+    this.write = function(stable_entry) {
+        this.unsorted_entries.push(stable_entry);
+        return true;
+    }
+
+    this.finish = function() {
+        var unsorted_entries = this.unsorted_entries;
+        unsorted_entries.sort(stable_compare);
+        if (__RBQLMP__reverse_flag)
+            unsorted_entries.reverse();
+        for (var i = 0; i < unsorted_entries.length; i++) {
+            entry = unsorted_entries[i];
+            if (!this.subwriter.write(entry[entry.length - 1]))
+                break;
+        }
+        this.subwriter.finish();
     }
 }
 
@@ -186,118 +219,15 @@ function read_join_table(table_path) {
                 exit_with_error_msg('No "b' + (e.idx + 1) + '" column at line: ' + (i + 1) + ' in "B" table')
             }
         }
-        if (result.has(key)) {
-            exit_with_error_msg('Join column must be unique in right-hand-side "B" table. Found duplicate key: "' + key + '"')
+        var old_records = result.get(key);
+        if (old_records == null) {
+            result.set(key, [bfields]);
+        } else {
+            old_records.push(bfields);
         }
-        result.set(key, bfields);
     }
     return [result, fields_max_len];
 }
-
-
-function null_join(join_map, max_join_fields, lhs_key) {
-    return null;
-}
-
-function inner_join(join_map, max_join_fields, lhs_key) {
-    return join_map.get(lhs_key);
-}
-
-
-function left_join(join_map, max_join_fields, lhs_key) {
-    var result = join_map.get(lhs_key);
-    if (result == null) {
-        result = Array(max_join_fields).fill(null);
-    }
-    return result;
-}
-
-
-function strict_left_join(join_map, max_join_fields, lhs_key) {
-    var result = join_map.get(lhs_key);
-    if (result == null) {
-        exit_with_error_msg('In "strict left join" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found');
-    }
-    return result;
-}
-
-
-function stable_compare(a, b) {
-    for (var i = 0; i < a.length; i++) {
-        if (a[i] !== b[i])
-            return a[i] < b[i] ? -1 : 1;
-    }
-}
-
-
-var join_map = null;
-var max_join_fields = null;
-if (join_table_path !== null) {
-    var join_params = read_join_table(join_table_path);
-    join_map = join_params[0];
-    max_join_fields = join_params[1];
-}
-
-
-var writer = new __RBQLMP__writer_type(dst_stream);
-var unsorted_entries = [];
-
-
-lineReader.on('line', function (line) {
-    NR += 1;
-    //readline strips last '\r'
-    var split_result = smart_split(line);
-    var afields = split_result[0];
-    var warning = split_result[1];
-    if (warning && !defective_csv_line_in_input)
-        defective_csv_line_in_input = NR;
-    var NF = afields.length;
-    if (!input_fields_info.hasOwnProperty(NF))
-        input_fields_info[NF] = NR;
-    var bfields = null;
-    var star_fields = afields;
-    var join_flag = true;
-    if (join_map != null) {
-        bfields = __RBQLMP__join_function(join_map, max_join_fields, __RBQLMP__lhs_join_var);
-        if (bfields == null) {
-            join_flag = false;
-        } else {
-            star_fields = afields.concat(bfields)
-        }
-    }
-    try {
-        if (__RBQLMP__is_select_query) {
-            if (!(join_flag && (__RBQLMP__where_expression)))
-                return;
-            out_fields = __RBQLMP__select_expression;
-        } else {
-            if (join_flag && (__RBQLMP__where_expression)) {
-                __RBQLMP__update_statements
-            }
-            out_fields = afields;
-        }
-        for (var i = 0; i < out_fields.length; i++) {
-            if (out_fields[i] == null) {
-                null_value_in_output = true;
-            }
-        }
-        if (__RBQLMP__sort_flag) {
-            var sort_entry = [__RBQLMP__sort_key_expression, NR, out_fields.join('\t')];
-            unsorted_entries.push(sort_entry);
-        } else {
-            if (!writer.write(out_fields.join('\t'))) {
-                lineReader.close();
-                return;
-            }
-        }
-    } catch (e) {
-        if (e instanceof BadFieldError) {
-            exit_with_error_msg('No "a' + (e.idx + 1) + '" column at line: ' + NR);
-        }
-        throw(e);
-    }
-
-});
 
 
 function generate_warnings() {
@@ -321,18 +251,140 @@ function generate_warnings() {
 }
 
 
-lineReader.on('close', function () {
-    if (unsorted_entries.length) {
-        unsorted_entries.sort(stable_compare);
-        if (__RBQLMP__reverse_flag)
-            unsorted_entries.reverse();
-        for (var i = 0; i < unsorted_entries.length; i++) {
-            if (!writer.write(unsorted_entries[i][unsorted_entries[i].length - 1]))
-                break;
+var join_map = null;
+var max_join_fields = null;
+var null_record = null;
+
+if (join_table_path !== null) {
+    var join_params = read_join_table(join_table_path);
+    join_map = join_params[0];
+    max_join_fields = join_params[1];
+    null_record = [Array(max_join_fields).fill(null)];
+}
+
+
+function null_join(lhs_key) {
+    return null;
+}
+
+function inner_join(lhs_key) {
+    result = join_map.get(lhs_key);
+    if (result == null)
+        return [];
+    return result;
+}
+
+
+function left_join(lhs_key) {
+    var result = join_map.get(lhs_key);
+    if (result == null)
+        return null_record;
+    return result;
+}
+
+
+function strict_left_join(lhs_key) {
+    var result = join_map.get(lhs_key);
+    if (result == null || result.length != 1) {
+        exit_with_error_msg('In "STRICT LEFT JOIN" each key in A must have exactly one match in B. Bad A key: "' + lhs_key + '"');
+    }
+    return result;
+}
+
+
+function replace_null_values(out_fields) {
+    for (var i = 0; i < out_fields.length; i++) {
+        if (out_fields[i] == null) {
+            null_value_in_output = true;
+            out_fields[i] = '';
         }
     }
+}
+
+var writer = new __RBQLMP__writer_type(dst_stream);
+if (__RBQLMP__sort_flag) {
+    writer = new SortedWriter(writer);
+}
+
+
+function process_update(NF, afields, rhs_records) {
+    if (rhs_records != null && rhs_records.length > 1)
+        exit_with_error_msg('More than one record in UPDATE query matched A-key in join table B at line: ' + NR);
+    var bfields = null;
+    if (rhs_records != null && rhs_records.length == 1)
+        bfields = rhs_records[0];
+    if ((rhs_records == null || rhs_records.length == 1) && (__RBQLMP__where_expression)) {
+        __RBQLMP__update_statements
+    }
+    var out_fields = afields;
+    replace_null_values(out_fields);
+    var out_record = out_fields.join('\t')
+    return writer.write(out_record);
+}
+
+
+function process_select(NF, afields, rhs_records) {
+    if (rhs_records == null)
+        rhs_records = [null];
+    for (var i = 0; i < rhs_records.length; i++) {
+        var bfields = rhs_records[i];
+        var star_fields = afields;
+        if (bfields != null)
+            star_fields = afields.concat(bfields);
+        if (!(__RBQLMP__where_expression))
+            continue;
+        var out_fields = __RBQLMP__select_expression;
+        replace_null_values(out_fields);
+        var out_record = out_fields.join('\t');
+        if (__RBQLMP__sort_flag) {
+            var sort_entry = [__RBQLMP__sort_key_expression, NR, out_record];
+            if (!writer.write(sort_entry))
+                return false;
+        } else {
+            if (!writer.write(out_record))
+                return false;
+        }
+    }
+    return true;
+}
+
+
+function process_line(line) {
+    NR += 1;
+    //readline strips last '\r'
+    var split_result = smart_split(line);
+    var afields = split_result[0];
+    var warning = split_result[1];
+    if (warning && !defective_csv_line_in_input)
+        defective_csv_line_in_input = NR;
+    var NF = afields.length;
+    if (!input_fields_info.hasOwnProperty(NF))
+        input_fields_info[NF] = NR;
+    try {
+        rhs_records = null;
+        if (join_map != null)
+            rhs_records = __RBQLMP__join_function(__RBQLMP__lhs_join_var);
+        if (!__RBQLMP__process_function(NF, afields, rhs_records)) {
+            lineReader.close();
+            return;
+        }
+    } catch (e) {
+        if (e instanceof BadFieldError) {
+            exit_with_error_msg('No "a' + (e.idx + 1) + '" column at line: ' + NR);
+        }
+        throw(e);
+    }
+}
+
+
+function finish_processing() {
     writer.finish();
     var warnings_report = generate_warnings();
     if (warnings_report)
         process.stderr.write(warnings_report);
-});
+}
+
+
+lineReader.on('line', process_line);
+lineReader.on('close', finish_processing);
+

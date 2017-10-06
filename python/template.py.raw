@@ -8,7 +8,7 @@ import random #for random sort
 import datetime #for date manipulations
 import re #for regexes
 import codecs
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 sys.path.insert(0, '__RBQLMP__rbql_home_dir')
 import rbql_utils
@@ -160,13 +160,32 @@ class UniqCountWriter:
             register_num_fields(NW, new_record)
 
 
+class SortedWriter:
+    def __init__(self, subwriter):
+        self.subwriter = subwriter
+        self.unsorted_entries = list()
+
+    def write(self, sort_key_value, record):
+        self.unsorted_entries.append((sort_key_value, record))
+        return True
+
+    def finish(self):
+        sorted_entries = sorted(self.unsorted_entries, key=lambda x: x[0])
+        if __RBQLMP__reverse_flag:
+            sorted_entries.reverse()
+        for e in sorted_entries:
+            if not self.subwriter.write(e[1]):
+                break
+        self.subwriter.finish()
+
+
 def read_join_table(join_table_path):
     global join_fields_info
     global defective_csv_line_in_join
     fields_max_len = 0
     if not os.path.isfile(join_table_path):
         raise RbqlRuntimeError('Table B: ' + join_table_path + ' is not accessible')
-    result = dict()
+    result = defaultdict(list)
     with codecs.open(join_table_path, encoding='__RBQLMP__join_encoding') as src_text:
         for il, line in enumerate(rbql_utils.rows(src_text), 1):
             line = line.rstrip('\r\n')
@@ -182,9 +201,7 @@ def read_join_table(join_table_path):
             except BadFieldError as e:
                 bad_idx = e.bad_idx
                 raise RbqlRuntimeError('No "b' + str(bad_idx + 1) + '" column at line: ' + str(il) + ' in "B" table')
-            if key in result:
-                raise RbqlRuntimeError('Join column must be unique in right-hand-side "B" table. Found duplicate key: "' + key + '"')
-            result[key] = bfields
+            result[key].append(bfields)
     return (result, fields_max_len)
 
 
@@ -195,24 +212,28 @@ def none_joiner(path):
 class InnerJoiner:
     def __init__(self, join_table_path):
         self.join_data, self.fields_max_len = read_join_table(join_table_path)
-    def get(self, lhs_key):
-        return self.join_data.get(lhs_key, None)
+
+    def get_rhs(self, lhs_key):
+        return self.join_data.get(lhs_key, [])
 
 
 class LeftJoiner:
     def __init__(self, join_table_path):
         self.join_data, self.fields_max_len = read_join_table(join_table_path)
-    def get(self, lhs_key):
-        return self.join_data.get(lhs_key, [None] * self.fields_max_len)
+        self.null_record = [[None] * self.fields_max_len]
+
+    def get_rhs(self, lhs_key):
+        return self.join_data.get(lhs_key, self.null_record)
 
 
 class StrictLeftJoiner:
     def __init__(self, join_table_path):
         self.join_data, self.fields_max_len = read_join_table(join_table_path)
-    def get(self, lhs_key):
-        result = self.join_data.get(lhs_key, None)
-        if result is None:
-            raise RbqlRuntimeError('In "strict left join" mode all A table keys must be present in table B. Key "' + lhs_key + '" was not found')
+
+    def get_rhs(self, lhs_key):
+        result = self.join_data.get(lhs_key, [])
+        if len(result) != 1:
+            raise RbqlRuntimeError('In "STRICT LEFT JOIN" each key in A must have exactly one match in B. Bad A key: "' + lhs_key + '"')
         return result
 
 
@@ -252,60 +273,74 @@ def main():
             eprint(k, v)
 
 
+def process_update(NR, NF, afields, rhs_records, writer):
+    if rhs_records is not None and len(rhs_records) > 1:
+        raise RbqlRuntimeError('More than one record in UPDATE query matched A-key in join table B')
+    bfields = None
+    if rhs_records is not None and len(rhs_records) == 1:
+        bfields = rhs_records[0]
+    if (rhs_records is None or len(rhs_records) == 1) and (__RBQLMP__where_expression):
+        __RBQLMP__update_statements
+    out_fields = afields
+    replace_none_values(out_fields)
+    out_record = '\t'.join([str6(f) for f in out_fields])
+    return writer.write(out_record)
+
+
+def process_select(NR, NF, afields, rhs_records, writer):
+    if rhs_records is None:
+        rhs_records = [None]
+    for bfields in rhs_records:
+        if bfields is None:
+            star_fields = afields
+        else:
+            star_fields = afields + bfields
+        if not (__RBQLMP__where_expression):
+            continue
+        out_fields = __RBQLMP__select_expression
+        replace_none_values(out_fields)
+        out_record = '\t'.join([str6(f) for f in out_fields])
+        if __RBQLMP__sort_flag:
+            sort_key_value = (__RBQLMP__sort_key_expression)
+            if not writer.write(sort_key_value, out_record):
+                return False
+        else:
+            if not writer.write(out_record):
+                return False
+    return True
+
+
 def rb_transform(source, destination):
     global module_was_used_failsafe
     assert not module_was_used_failsafe
     module_was_used_failsafe = True
+
     global input_fields_info
     global defective_csv_line_in_input
-    unsorted_entries = list()
     writer = __RBQLMP__writer_type(destination)
+    if __RBQLMP__sort_flag:
+        writer = SortedWriter(writer)
     joiner = __RBQLMP__joiner_type('__RBQLMP__rhs_table_path')
     for NR, line in enumerate(rbql_utils.rows(source), 1):
         line = line.rstrip('\r\n')
         afields, warning = smart_split(line)
         if warning and not defective_csv_line_in_input:
             defective_csv_line_in_input = NR
-        star_fields = afields
         NF = len(afields)
         if NF not in input_fields_info:
             input_fields_info[NF] = NR
-        bfields = None
-        join_flag = True
         try:
+            rhs_records = None
             if joiner is not None:
-                bfields = joiner.get(__RBQLMP__lhs_join_var)
-                if bfields is None:
-                    join_flag = False
-                else:
-                    star_fields = afields + bfields
-            if __RBQLMP__is_select_query:
-                if not (join_flag and (__RBQLMP__where_expression)):
-                    continue
-                out_fields = __RBQLMP__select_expression
-            else:
-                if join_flag and (__RBQLMP__where_expression):
-                    __RBQLMP__update_statements
-                out_fields = afields
-            replace_none_values(out_fields)
-            if __RBQLMP__sort_flag:
-                sort_key_value = (__RBQLMP__sort_key_expression)
-                unsorted_entries.append((sort_key_value, '\t'.join([str6(f) for f in out_fields])))
-            else:
-                if not writer.write('\t'.join([str6(f) for f in out_fields])):
-                    break
+                rhs_records = joiner.get_rhs(__RBQLMP__lhs_join_var)
+            # below is process_select or process_update
+            if not __RBQLMP__process_function(NR, NF, afields, rhs_records, writer):
+                break
         except BadFieldError as e:
             bad_idx = e.bad_idx
             raise RbqlRuntimeError('No "a' + str(bad_idx + 1) + '" column at line: ' + str(NR))
         except Exception as e:
             raise RbqlRuntimeError('Error at line: ' + str(NR) + ', Details: ' + str(e))
-    if len(unsorted_entries):
-        sorted_entries = sorted(unsorted_entries, key=lambda x: x[0])
-        if __RBQLMP__reverse_flag:
-            sorted_entries.reverse()
-        for e in sorted_entries:
-            if not writer.write(e[1]):
-                break
     writer.finish()
     return create_warnings_report()
 

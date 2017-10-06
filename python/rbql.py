@@ -312,6 +312,9 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     py_meta_params['dlm'] = py_source_escape(delim)
     py_meta_params['join_encoding'] = join_csv_encoding
 
+    if ORDER_BY in rb_actions and UPDATE in rb_actions:
+        raise RBParsingError('"ORDER BY" is not allowed in "UPDATE" queries')
+
     if JOIN in rb_actions:
         rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
         joiners = {JOIN: 'InnerJoiner', INNER_JOIN: 'InnerJoiner', LEFT_JOIN: 'LeftJoiner', STRICT_LEFT_JOIN: 'StrictLeftJoiner'}
@@ -332,11 +335,11 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
         py_meta_params['where_expression'] = 'True'
 
     if UPDATE in rb_actions:
-        update_expression = translate_update_expression(rb_actions[UPDATE]['text'], ' ' * 20)
+        update_expression = translate_update_expression(rb_actions[UPDATE]['text'], ' ' * 8)
         py_meta_params['writer_type'] = 'SimpleWriter'
         py_meta_params['select_expression'] = 'None'
         py_meta_params['update_statements'] = combine_string_literals(update_expression, string_literals)
-        py_meta_params['is_select_query'] = 'False'
+        py_meta_params['process_function'] = 'process_update'
         py_meta_params['top_count'] = 'None'
 
     if SELECT in rb_actions:
@@ -351,7 +354,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
         select_expression = translate_select_expression_py(rb_actions[SELECT]['text'])
         py_meta_params['select_expression'] = combine_string_literals(select_expression, string_literals)
         py_meta_params['update_statements'] = 'pass'
-        py_meta_params['is_select_query'] = 'True'
+        py_meta_params['process_function'] = 'process_select'
 
     if ORDER_BY in rb_actions:
         order_expression = replace_column_vars(rb_actions[ORDER_BY]['text'])
@@ -402,11 +405,11 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
         js_meta_params['where_expression'] = 'true'
 
     if UPDATE in rb_actions:
-        update_expression = translate_update_expression(rb_actions[UPDATE]['text'], ' ' * 16)
+        update_expression = translate_update_expression(rb_actions[UPDATE]['text'], ' ' * 8)
         js_meta_params['writer_type'] = 'SimpleWriter'
         js_meta_params['select_expression'] = 'null'
         js_meta_params['update_statements'] = combine_string_literals(update_expression, string_literals)
-        js_meta_params['is_select_query'] = 'false'
+        js_meta_params['process_function'] = 'process_update'
         js_meta_params['top_count'] = 'null'
 
     if SELECT in rb_actions:
@@ -421,7 +424,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
         select_expression = translate_select_expression_js(rb_actions[SELECT]['text'])
         js_meta_params['select_expression'] = combine_string_literals(select_expression, string_literals)
         js_meta_params['update_statements'] = ''
-        js_meta_params['is_select_query'] = 'true'
+        js_meta_params['process_function'] = 'process_select'
 
     if ORDER_BY in rb_actions:
         order_expression = replace_column_vars(rb_actions[ORDER_BY]['text'])

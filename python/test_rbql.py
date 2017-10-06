@@ -458,14 +458,14 @@ class TestEverything(unittest.TestCase):
         with self.assertRaises(Exception) as cm:
             test_table, warnings = run_conversion_test_py(query, input_table, test_name)
         e = cm.exception
-        self.assertTrue(str(e).find('all A table keys must be present in table B') != -1)
+        self.assertTrue(str(e).find('In "STRICT LEFT JOIN" each key in A must have exactly one match in B') != -1)
 
         if TEST_JS:
             query = r'select b1,b2,   a1 strict left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
             with self.assertRaises(Exception) as cm:
                 test_table, warnings = run_conversion_test_js(query, input_table, test_name)
             e = cm.exception
-            self.assertTrue(str(e).find('all A table keys must be present in table B') != -1)
+            self.assertTrue(str(e).find('In "STRICT LEFT JOIN" each key in A must have exactly one match in B') != -1)
 
 
     def test_run9(self):
@@ -487,18 +487,22 @@ class TestEverything(unittest.TestCase):
         join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
         table_to_file(join_table, join_table_path)
 
+        canonic_table = list()
+        canonic_table.append(['plane', 'wings', '50'])
+        canonic_table.append(['plane', 'air', '50'])
+        canonic_table.append(['plane', 'wings', '200'])
+        canonic_table.append(['plane', 'air', '200'])
+
         query = r'select b1,b2,a1 inner join {} on a2 == b1 where b1 != "car"'.format(join_table_path)
-        with self.assertRaises(Exception) as cm:
-            test_table, warnings = run_conversion_test_py(query, input_table, test_name)
-        e = cm.exception
-        self.assertTrue(str(e).find('Join column must be unique in right-hand-side "B" table') != -1)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = r'select b1,b2,a1 inner join {} on a2 == b1 where b1 != "car"'.format(join_table_path)
-            with self.assertRaises(Exception) as cm:
-                test_table, warnings = run_conversion_test_js(query, input_table, test_name)
-            e = cm.exception
-            self.assertTrue(str(e).find('Join column must be unique in right-hand-side "B" table') != -1)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
 
 
     def test_run10(self):
