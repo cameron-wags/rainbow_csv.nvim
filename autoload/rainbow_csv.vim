@@ -384,19 +384,6 @@ func! s:status_escape_string(src)
 endfunc
 
 
-func! rainbow_csv#restore_statusline()
-    if !exists("b:statusline_before")
-        return
-    endif
-    augroup StatusDisableGrp
-        autocmd!
-    augroup END
-    let escaped_statusline = s:status_escape_string(b:statusline_before)
-    execute "set statusline=" . escaped_statusline
-    unlet b:statusline_before
-endfunc
-
-
 func! rainbow_csv#set_statusline_columns()
     if !s:is_rainbow_table()
         return
@@ -435,13 +422,7 @@ func! rainbow_csv#set_statusline_columns()
         let rb_statusline = rb_statusline . '%#status_color' . color_id . '#' . column_name . '%#status_line_default_hl#' . space_filling
     endfor
     let rb_statusline = s:status_escape_string(rb_statusline)
-    execute "set statusline=" . rb_statusline
-    augroup StatusDisableGrp
-        autocmd CursorHold * call rainbow_csv#restore_statusline()
-        autocmd CursorMoved * call rainbow_csv#restore_statusline()
-        autocmd WinEnter * call rainbow_csv#restore_statusline()
-        autocmd WinLeave * call rainbow_csv#restore_statusline()
-    augroup END
+    execute "setlocal statusline=" . rb_statusline
     redraw!
 endfunc
 
@@ -641,6 +622,7 @@ func! rainbow_csv#select_mode()
 
     let fields = s:preserving_smart_split(lines[0], delim)
     let num_fields = len(fields)
+    call rainbow_csv#set_statusline_columns()
 
     set splitbelow
     execute "split " . rb_script_path
@@ -790,7 +772,6 @@ func! rainbow_csv#run_cmd_query(query_type, ...)
         echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
-    call rainbow_csv#restore_statusline()
     let rb_script_path = s:get_rb_script_path_for_this_table()
     call writefile([query], rb_script_path)
     let table_buf_number = bufnr("%")
