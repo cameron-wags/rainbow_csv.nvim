@@ -456,19 +456,19 @@ func! s:generate_microlang_syntax(nfields)
         let color_num = ((lnum - 1) % npairs) + 1
         let cmd = 'syntax keyword rbql_color%d a%d'
         exe printf(cmd, color_num, lnum)
+        let cmd = 'syntax keyword rbql_color%d b%d'
+        exe printf(cmd, color_num, lnum)
     endfor
 
     highlight RbCmd ctermbg=blue guibg=blue
-    syntax keyword RbCmd UPDATE SELECT WHERE INITIALIZE DESC ASC
-    syntax keyword RbCmd update select where initialize desc asc
-    syntax match RbCmd "ORDER BY"
-    syntax match RbCmd "order by"
-    syntax match RbCmd "INNER JOIN"
-    syntax match RbCmd "inner join"
-    syntax match RbCmd "LEFT JOIN"
-    syntax match RbCmd "left join"
-    syntax match RbCmd "STRICT LEFT JOIN"
-    syntax match RbCmd "strict left join"
+    
+    syntax match RbCmd "\c \@<=ORDER \+BY \@="
+    syntax match RbCmd "\c\(^ *\)\@<=SELECT\( \+TOP \+[0-9]\+\)\?\( \+DISTINCT\( \+COUNT\)\?\)\? \@="
+    syntax match RbCmd "\c\(^ *\)\@<=UPDATE\( \+SET\)\? \@="
+    syntax match RbCmd "\c \@<=WHERE \@="
+    syntax match RbCmd "\c \@<=DESC\( *$\)\@="
+    syntax match RbCmd "\c \@<=ASC\( *$\)\@="
+    syntax match RbCmd "\c \@<=\(\(\(STRICT \+\)\?LEFT \+\)\|\(INNER \+\)\)\?JOIN \+[^ ]\+ \+ON \@="
 endfunc
 
 
