@@ -778,6 +778,84 @@ class TestEverything(unittest.TestCase):
             compare_warnings(self, None, warnings)
 
 
+    def test_run19(self):
+        test_name = 'test19'
+
+        input_table = list()
+        input_table.append(['5', 'car', 'lada'])
+        input_table.append(['-20', 'car', 'ferrari'])
+        input_table.append(['50', 'plane', 'tu-134'])
+        input_table.append(['200', 'plane', 'boeing 737'])
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas'])
+        join_table.append(['plane', 'wings'])
+        join_table.append(['rocket', 'some stuff'])
+
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+        table_to_file(join_table, join_table_path)
+
+        canonic_table = list()
+        canonic_table.append(['3', 'car'])
+        canonic_table.append(['3', 'car'])
+        canonic_table.append(['5', 'plane'])
+        canonic_table.append(['5', 'plane'])
+
+        query = r'select len(b1), a2 strict left join {} on a2 == b1'.format(join_table_path)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = r'select b1.length,  a2 strict left join {} on a2 == b1'.format(join_table_path)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
+
+
+    def test_run20(self):
+        test_name = 'test20'
+
+        input_table = list()
+        input_table.append(['100', 'magic carpet', 'nimbus 3000'])
+        input_table.append(['5', 'car', 'lada'])
+        input_table.append(['-20', 'car', 'ferrari'])
+        input_table.append(['50', 'plane', 'tu-134'])
+        input_table.append(['20', 'boat', 'destroyer'])
+        input_table.append(['10', 'boat', 'yacht'])
+        input_table.append(['200', 'plane', 'boeing 737'])
+
+        join_table = list()
+        join_table.append(['bicycle', 'legs'])
+        join_table.append(['car', 'gas'])
+        join_table.append(['plane', 'wings'])
+        join_table.append(['rocket', 'some stuff'])
+
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+        table_to_file(join_table, join_table_path)
+
+        canonic_table = list()
+        canonic_table.append(['100', 'magic carpet', ''])
+        canonic_table.append(['5', 'car', 'gas'])
+        canonic_table.append(['-20', 'car', 'gas'])
+        canonic_table.append(['50', 'plane', 'tu-134'])
+        canonic_table.append(['20', 'boat', ''])
+        canonic_table.append(['10', 'boat', ''])
+        canonic_table.append(['200', 'plane', 'boeing 737'])
+
+        query = r'update set a3 = b2 left join ' + join_table_path + ' on a2 == b1 where b2 != "wings"'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, ['null_value_in_output'], warnings)
+
+        if TEST_JS:
+            query = r'update set a3 = b2 left join ' + join_table_path + ' on a2 == b1 where b2 != "wings"'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, ['null_value_in_output'], warnings)
+
+
 def calc_file_md5(fname):
     import hashlib
     hash_md5 = hashlib.md5()
