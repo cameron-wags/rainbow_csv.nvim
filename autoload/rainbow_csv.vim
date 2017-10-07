@@ -709,7 +709,7 @@ endfunc
 func! s:run_select(table_buf_number, rb_script_path)
     if !s:EnsurePythonInitialization()
         echoerr "Python not found. Unable to run in this mode."
-        return
+        return 0
     endif
 
     let root_delim = getbufvar(a:table_buf_number, "rainbow_csv_delim")
@@ -747,12 +747,12 @@ func! s:run_select(table_buf_number, rb_script_path)
         exe 'python ' . py_call
     else
         call s:ShowImportantMessage("Error", ["Python not found, vim must have 'python' or 'python3' feature installed to run in this mode"])
-        return
+        return 0
     endif
 
     if psv_query_status != "OK"
         call s:ShowImportantMessage(psv_query_status, [psv_error_report])
-        return
+        return 0
     endif
 
     execute "e " . psv_dst_table_path
@@ -780,6 +780,7 @@ func! s:run_select(table_buf_number, rb_script_path)
 
     let table_name = fnamemodify(table_path, ":t")
     call s:create_recurrent_tip("F4: Close; F5: Recursive query; F6: Save...; F7: Copy to " . table_name)
+    return 1
 endfunc
 
 
@@ -807,8 +808,10 @@ func! rainbow_csv#select_from_file()
     let rb_script_path = expand("%")
     let query_buf_nr = bufnr("%")
     let table_buf_number = b:table_buf_number
-    call s:run_select(table_buf_number, rb_script_path)
-    execute "bd! " . query_buf_nr
+    let success = s:run_select(table_buf_number, rb_script_path)
+    if success
+        execute "bd! " . query_buf_nr
+    endif
 endfunc
 
 
