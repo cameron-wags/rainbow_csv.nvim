@@ -447,13 +447,9 @@ endfunc
 
 
 func! s:get_rb_script_path_for_this_table()
-    let rb_script_name = expand("%:t") . ".rb"
+    let rb_script_name = expand("%:t") . ".rbql"
     call s:ensure_storage_exists()
     let rb_script_path = s:rainbowStorage . '/' . rb_script_name
-    let already_exists = filereadable(rb_script_path)
-    if already_exists
-        call delete(rb_script_path)
-    endif
     return rb_script_path
 endfunc
 
@@ -635,6 +631,7 @@ func! rainbow_csv#select_mode()
     let buf_path = expand("%")
 
     let rb_script_path = s:get_rb_script_path_for_this_table()
+    let already_exists = filereadable(rb_script_path)
 
     let lines = getline(1, 10)
     if !len(lines)
@@ -647,7 +644,7 @@ func! rainbow_csv#select_mode()
 
     set splitbelow
     execute "split " . rb_script_path
-    setlocal noswapfile
+    "setlocal noswapfile
     if bufnr("%") == buf_number
         echoerr "Something went wrong"
         return
@@ -659,10 +656,12 @@ func! rainbow_csv#select_mode()
     let b:rainbow_select = 1
     "let b:table_csv_delim = delim
     call s:generate_microlang_syntax(num_fields)
-    if s:get_meta_language() == "python"
-        call s:make_python_demo(num_fields)
-    else
-        call s:make_javascript_demo(num_fields)
+    if !already_exists
+        if s:get_meta_language() == "python"
+            call s:make_python_demo(num_fields)
+        else
+            call s:make_javascript_demo(num_fields)
+        endif
     endif
     call s:create_recurrent_tip("Press F5 to run the query")
 endfunc
