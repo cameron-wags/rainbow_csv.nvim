@@ -410,7 +410,7 @@ func! rainbow_csv#set_statusline_columns()
     let indent = ''
     if has_number_column
         let indent_len = max([len(string(line('$'))) + 1, 4])
-        let indent = s:single_char_sring(indent_len, ' ')
+        let indent = ' NR' . s:single_char_sring(indent_len - 3, ' ')
     endif
     let bottom_line = getline(line('w$'))
     let bottom_fields = s:preserving_smart_split(bottom_line, delim)
@@ -940,6 +940,7 @@ func! rainbow_csv#enable_rainbow(delim)
 
     set laststatus=2
     set nocompatible
+    set number
 
     nnoremap <buffer> <F5> :RbSelect<cr>
     nnoremap <buffer> <Leader>d :RbGetColumn<cr>
