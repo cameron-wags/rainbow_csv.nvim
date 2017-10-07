@@ -121,7 +121,7 @@ def do_run_execute(meta_language, src_table_path, rb_script_path, delim, csv_enc
     try:
         tmp_dir = tempfile.gettempdir()
         table_name = os.path.basename(src_table_path)
-        dst_table_name = '{}.rs'.format(table_name)
+        dst_table_name = '{}.tsv'.format(table_name)
         dst_table_path = os.path.join(tmp_dir, dst_table_name)
         vim_interface.set_vim_variable('psv_dst_table_path', dst_table_path)
         assert meta_language in ['python', 'js']
