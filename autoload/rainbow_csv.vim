@@ -757,8 +757,8 @@ func! s:run_select(table_buf_number, rb_script_path)
 
     execute "e " . psv_dst_table_path
     let b:self_path = psv_dst_table_path
-    setlocal noswapfile
-    set ft=ignored
+    "setlocal noswapfile
+    "set ft=ignored
     let b:root_table_buf_number = a:table_buf_number
     let b:self_buf_number = bufnr("%")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
