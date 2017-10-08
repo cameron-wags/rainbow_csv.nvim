@@ -110,8 +110,10 @@ Useful when autodection mechanism has failed and marked non-csv file as csv.
 
 Assign any name to the table in the current buffer. You can use this name in join operation instead of the table path.
 e.g. you can now use:
+
 ```JOIN customers on a1 == b1``` 
 intead of:
+
 ```JOIN /path/to/my/customers/table on a1 == b1```
 
 ### Configuration
