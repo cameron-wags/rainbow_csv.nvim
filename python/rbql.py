@@ -113,7 +113,7 @@ def parse_join_expression(src):
     match = re.match(r'(?i)^ *([^ ]+) +on +([ab][0-9]+) *== *([ab][0-9]+) *$', src)
     if match is None:
         raise RBParsingError('Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"')
-    table_path = match.group(1)
+    table_id = match.group(1)
     avar = match.group(2)
     bvar = match.group(3)
     if avar[0] == 'b':
@@ -122,7 +122,28 @@ def parse_join_expression(src):
         raise RBParsingError('Incorrect join syntax. Must be: "<JOIN> /path/to/B/table on a<i> == b<j>"')
     lhs_join_var = 'safe_get(afields, {})'.format(int(avar[1:]))
     rhs_join_var = 'safe_get(bfields, {})'.format(int(bvar[1:]))
-    return (table_path, lhs_join_var, rhs_join_var)
+    return (table_id, lhs_join_var, rhs_join_var)
+
+
+def find_table_path(table_id):
+    table_path = None
+    if os.path.exists(table_id):
+        table_path = table_id
+        return table_path
+    user_home_dir = os.path.expanduser('~')
+    lines = []
+    table_names_settings_path = os.path.join(user_home_dir, '.rbql_table_names')
+    if os.path.exists(table_names_settings_path):
+        with open(table_names_settings_path) as f:
+            lines = f.readlines()
+    for line in lines:
+        line = line.rstrip()
+        fields = line.split('\t')
+        if len(fields) > 1 and table_id == fields[0]:
+            table_path = fields[1]
+    if table_path is None or not os.path.exists(table_path):
+        raise RBParsingError('Unable to find join B table: "{}"'.format(table_id))
+    return table_path
 
 
 def replace_column_vars(rbql_expression):
@@ -316,7 +337,8 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
         raise RBParsingError('"ORDER BY" is not allowed in "UPDATE" queries')
 
     if JOIN in rb_actions:
-        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
+        rhs_table_id, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
+        rhs_table_path = find_table_path(rhs_table_id)
         joiners = {JOIN: 'InnerJoiner', INNER_JOIN: 'InnerJoiner', LEFT_JOIN: 'LeftJoiner', STRICT_LEFT_JOIN: 'StrictLeftJoiner'}
         py_meta_params['joiner_type'] = joiners[rb_actions[JOIN]['join_subtype']]
         py_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
@@ -386,7 +408,8 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(py_source_escape(dst_table_path))
 
     if JOIN in rb_actions:
-        rhs_table_path, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
+        rhs_table_id, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
+        rhs_table_path = find_table_path(rhs_table_id)
         join_funcs = {JOIN: 'inner_join', INNER_JOIN: 'inner_join', LEFT_JOIN: 'left_join', STRICT_LEFT_JOIN: 'strict_left_join'}
         js_meta_params['join_function'] = join_funcs[rb_actions[JOIN]['join_subtype']]
         js_meta_params['rhs_table_path'] ="'{}'".format(py_source_escape(rhs_table_path))
