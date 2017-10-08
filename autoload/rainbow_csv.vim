@@ -789,18 +789,27 @@ func! rainbow_csv#set_table_name_for_buffer(table_name)
     call writefile(result_lines, s:table_names_settings)
 endfunction
 
-
-func! rainbow_csv#run_cmd_query(query_type, ...)
-    let fargs = a:000
-    let query = a:query_type . ' ' . join(fargs, ' ')
+func! s:run_cmd_query(query)
     if !s:is_rainbow_table()
         echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
     let rb_script_path = s:get_rb_script_path_for_this_table()
-    call writefile([query], rb_script_path)
+    call writefile([a:query], rb_script_path)
     let table_buf_number = bufnr("%")
     call s:run_select(table_buf_number, rb_script_path)
+endfunction
+
+
+func! rainbow_csv#run_select_cmd_query(query_string)
+    let query = 'SELECT ' . a:query_string
+    call s:run_cmd_query(query)
+endfunction
+
+
+func! rainbow_csv#run_update_cmd_query(query_string)
+    let query = 'UPDATE ' . a:query_string
+    call s:run_cmd_query(query)
 endfunction
 
 
