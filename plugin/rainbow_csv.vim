@@ -29,3 +29,4 @@ command! -complete=file -nargs=1 RainbowSetHeader call rainbow_csv#set_header_ma
 command! -complete=file -nargs=1 RbSaveAndSwap call rainbow_csv#save_and_swap(<f-args>)
 command! -nargs=+ Select call rainbow_csv#run_cmd_query('select', <f-args>)
 command! -nargs=+ Update call rainbow_csv#run_cmd_query('update', <f-args>)
+command! -nargs=1 RainbowName call rainbow_csv#set_table_name_for_buffer(<q-args>)

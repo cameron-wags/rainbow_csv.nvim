@@ -1,7 +1,8 @@
 
 let s:max_columns = exists('g:rcsv_max_columns') ? g:rcsv_max_columns : 30
-let s:rainbowStorage = $HOME . '/.rainbow_csv_storage'
-let s:rainbowSettingsPath = $HOME . '/.rainbow_csv_files'
+let s:rb_storage_dir = $HOME . '/.rainbow_csv_storage'
+let s:table_names_settings = $HOME . '/.rbql_table_names'
+let s:tables_delims_settings = $HOME . '/.rainbow_csv_files'
 
 let s:script_folder_path = fnamemodify(resolve(expand('<sfile>:p')), ':h')
 let s:python_env_initialized = 0
@@ -188,8 +189,8 @@ endfunction
 
 
 func! s:ensure_storage_exists()
-    if !isdirectory(s:rainbowStorage)
-        call mkdir(s:rainbowStorage, "p")
+    if !isdirectory(s:rb_storage_dir)
+        call mkdir(s:rb_storage_dir, "p")
     endif
 endfunc
 
@@ -307,11 +308,20 @@ func! s:rstrip(src)
 endfunc
 
 
+func! s:try_read_lines(src_path)
+    let lines = []
+    if (filereadable(a:src_path))
+        let lines = readfile(a:src_path)
+    endif
+    return lines
+endfunc
+
+
 func! s:read_column_names()
     let fname = expand("%:p")
     let headerName = fname . '.header'
 
-    let setting_lines = s:read_settings()
+    let setting_lines = s:try_read_lines(s:tables_delims_settings)
     for line in setting_lines
         let fields = split(line, "\t")
         if fields[0] == fname && len(fields) >= 3
@@ -375,8 +385,6 @@ func! rainbow_csv#generate_tab_statusline(tabstop_val, template_fields)
 endfunc
 
 
-
-
 func! s:status_escape_string(src)
     let result = substitute(a:src, ' ', '\\ ', 'g')
     let result = substitute(result, '"', '\\"', 'g')
@@ -430,7 +438,7 @@ endfunc
 func! s:get_rb_script_path_for_this_table()
     let rb_script_name = expand("%:t") . ".rbql"
     call s:ensure_storage_exists()
-    let rb_script_path = s:rainbowStorage . '/' . rb_script_name
+    let rb_script_path = s:rb_storage_dir . '/' . rb_script_name
     return rb_script_path
 endfunc
 
@@ -609,7 +617,7 @@ func! rainbow_csv#select_mode()
 
     let delim = b:rainbow_csv_delim
     let buf_number = bufnr("%")
-    let buf_path = expand("%")
+    let buf_path = expand("%:p")
 
     let rb_script_path = s:get_rb_script_path_for_this_table()
     let already_exists = filereadable(rb_script_path)
@@ -636,7 +644,7 @@ func! rainbow_csv#select_mode()
     let b:table_path = buf_path
     let b:table_buf_number = buf_number
     let b:rainbow_select = 1
-    "let b:table_csv_delim = delim
+
     call s:generate_microlang_syntax(num_fields)
     if !already_exists
         if s:get_meta_language() == "python"
@@ -700,7 +708,7 @@ func! s:run_select(table_buf_number, rb_script_path)
     if table_path == ""
         "For unnamed buffers. E.g. can happen for stdin-read buffer: `cat data.tsv | vim -`
         let tmp_file_name = "tmp_table_" .  strftime("%Y_%m_%d_%H_%M_%S") . ".txt"
-        let table_path = s:rainbowStorage . "/" . tmp_file_name
+        let table_path = s:rb_storage_dir . "/" . tmp_file_name
         "TODO highlighting disappears in parrent buffer after this command, fix it.
         execute "w " . table_path
     endif
@@ -765,6 +773,23 @@ func! s:run_select(table_buf_number, rb_script_path)
 endfunc
 
 
+func! rainbow_csv#set_table_name_for_buffer(table_name)
+    let table_path = expand("%:p")
+    let lines = s:try_read_lines(s:table_names_settings)
+    let result_lines = []
+    for line in lines
+        let fields = split(line, "\t", 1)
+        if len(fields) && fields[0] == a:table_name
+            continue
+        endif
+        call add(result_lines, line)
+    endfor
+    let new_entry = a:table_name . "\t" . table_path 
+    call add(result_lines, new_entry)
+    call writefile(result_lines, s:table_names_settings)
+endfunction
+
+
 func! rainbow_csv#run_cmd_query(query_type, ...)
     let fargs = a:000
     let query = a:query_type . ' ' . join(fargs, ' ')
@@ -785,7 +810,7 @@ func! rainbow_csv#select_from_file()
         return
     endif
     w
-    let rb_script_path = expand("%")
+    let rb_script_path = expand("%:p")
     let query_buf_nr = bufnr("%")
     let table_buf_number = b:table_buf_number
     let success = s:run_select(table_buf_number, rb_script_path)
@@ -795,24 +820,14 @@ func! rainbow_csv#select_from_file()
 endfunc
 
 
-
-func! s:read_settings()
-    let lines = []
-    if (filereadable(s:rainbowSettingsPath))
-        let lines = readfile(s:rainbowSettingsPath)
-    endif
-    return lines
-endfunc
-
-
 func! s:write_settings(lines)
-    call writefile(a:lines, s:rainbowSettingsPath)
+    call writefile(a:lines, s:tables_delims_settings)
 endfunc
 
 
 func! s:try_load_from_settings()
     let fname = expand("%:p")
-    let lines = s:read_settings()
+    let lines = s:try_read_lines(s:tables_delims_settings)
     for line in lines
         let fields = split(line, "\t")
         if fields[0] == fname
@@ -906,6 +921,7 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 endfunc
 
+
 func! rainbow_csv#regenerate_syntax(delim)
     syntax clear
     if a:delim == ','
@@ -961,7 +977,7 @@ endfunc
 
 func! s:save_file_delim(delim)
     let entry = s:make_entry(a:delim)
-    let lines = s:read_settings()
+    let lines = s:try_read_lines(s:tables_delims_settings)
     let lines = [entry] + lines
     let lines = lines[:50]
     call s:write_settings(lines)
@@ -1004,7 +1020,7 @@ func! rainbow_csv#set_header_manually(fname)
     let delim = b:rainbow_csv_delim
     let entry = s:make_entry(delim)
     let entry = entry . "\t" . a:fname
-    let lines = s:read_settings()
+    let lines = s:try_read_lines(s:tables_delims_settings)
     let lines = [entry] + lines
     let lines = lines[:50]
     call s:write_settings(lines)
