@@ -4,8 +4,7 @@ let s:rb_storage_dir = $HOME . '/.rainbow_csv_storage'
 let s:table_names_settings = $HOME . '/.rbql_table_names'
 let s:tables_delims_settings = $HOME . '/.rainbow_csv_files'
 
-"FIXME use double header
-let s:script_folder_path = fnamemodify(resolve(expand('<sfile>:p')), ':h')
+let s:script_folder_path = expand('<sfile>:p:h:h')
 let s:python_env_initialized = 0
 let s:system_python_interpreter = ''
 
@@ -168,7 +167,7 @@ function! s:EnsurePythonInitialization()
     if (s:python_env_initialized)
         return 1
     endif
-    let py_home_dir = fnamemodify(s:script_folder_path . '/../python', ":p")
+    let py_home_dir = s:script_folder_path . '/python'
     let py_home_dir = s:py_source_escape(py_home_dir)
     if has("python3")
         py3 import sys
@@ -557,10 +556,10 @@ func! rainbow_csv#select_mode()
     call s:generate_microlang_syntax(num_fields)
     if !already_exists
         if s:get_meta_language() == "python"
-            let rbql_welcome_py_path = fnamemodify(s:script_folder_path . '/../python/welcome_py.rbql', ":p")
+            let rbql_welcome_py_path = s:script_folder_path . '/python/welcome_py.rbql'
             call s:make_rbql_demo(num_fields, rbql_welcome_py_path)
         else
-            let rbql_welcome_js_path = fnamemodify(s:script_folder_path . '/../python/welcome_js.rbql', ":p")
+            let rbql_welcome_js_path = s:script_folder_path . '/python/welcome_js.rbql'
             call s:make_rbql_demo(num_fields, rbql_welcome_js_path)
         endif
     endif
@@ -635,7 +634,7 @@ func! s:run_select(table_buf_number, rb_script_path)
     let root_delim_esc = s:py_source_escape(root_delim)
     let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path_esc . '", "' . rb_script_path_esc . '", "' . root_delim_esc . '")'
     if s:system_python_interpreter != ""
-        let rbql_executable_path = fnamemodify(s:script_folder_path . '/../python/vim_rbql.py', ":p")
+        let rbql_executable_path = s:script_folder_path . '/python/vim_rbql.py'
         let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), meta_language, shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim)]
         let cmd = join(cmd_args, ' ')
         let report_content = system(cmd)

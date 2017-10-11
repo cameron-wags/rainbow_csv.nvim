@@ -870,7 +870,7 @@ class TestFiles(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.old_dir = os.getcwd()
-        script_dir = os.path.dirname(os.path.realpath(__file__))
+        script_dir = os.path.dirname(os.path.abspath(__file__))
         ut_dir = os.path.join(script_dir, 'unit_tests')
         os.chdir(ut_dir)
 

@@ -30,7 +30,7 @@ default_csv_encoding = 'latin-1'
 
 PY3 = sys.version_info[0] == 3
 
-rbql_home_dir = os.path.dirname(os.path.realpath(__file__))
+rbql_home_dir = os.path.dirname(os.path.abspath(__file__))
 
 js_script_body = codecs.open(os.path.join(rbql_home_dir, 'template.js.raw'), encoding='utf-8').read()
 py_script_body = codecs.open(os.path.join(rbql_home_dir, 'template.py.raw'), encoding='utf-8').read()
