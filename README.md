@@ -124,10 +124,10 @@ Scripting language to use in RBQL expression. Either 'js' or 'python'
 To use JavaScript add _let g:rbql_meta_language = 'js'_ to .vimrc
 
 #### g:rcsv_delimiters
-Default: [	,]
+Default: ["\t", ","]
 
 By default plugin checks only TAB and comma characters during autodetection stage.
-You can override this variable to autodetect tables with other separators. e.g. _let g:rcsv\_delimiters = [	;:,]_
+You can override this variable to autodetect tables with other separators. e.g. _let g:rcsv\_delimiters = ["\t", ",", ";"]_
 
 #### g:disable_rainbow_csv_autodetect
 csv autodetection mechanism can be disabled by setting this variable value to 1.

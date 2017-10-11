@@ -4,6 +4,7 @@ let s:rb_storage_dir = $HOME . '/.rainbow_csv_storage'
 let s:table_names_settings = $HOME . '/.rbql_table_names'
 let s:tables_delims_settings = $HOME . '/.rainbow_csv_files'
 
+"FIXME use double header
 let s:script_folder_path = fnamemodify(resolve(expand('<sfile>:p')), ':h')
 let s:python_env_initialized = 0
 let s:system_python_interpreter = ''
@@ -14,6 +15,7 @@ func! s:is_rainbow_table()
     return exists("b:rainbow_csv_delim")
 endfunc
 
+"FIXME add RainbowMonoColumn handling
 
 func! s:get_meta_language()
     if exists("g:rbql_meta_language")
@@ -143,6 +145,7 @@ endfunc
 
 
 function! s:py_source_escape(src)
+    "strings in 'substitute' must follow esoteric rules, see `:help substitute()`
     let dst = substitute(a:src, '\\', '\\\\', "g")
     let dst = substitute(dst, '\t', '\\t', "g")
     let dst = substitute(dst, '"', '\\"', "g")
@@ -207,11 +210,11 @@ func! rainbow_csv#rstrip(line)
 endfunc
 
 
-func! rainbow_csv#preserving_escaped_split(line)
+func! rainbow_csv#preserving_escaped_split(line, dlm)
     let src = a:line
     if stridx(src, '"') == -1
         "Optimization for majority of lines
-        return split(src, ',', 1)
+        return split(src, a:dlm, 1)
     endif
     let result = []
     let cidx = 0
@@ -223,7 +226,7 @@ func! rainbow_csv#preserving_escaped_split(line)
                 if uidx == -1
                     call add(result, strpart(src, cidx))
                     return result
-                elseif uidx + 1 >= len(src) || src[uidx + 1] == ','
+                elseif uidx + 1 >= len(src) || src[uidx + 1] == a:dlm
                     call add(result, strpart(src, cidx, uidx + 1 - cidx))
                     let cidx = uidx + 2
                     break
@@ -236,7 +239,7 @@ func! rainbow_csv#preserving_escaped_split(line)
                 endif
             endwhile
         else
-            let uidx = stridx(src, ',', cidx)
+            let uidx = stridx(src, a:dlm, cidx)
             if uidx == -1
                 let uidx = len(src)
             endif
@@ -245,30 +248,30 @@ func! rainbow_csv#preserving_escaped_split(line)
             let cidx = uidx + 1
         endif
     endwhile
-    if src[len(src) - 1] == ','
+    if src[len(src) - 1] == a:dlm
         call add(result, '')
     endif
     return result 
 endfunc
 
 
-func! s:preserving_smart_split(line, dlm)
+func! s:preserving_smart_split(line, dlm, dialect)
     let stripped = rainbow_csv#rstrip(a:line)
-    if a:dlm == ','
-        return rainbow_csv#preserving_escaped_split(stripped)
+    if a:dialect == 'quoted'
+        return rainbow_csv#preserving_escaped_split(stripped, a:dlm)
     else
         return split(stripped, a:dlm, 1)
     endif
 endfunc
 
 
-func! s:lines_are_delimited(lines, delim)
-    let num_fields = len(s:preserving_smart_split(a:lines[0], a:delim))
+func! s:lines_are_delimited(lines, delim, dialect)
+    let num_fields = len(s:preserving_smart_split(a:lines[0], a:delim, a:dialect))
     if (num_fields < 2 || num_fields > s:max_columns)
         return 0
     endif
     for line in a:lines
-        let nfields = len(s:preserving_smart_split(line, a:delim))
+        let nfields = len(s:preserving_smart_split(line, a:delim, a:dialect))
         if (num_fields != nfields)
             return 0
         endif
@@ -280,18 +283,19 @@ endfunc
 func! s:auto_detect_delimiter(delimiters)
     let lastLineNo = min([line("$"), 10])
     if (lastLineNo < 5)
-        return ''
+        return ['', '']
     endif
     let sampled_lines = []
     for linenum in range(1, lastLineNo)
         call add(sampled_lines, getline(linenum))
     endfor
     for delim in a:delimiters
-        if (s:lines_are_delimited(sampled_lines, delim))
-            return delim
+        let dialect = (delim == ',' || delim == ';') ? 'quoted' : 'simple'
+        if (s:lines_are_delimited(sampled_lines, delim, dialect))
+            return [delim, dialect]
         endif
     endfor
-    return ''
+    return ['', '']
 endfunc
 
 
@@ -299,7 +303,7 @@ let s:pairs = [['darkred', 'darkred'], ['darkblue', 'darkblue'], ['darkgreen', '
 
 
 let s:pairs = exists('g:rcsv_colorpairs') ? g:rcsv_colorpairs : s:pairs
-let s:delimiters = ['	', ',']
+let s:delimiters = ["\t", ","]
 let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : s:delimiters
 
 
@@ -320,16 +324,9 @@ endfunc
 func! s:read_column_names()
     let fname = expand("%:p")
     let headerName = fname . '.header'
-
-    let setting_lines = s:try_read_lines(s:tables_delims_settings)
-    for line in setting_lines
-        let fields = split(line, "\t")
-        if fields[0] == fname && len(fields) >= 3
-            let headerName = fields[2]
-            break
-        endif
-    endfor
-
+    if exists(b:rainbow_csv_header)
+        let headerName = b:rainbow_csv_header
+    endif
     if (!filereadable(headerName))
         return []
     endif
@@ -386,6 +383,7 @@ endfunc
 
 
 func! s:status_escape_string(src)
+    "strings in 'substitute' must follow esoteric rules, see `:help substitute()`
     let result = substitute(a:src, ' ', '\\ ', 'g')
     let result = substitute(result, '"', '\\"', 'g')
     return result
@@ -400,6 +398,7 @@ func! rainbow_csv#set_statusline_columns()
         let b:statusline_before = &statusline 
     endif
     let delim = b:rainbow_csv_delim
+    let dialect = b:rainbow_csv_dialect
     let has_number_column = &number
     "TODO take "sign" column into account too. You can use :sign place buffer={nr}
     let indent = ''
@@ -408,7 +407,7 @@ func! rainbow_csv#set_statusline_columns()
         let indent = ' NR' . s:single_char_sring(indent_len - 3, ' ')
     endif
     let bottom_line = getline(line('w$'))
-    let bottom_fields = s:preserving_smart_split(bottom_line, delim)
+    let bottom_fields = s:preserving_smart_split(bottom_line, delim, dialect)
     let status_labels = []
     if delim == "\t"
         let status_labels = rainbow_csv#generate_tab_statusline(&tabstop, bottom_fields)
@@ -493,109 +492,19 @@ func! s:make_select_line(num_fields)
 endfunc
 
 
-func! s:make_javascript_demo(num_fields)
+func! s:make_rbql_demo(num_fields, rbql_welcome_path)
     let select_line = s:make_select_line(a:num_fields)
-
-    let help_before = []
-    call add(help_before, '// Welcome to RBQL: SQL with JavaScript or Python expressions.')
-    call add(help_before, '// To use RBQL with Python expressions see instructions at the bottom.')
-    call add(help_before, '')
-    call add(help_before, '// "a1", "a2", etc are column names.')
-    call add(help_before, '// You can use them in JavaScript expressions, e.g. "a1 * 20 + a2.length * Math.random()"')
-    call add(help_before, '// To run the query press F5.')
-    call add(help_before, '// For more info visit https://github.com/mechatroner/rainbow_csv')
-    call add(help_before, '')
-    call add(help_before, '')
-    call add(help_before, '// modify:')
-    call add(help_before, select_line)
-    call setline(1, help_before)
-    let help_after = []
-    call add(help_after, '')
-    call add(help_after, '// To join with another table, modify this:')
-    call add(help_after, '//join /path/to/another/table.tsv on a2 == b1')
-    call add(help_after, '')
-    call add(help_after, '// To filter result set, modify this:')
-    call add(help_after, '//where a1.length > 10')
-    call add(help_after, '')
-    call add(help_after, '// To sort result set, modify this:')
-    call add(help_after, '//order by a2 desc')
-    call add(help_after, '')
-    call add(help_after, '')
-    call add(help_after, '')
-    call add(help_after, '// Examples of RBQL queries:')
-    call add(help_after, '// select * where a1 == "SELL"')
-    call add(help_after, '// select a4, a1')
-    call add(help_after, '// select * order by parseInt(a2) desc')
-    call add(help_after, '// select * order by Math.random()')
-    call add(help_after, '// select NR, * where NR <= 100')
-    call add(help_after, '// select distinct a1, *, 200, parseInt(a2) + 5, "hello world" where NR > 100 and a5 < -7 order by a3 ASC')
-    call add(help_after, '')
-    call add(help_after, '// Next time you can run another query by entering it into vim command line starting with ":Select" command.')
-    call add(help_after, '')
-    call add(help_after, '')
-    call add(help_after, '')
-    call add(help_after, '// =======================================================================================')
-    call add(help_after, '// Instructions for Python:')
-    call add(help_after, '// 1. Add "let g:rbql_meta_language = ''python''" to your .vimrc')
-    call add(help_after, '// 2. Execute ":let g:rbql_meta_language = ''python''"')
-    call add(help_after, '// 3. Exit this buffer and run F5 again')
-    call setline(1 + len(help_before), help_after)
-    call cursor(len(help_before), 1)
-    w
-endfunc
-
-
-func! s:make_python_demo(num_fields)
-    let select_line = s:make_select_line(a:num_fields)
-
-    let help_before = []
-    call add(help_before, '# Welcome to RBQL: SQL with Python expressions.')
-    call add(help_before, '# To use RBQL with JavaScript expressions see instructions at the bottom.')
-    call add(help_before, '')
-    call add(help_before, '# "a1", "a2", etc are column names.')
-    call add(help_before, '# You can use them in Python expressions, e.g. "int(a1) * 20 + len(a2) * random.randint(1, 10)"')
-    call add(help_before, '# To run the query press F5.')
-    call add(help_before, '# For more info visit https://github.com/mechatroner/rainbow_csv')
-    call add(help_before, '')
-    call add(help_before, '')
-    call add(help_before, '# modify:')
-    call add(help_before, select_line)
-    call setline(1, help_before)
-    let help_after = []
-    call add(help_after, '')
-    call add(help_after, '# To join with another table, modify this:')
-    call add(help_after, '#join /path/to/another/table.tsv on a2 == b1')
-    call add(help_after, '')
-    call add(help_after, '# To filter result set, modify this:')
-    call add(help_after, '#where len(a1) > 10')
-    call add(help_after, '')
-    call add(help_after, '# To sort result set, modify this:')
-    call add(help_after, '#order by a2 desc')
-    call add(help_after, '')
-    call add(help_after, '')
-    call add(help_after, '')
-    call add(help_after, '# Examples of RBQL queries:')
-    call add(help_after, '# select * where a1 == "SELL"')
-    call add(help_after, '# select * where a3 in ["car", "plane", "boat"] and int(a1) >= 100')
-    call add(help_after, '# select a4, a1')
-    call add(help_after, '# select * order by int(a2) desc')
-    call add(help_after, '# select * order by random.random()')
-    call add(help_after, '# select NR, * where NR <= 100')
-    call add(help_after, '# select * where re.match(".*ab.*", a1) is not None')
-    call add(help_after, '# select distinct a1, *, 200, int(a2) + 5, "hello world" where NR > 100 and int(a5) < -7 order by a3 ASC')
-    call add(help_after, '')
-    call add(help_after, '# Next time you can run another query by entering it into vim command line starting with ":Select" command.')
-    call add(help_after, '')
-    call add(help_after, '')
-    call add(help_after, '')
-    call add(help_after, '# =======================================================================================')
-    call add(help_after, '# Instructions for JavaScript:')
-    call add(help_after, '# 1. Ensure you have Node.js installed')
-    call add(help_after, '# 2. Add "let g:rbql_meta_language = ''js''" to your .vimrc')
-    call add(help_after, '# 3. Execute ":let g:rbql_meta_language = ''js''"')
-    call add(help_after, '# 4. Exit this buffer and run F5 again')
-    call setline(1 + len(help_before), help_after)
-    call cursor(len(help_before), 1)
+    let lines = readfile(a:rbql_welcome_path)
+    let query_line_num = 1
+    for lnum in range(len(lines))
+        let patched = substitute(lines[lnum], '###SELECT_PLACEHOLDER###', select_line, "g")
+        if patched != lines[lnum]
+            let query_line_num = lnum + 1
+            let lines[lnum] = patched
+        endif
+    endfor
+    call setline(1, lines)
+    call cursor(query_line_num, 1)
     w
 endfunc
 
@@ -616,6 +525,7 @@ func! rainbow_csv#select_mode()
     endif
 
     let delim = b:rainbow_csv_delim
+    let dialect = b:rainbow_csv_dialect
     let buf_number = bufnr("%")
     let buf_path = expand("%:p")
 
@@ -628,13 +538,12 @@ func! rainbow_csv#select_mode()
         return
     endif
 
-    let fields = s:preserving_smart_split(lines[0], delim)
+    let fields = s:preserving_smart_split(lines[0], delim, dialect)
     let num_fields = len(fields)
     call rainbow_csv#set_statusline_columns()
 
     set splitbelow
     execute "split " . rb_script_path
-    "setlocal noswapfile
     if bufnr("%") == buf_number
         echoerr "Something went wrong"
         return
@@ -648,9 +557,11 @@ func! rainbow_csv#select_mode()
     call s:generate_microlang_syntax(num_fields)
     if !already_exists
         if s:get_meta_language() == "python"
-            call s:make_python_demo(num_fields)
+            let rbql_welcome_py_path = fnamemodify(s:script_folder_path . '/../python/welcome_py.rbql', ":p")
+            call s:make_rbql_demo(num_fields, rbql_welcome_py_path)
         else
-            call s:make_javascript_demo(num_fields)
+            let rbql_welcome_js_path = fnamemodify(s:script_folder_path . '/../python/welcome_js.rbql', ":p")
+            call s:make_rbql_demo(num_fields, rbql_welcome_js_path)
         endif
     endif
     call s:create_recurrent_tip("Press F5 to run the query")
@@ -709,7 +620,6 @@ func! s:run_select(table_buf_number, rb_script_path)
         "For unnamed buffers. E.g. can happen for stdin-read buffer: `cat data.tsv | vim -`
         let tmp_file_name = "tmp_table_" .  strftime("%Y_%m_%d_%H_%M_%S") . ".txt"
         let table_path = s:rb_storage_dir . "/" . tmp_file_name
-        "TODO highlighting disappears in parrent buffer after this command, fix it.
         execute "w " . table_path
     endif
 
@@ -746,13 +656,11 @@ func! s:run_select(table_buf_number, rb_script_path)
 
     execute "e " . psv_dst_table_path
     let b:self_path = psv_dst_table_path
-    "setlocal noswapfile
-    "set ft=ignored
     let b:root_table_buf_number = a:table_buf_number
     let b:self_buf_number = bufnr("%")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
 
-    call rainbow_csv#enable_rainbow("\t")
+    call rainbow_csv#enable_rainbow("\t", 'simple', '')
 
     nnoremap <buffer> <F4> :bd!<cr>
     nnoremap <buffer> <F6> :call rainbow_csv#create_save_dialog(b:self_buf_number, b:self_path)<cr>
@@ -788,6 +696,7 @@ func! rainbow_csv#set_table_name_for_buffer(table_name)
     call add(result_lines, new_entry)
     call writefile(result_lines, s:table_names_settings)
 endfunction
+
 
 func! s:run_cmd_query(query)
     if !s:is_rainbow_table()
@@ -838,34 +747,34 @@ func! s:try_load_from_settings()
     let fname = expand("%:p")
     let lines = s:try_read_lines(s:tables_delims_settings)
     for line in lines
-        let fields = split(line, "\t")
+        let fields = split(line, "\t", 1)
         if fields[0] == fname
-            let delim = fields[1]
-            if delim == 'TAB'
-                let delim = "\t"
-            endif
-            return delim
+            let delim = fields[1] == 'TAB' ? "\t" : fields[1]
+            let dialect = len(fields) >= 4 ? fields[3] : 'simple'
+            let header_name = len(fields) >= 3 ? fields[2] : ''
+            return [delim, dialect, header_name]
         endif
     endfor
-    return ''
+    return ['', '', '']
 endfunc
 
 
-func! rainbow_csv#run_autodetection()
+func! rainbow_csv#load_from_settings_or_autodetect()
     if exists("b:rainbow_csv_delim")
         unlet b:rainbow_csv_delim
     endif
-    let delim = s:try_load_from_settings() 
+    let [delim, dialect, header_name] = s:try_load_from_settings() 
     if delim == 'DISABLED'
         return
     endif
     if (!len(delim))
-        let delim = s:auto_detect_delimiter(s:delimiters)
+        let header_name = ''
+        let [delim, dialect] = s:auto_detect_delimiter(s:delimiters)
     endif
     if (!len(delim))
         return
     endif
-    call rainbow_csv#enable_rainbow(delim)
+    call rainbow_csv#enable_rainbow(delim, dialect, header_name)
 endfunc
 
 
@@ -931,9 +840,9 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
 endfunc
 
 
-func! rainbow_csv#regenerate_syntax(delim)
+func! rainbow_csv#regenerate_syntax(delim, dialect)
     syntax clear
-    if a:delim == ','
+    if a:dialect == 'quoted'
         call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
     else
         call rainbow_csv#generate_rainbow_syntax(a:delim)
@@ -941,7 +850,7 @@ func! rainbow_csv#regenerate_syntax(delim)
 endfunc
 
 
-func! rainbow_csv#enable_rainbow(delim)
+func! rainbow_csv#enable_rainbow(delim, dialect, header_name)
     if (len(s:pairs) < 2 || s:is_rainbow_table())
         return
     endif
@@ -953,7 +862,7 @@ func! rainbow_csv#enable_rainbow(delim)
     nnoremap <buffer> <F5> :RbSelect<cr>
     nnoremap <buffer> <Leader>d :RbGetColumn<cr>
 
-    call rainbow_csv#regenerate_syntax(a:delim)
+    call rainbow_csv#regenerate_syntax(a:delim, a:dialect)
     call s:generate_status_highlighting()
     highlight status_line_default_hl ctermbg=black guibg=black
 
@@ -966,6 +875,10 @@ func! rainbow_csv#enable_rainbow(delim)
     cnoreabbrev <expr> <buffer> UPDATE rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
 
     let b:rainbow_csv_delim = a:delim
+    let b:rainbow_csv_dialect = a:dialect
+    if len(a:header_name)
+        let b:rainbow_csv_header = a:header_name
+    endif
 
     if s:EnsurePythonInitialization()
         call s:create_recurrent_tip("Press F5 to enter \"select\" query mode")
@@ -973,19 +886,16 @@ func! rainbow_csv#enable_rainbow(delim)
 endfunc
 
 
-func! s:make_entry(delim)
+func! s:make_entry(delim, dialect, header_name)
     let fname = expand("%:p")
-    let delim = a:delim
-    if delim == "\t"
-        let delim = 'TAB'
-    endif
-    let entry = fname . "\t" . delim
+    let delim = a:delim == "\t" ? 'TAB' : a:delim
+    let entry = join([fname, delim, a:header_name, a:dialect], "\t")
     return entry
 endfunc
 
 
-func! s:save_file_delim(delim)
-    let entry = s:make_entry(a:delim)
+func! s:save_file_delim(delim, dialect, header_name)
+    let entry = s:make_entry(a:delim, a:dialect, a:header_name)
     let lines = s:try_read_lines(s:tables_delims_settings)
     let lines = [entry] + lines
     let lines = lines[:50]
@@ -1013,26 +923,21 @@ func! s:disable_rainbow()
 endfunc
 
 
-func! rainbow_csv#manual_load()
+func! rainbow_csv#manual_set(dialect)
     let delim = getline('.')[col('.') - 1]  
     call s:disable_rainbow()
-    call rainbow_csv#enable_rainbow(delim)
-    call s:save_file_delim(delim)
+    call rainbow_csv#enable_rainbow(delim, a:dialect, '')
+    call s:save_file_delim(delim, a:dialect, '')
 endfunc
 
 
-func! rainbow_csv#set_header_manually(fname)
+func! rainbow_csv#set_header_manually(header_name)
     if !s:is_rainbow_table()
         echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
-    let delim = b:rainbow_csv_delim
-    let entry = s:make_entry(delim)
-    let entry = entry . "\t" . a:fname
-    let lines = s:try_read_lines(s:tables_delims_settings)
-    let lines = [entry] + lines
-    let lines = lines[:50]
-    call s:write_settings(lines)
+    let b:rainbow_csv_header = a:header_name
+    call s:save_file_delim(b:rainbow_csv_delim, b:rainbow_csv_dialect, b:rainbow_csv_header)
 endfunc
 
 
@@ -1059,9 +964,8 @@ func! rainbow_csv#get_column()
         echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
-    let delim = b:rainbow_csv_delim
 
-    let fields = s:preserving_smart_split(line, delim)
+    let fields = s:preserving_smart_split(line, b:rainbow_csv_delim, b:rainbow_csv_dialect)
     let numCols = len(fields)
 
     let col_num = 0
@@ -1078,5 +982,5 @@ endfunc
 
 func! rainbow_csv#manual_disable()
     call s:disable_rainbow()
-    call s:save_file_delim('DISABLED')
+    call s:save_file_delim('DISABLED', '', '')
 endfunc
