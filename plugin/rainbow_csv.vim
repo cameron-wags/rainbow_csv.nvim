@@ -7,7 +7,7 @@ func! s:TryLoadHighlighting()
     if !exists("b:current_syntax") && !exists("g:disable_rainbow_csv_autodetect") && !exists("b:rainbow_csv_delim")
         call rainbow_csv#load_from_settings_or_autodetect()
     elseif exists("b:rainbow_csv_delim")
-        call rainbow_csv#regenerate_syntax(b:rainbow_csv_delim)
+        call rainbow_csv#regenerate_syntax(b:rainbow_csv_delim, b:rainbow_csv_dialect)
     endif
 endfunc
 
