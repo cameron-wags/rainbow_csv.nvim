@@ -1,8 +1,7 @@
-def split_escaped_csv_str(src):
-    #We don't want to use any python-specific features/regex here, because we want to be able to port this algorithm to vimscript, js, etc  
-    #you can also implement a regex-based version of this function and compare performance after you implement cross-algorithm testing suite
+def split_quoted_str(src, dlm):
+    assert dlm != '"'
     if src.find('"') == -1: #optimization for majority of lines
-        return (src.split(','), False)
+        return (src.split(dlm), False)
     result = list()
     warning = False
     cidx = 0
@@ -14,7 +13,7 @@ def split_escaped_csv_str(src):
                 if uidx == -1:
                     result.append(src[cidx+1:].replace('""', '"'))
                     return (result, True)
-                elif uidx + 1 >= len(src) or src[uidx + 1] == ',':
+                elif uidx + 1 >= len(src) or src[uidx + 1] == dlm:
                     result.append(src[cidx+1:uidx].replace('""', '"'))
                     cidx = uidx + 2
                     break
@@ -26,7 +25,7 @@ def split_escaped_csv_str(src):
                     uidx += 1
                     continue
         else:
-            uidx = src.find(',', cidx)
+            uidx = src.find(dlm, cidx)
             if uidx == -1:
                 uidx = len(src)
             field = src[cidx:uidx]
@@ -34,7 +33,7 @@ def split_escaped_csv_str(src):
                 warning = True
             result.append(field)
             cidx = uidx + 1
-    if src[-1] == ',':
+    if src[-1] == dlm:
         result.append('')
     return (result, warning)
             

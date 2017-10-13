@@ -35,7 +35,7 @@ function process_line(line) {
     var canonic_warning = parseInt(records[1]);
     assert(canonic_warning == 0 || canonic_warning == 1);
     var canonic_dst = records[2].split(';');
-    var split_result = rbql_utils.split_escaped_csv_str(escaped_entry);
+    var split_result = rbql_utils.split_quoted_str(escaped_entry, ',');
     var test_dst = split_result[0];
     var test_warning = split_result[1];
     compare_splits(escaped_entry, test_dst, canonic_dst, test_warning, canonic_warning);
@@ -64,7 +64,7 @@ function test_split() {
         var src = test_cases[i][0];
         var canonic_dst = test_cases[i][1];
         var canonic_warning = test_cases[i][2];
-        var split_result = rbql_utils.split_escaped_csv_str(src);
+        var split_result = rbql_utils.split_quoted_str(src, ',');
         var test_dst = split_result[0];
         var test_warning = split_result[1];
         compare_splits(src, test_dst, canonic_dst, test_warning, canonic_warning);

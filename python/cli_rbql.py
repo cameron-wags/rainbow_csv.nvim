@@ -23,6 +23,7 @@ def print_error_and_exit(error_msg):
 
 def run_with_python(args):
     delim = rbql.normalize_delim(args.delim)
+    policy = args.policy
     query = args.query
     query_path = args.query_file
     #convert_only = args.convert_only
@@ -50,7 +51,7 @@ def run_with_python(args):
     tmp_path = os.path.join(tmp_dir, module_filename)
     sys.path.insert(0, tmp_dir)
     try:
-        rbql.parse_to_py(rbql_lines, tmp_path, delim, csv_encoding, import_modules)
+        rbql.parse_to_py(rbql_lines, tmp_path, delim, policy, csv_encoding, import_modules)
     except rbql.RBParsingError as e:
         print_error_and_exit('RBQL Parsing Error: \t{}'.format(e))
     if not os.path.isfile(tmp_path) or not os.access(tmp_path, os.R_OK):
@@ -85,6 +86,7 @@ def run_with_js(args):
     if not rbql.system_has_node_js():
         print_error_and_exit('Error: Node.js is not found, test command: "node --version"')
     delim = rbql.normalize_delim(args.delim)
+    policy = args.policy
     query = args.query
     query_path = args.query_file
     #convert_only = args.convert_only
@@ -108,7 +110,7 @@ def run_with_js(args):
     tmp_dir = tempfile.gettempdir()
     script_filename = 'rbconvert_{}'.format(time.time()).replace('.', '_') + '.js'
     tmp_path = os.path.join(tmp_dir, script_filename)
-    rbql.parse_to_js(input_path, output_path, rbql_lines, tmp_path, delim, csv_encoding, import_modules)
+    rbql.parse_to_js(input_path, output_path, rbql_lines, tmp_path, delim, policy, csv_encoding, import_modules)
     cmd = ['node', tmp_path]
     pobj = subprocess.Popen(cmd, stderr=subprocess.PIPE)
     err_data = pobj.communicate()[1]
@@ -136,6 +138,7 @@ def run_with_js(args):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--delim', help='Delimiter', default='\t')
+    parser.add_argument('--policy', help='csv split policy', choices=['simple', 'quoted', 'monocolumn'])
     parser.add_argument('--query', help='Query string in rbql')
     parser.add_argument('--query_file', metavar='FILE', help='Read rbql query from FILE')
     parser.add_argument('--input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')

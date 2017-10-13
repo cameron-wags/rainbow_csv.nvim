@@ -46,7 +46,7 @@ def table_to_stream(array2d, delim):
 rainbow_ut_prefix = 'ut_rbconvert_'
 
 
-def run_file_query_test_py(query, input_path, testname, import_modules=None, csv_encoding=default_csv_encoding, delim='\t'):
+def run_file_query_test_py(query, input_path, testname, delim, policy, csv_encoding):
     tmp_dir = tempfile.gettempdir()
     if not len(sys.path) or sys.path[0] != tmp_dir:
         sys.path.insert(0, tmp_dir)
@@ -55,7 +55,7 @@ def run_file_query_test_py(query, input_path, testname, import_modules=None, csv
     tmp_path = os.path.join(tmp_dir, module_filename)
     dst_table_filename = '{}.tsv'.format(module_name)
     output_path = os.path.join(tmp_dir, dst_table_filename)
-    rbql.parse_to_py([query], tmp_path, delim, csv_encoding, import_modules)
+    rbql.parse_to_py([query], tmp_path, delim, policy, csv_encoding, None)
     rbconvert = rbql.dynamic_import(module_name)
     warnings = None
     with codecs.open(input_path, encoding=csv_encoding) as src, codecs.open(output_path, 'w', encoding=csv_encoding) as dst:
@@ -66,7 +66,7 @@ def run_file_query_test_py(query, input_path, testname, import_modules=None, csv
     return (output_path, warnings)
 
 
-def run_conversion_test_py(query, input_table, testname, import_modules=None, join_csv_encoding=default_csv_encoding, delim='\t'):
+def run_conversion_test_py(query, input_table, testname, delim, policy, import_modules=None, join_csv_encoding=default_csv_encoding):
     tmp_dir = tempfile.gettempdir()
     if not len(sys.path) or sys.path[0] != tmp_dir:
         sys.path.insert(0, tmp_dir)
@@ -76,7 +76,7 @@ def run_conversion_test_py(query, input_table, testname, import_modules=None, jo
     #print( "tmp_path:", tmp_path) #FOR_DEBUG
     src = table_to_stream(input_table, delim)
     dst = io.StringIO()
-    rbql.parse_to_py([query], tmp_path, delim, join_csv_encoding, import_modules)
+    rbql.parse_to_py([query], tmp_path, delim, policy, join_csv_encoding, import_modules)
     assert os.path.isfile(tmp_path) and os.access(tmp_path, os.R_OK)
     rbconvert = rbql.dynamic_import(module_name)
     warnings = rbconvert.rb_transform(src, dst)
@@ -92,14 +92,14 @@ def run_conversion_test_py(query, input_table, testname, import_modules=None, jo
     return (out_table, warnings)
 
 
-def run_file_query_test_js(query, input_path, testname, import_modules=None, csv_encoding=default_csv_encoding, delim='\t'):
+def run_file_query_test_js(query, input_path, testname, delim, policy, csv_encoding):
     tmp_dir = tempfile.gettempdir()
     rnd_string = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
     script_filename = '{}.js'.format(rnd_string)
     tmp_path = os.path.join(tmp_dir, script_filename)
     dst_table_filename = '{}.tsv'.format(rnd_string)
     output_path = os.path.join(tmp_dir, dst_table_filename)
-    rbql.parse_to_js(input_path, output_path, [query], tmp_path, delim, csv_encoding, import_modules)
+    rbql.parse_to_js(input_path, output_path, [query], tmp_path, delim, policy, csv_encoding, None)
     cmd = ['node', tmp_path]
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out_data, err_data = pobj.communicate()
@@ -117,12 +117,12 @@ def run_file_query_test_js(query, input_path, testname, import_modules=None, csv
     return (output_path, warnings)
 
 
-def run_conversion_test_js(query, input_table, testname, import_modules=None, csv_encoding=default_csv_encoding, delim='\t'):
+def run_conversion_test_js(query, input_table, testname, delim, policy, import_modules=None, csv_encoding=default_csv_encoding):
     tmp_dir = tempfile.gettempdir()
     script_name = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
     script_name += '.js'
     tmp_path = os.path.join(tmp_dir, script_name)
-    rbql.parse_to_js(None, None, [query], tmp_path, delim, csv_encoding, None)
+    rbql.parse_to_js(None, None, [query], tmp_path, delim, policy, csv_encoding, None)
     src = table_to_string(input_table, delim)
     cmd = ['node', tmp_path]
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -158,24 +158,23 @@ def make_random_csv_entry(min_len, max_len, restricted_chars):
     return pseudo_latin
 
 
-def stochastic_escape(src):
-    assert src.find('"') == -1
-    if src.find(',') == -1 and random.randint(0, 10) > 2:
-        return src
-    return '"{}"'.format(src)
+def stochastic_escape(src, delim):
+    escaped = src.replace('"', '""')
+    if escaped.find('"') != -1 or escaped.find(delim) != -1 or random.randint(0, 1) == 1:
+        escaped = '"{}"'.format(escaped)
+    return escaped
 
 
 def generate_random_scenario(max_num_rows, max_num_cols, delims):
     num_rows = random.randint(1, max_num_rows)
     num_cols = random.randint(1, max_num_cols)
     delim = random.choice(delims)
+    policy = random.choice(['simple', 'quoted'])
     restricted_chars = ['\r', '\n', '\t']
-    if delim == ',':
-        restricted_chars.append('"')
-    if delim == ';':
-        restricted_chars.append(';')
+    if policy == 'simple':
+        restricted_chars.append(delim)
     key_col = random.randint(0, num_cols - 1)
-    good_keys = ['Hello', 'Avada, Keda,vra ', ' ??????', '128', '3q295 fa,#(@*$*)', ' abc,defg ', 'NR', 'a1', 'a2']
+    good_keys = ['Hello', 'Avada Kedavra ', ' ??????', '128', '3q295 fa#(@*$*)', ' abc defg ', 'NR', 'a1', 'a2']
     input_table = list()
     for r in rbql.xrange6(num_rows):
         input_table.append(list())
@@ -195,12 +194,12 @@ def generate_random_scenario(max_num_rows, max_num_cols, delims):
         canonic_table = [row[:] for row in input_table if row[key_col] == target_key]
     query = 'select * where a{} {} "{}"'.format(key_col + 1, sql_op, target_key)
 
-    if delim == ',':
+    if policy == 'quoted':
         for r in range(len(input_table)):
             for c in range(len(input_table[r])):
-                input_table[r][c] = stochastic_escape(input_table[r][c])
+                input_table[r][c] = stochastic_escape(input_table[r][c], delim)
 
-    return (input_table, query, canonic_table, delim)
+    return (input_table, query, canonic_table, delim, policy)
 
 
 
@@ -237,13 +236,13 @@ class TestEverything(unittest.TestCase):
     def test_random_bin_tables(self):
         test_name = 'test_random_bin_tables'
         for subtest in rbql.xrange6(20):
-            input_table, query, canonic_table, delim = generate_random_scenario(200, 6, ['\t', ',', ';'])
+            input_table, query, canonic_table, delim, policy = generate_random_scenario(200, 6, ['\t', ',', ';', '|'])
 
-            test_table, warnings = run_conversion_test_py(query, input_table, test_name, delim=delim)
+            test_table, warnings = run_conversion_test_py(query, input_table, test_name, delim, policy)
             self.compare_tables(canonic_table, test_table)
 
             if TEST_JS:
-                test_table, warnings = run_conversion_test_js(query, input_table, test_name, delim=delim)
+                test_table, warnings = run_conversion_test_js(query, input_table, test_name, delim, policy)
                 self.compare_tables(canonic_table, test_table)
 
 
@@ -261,13 +260,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['4', '20', '0'])
 
         query = 'select NR, a1, len(a3) where int(a1) > 5'
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = 'select NR, a1, a3.length where a1 > 5'
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -291,13 +290,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['hoho'])
 
         query = '\tselect    distinct\ta2 where int(a1) > 10 '
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['input_fields_info'], warnings)
 
         if TEST_JS:
             query = '\tselect    distinct\ta2 where a1 > 10  '
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, ['input_fields_info'], warnings)
 
@@ -317,13 +316,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['2', r"\'\"a1   bc"])
 
         query = r'select int(math.sqrt(int(a1))), r"\'\"a1   bc"'
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name, ['math', 'os'])
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple', import_modules=['math', 'os'])
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['input_fields_info'], warnings)
 
         if TEST_JS:
             query = r'select Math.floor(Math.sqrt(a1)), String.raw`\'\"a1   bc`'
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, ['input_fields_info'], warnings)
 
@@ -340,13 +339,13 @@ class TestEverything(unittest.TestCase):
         input_table.append(['4', 'haha', 'dfdf', 'asdfa', '111'])
 
         with self.assertRaises(Exception) as cm:
-            run_conversion_test_py(query, input_table, test_name, ['math', 'os'])
+            run_conversion_test_py(query, input_table, test_name, '\t', 'simple', import_modules=['math', 'os'])
         e = cm.exception
         self.assertTrue(str(e).find('No "a2" column at line: 2') != -1)
 
         if TEST_JS:
             with self.assertRaises(Exception) as cm:
-                run_conversion_test_js(query, input_table, test_name)
+                run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             e = cm.exception
             self.assertTrue(str(e).find('No "a2" column at line: 2') != -1)
 
@@ -382,13 +381,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings  '])
 
         query = r'select NR, * inner join {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)'.format(join_table_path)
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None,  warnings)
 
         if TEST_JS:
             query = r'select NR, * inner join {} on a2 == b1 where   b2 !=  "haha" &&  a1 > -100 &&  b2.length >  1 order by a2, parseInt(a1)'.format(join_table_path)
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -422,13 +421,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['', '', '10'])
 
         query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['null_value_in_output'], warnings)
 
         if TEST_JS:
             query = r'select b1,b2,   a1 left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, ['null_value_in_output'], warnings)
 
@@ -456,14 +455,14 @@ class TestEverything(unittest.TestCase):
 
         query = r'select b1,b2,   a1 strict left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
         with self.assertRaises(Exception) as cm:
-            test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         e = cm.exception
         self.assertTrue(str(e).find('In "STRICT LEFT JOIN" each key in A must have exactly one match in B') != -1)
 
         if TEST_JS:
             query = r'select b1,b2,   a1 strict left join {} on a2 == b1 where b2 != "wings"'.format(join_table_path)
             with self.assertRaises(Exception) as cm:
-                test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+                test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             e = cm.exception
             self.assertTrue(str(e).find('In "STRICT LEFT JOIN" each key in A must have exactly one match in B') != -1)
 
@@ -494,13 +493,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['plane', 'air', '200'])
 
         query = r'select b1,b2,a1 inner join {} on a2 == b1 where b1 != "car"'.format(join_table_path)
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = r'select b1,b2,a1 inner join {} on a2 == b1 where b1 != "car"'.format(join_table_path)
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -519,13 +518,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['50', 'haha', 'dfdf'])
 
         query = 'select * where a3 =="hoho" or int(a1)==50 or a1 == "aaaa" or a2== "bbbbb" '
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = 'select * where a3 =="hoho" || parseInt(a1)==50 || a1 == "aaaa" || a2== "bbbbb" '
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -544,13 +543,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['20', 'Наполеон', ''])
 
         query = 'select * where a2== "Наполеон" '
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name, join_csv_encoding='utf-8')
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple', join_csv_encoding='utf-8')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = 'select * where a2== "Наполеон" '
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name, csv_encoding='utf-8')
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple', csv_encoding='utf-8')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -586,13 +585,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['6', '200', 'plane', 'boeing 737', 'plane', 'wings'])
 
         query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" and int(a1) > -100 and len(b2) > 1 order   by a2, int(a1)'.format(join_table_path)
-        test_table, warnings= run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings= run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = r'select NR, * JOIN {} on a2 == b1 where b2 != "haha" && a1 > -100 && b2.length > 1 order    by a2, parseInt(a1)'.format(join_table_path)
-            test_table, warnings= run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings= run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -611,13 +610,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['-20', 'haha   asdf', 'hioho'])
 
         query = r'select * where re.search("a   as", a2)  is   not  None'
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = r'select * where /a   as/.test(a2)'
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -638,13 +637,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['-20', 'haha   asdf', 'hioho'])
 
         query = r'update a2 = a2 + " hoho", a1 = 100 where int(a1) > 10'
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = r'update a2 = a2 + " hoho", a1 = 100 where parseInt(a1) > 10'
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -665,13 +664,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['20', 'Наполеон'])
 
         query = 'update set a2= "Наполеон" '
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name, join_csv_encoding='utf-8')
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple', join_csv_encoding='utf-8')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['output_fields_info', 'input_fields_info'], warnings)
 
         if TEST_JS:
             query = 'update  set  a2= "Наполеон" '
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name, csv_encoding='utf-8')
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple', csv_encoding='utf-8')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, ['output_fields_info', 'input_fields_info'], warnings)
 
@@ -707,13 +706,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['200', 'plane', 'boeing 737'])
 
         query = r'update set a2 = "{} ({})".format(a2, b2) inner join ' + join_table_path + ' on a2 == b1 where b2 != "wings"'
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = r'update set a2 = a2 + " (" + b2 + ")" inner join ' + join_table_path + ' on a2 == b1 where b2 != "wings"'
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -738,13 +737,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['1', 'aaa'])
 
         query = r'select distinct count a1 where int(a2) > 10'
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = r'select distinct count a1 where parseInt(a2) > 10'
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -767,13 +766,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['4', 'abc'])
 
         query = r'select top 2 distinct count a1 where int(a2) > 10 order by int(a2) asc'
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = r'select top 2 distinct count a1 where parseInt(a2) > 10 order by parseInt(a2) asc'
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -803,13 +802,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['5', 'plane'])
 
         query = r'select len(b1), a2 strict left join {} on a2 == b1'.format(join_table_path)
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, None, warnings)
 
         if TEST_JS:
             query = r'select b1.length,  a2 strict left join {} on a2 == b1'.format(join_table_path)
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
 
@@ -845,13 +844,13 @@ class TestEverything(unittest.TestCase):
         canonic_table.append(['200', 'plane', 'boeing 737'])
 
         query = r'update set a3 = b2 left join ' + join_table_path + ' on a2 == b1 where b2 != "wings"'
-        test_table, warnings = run_conversion_test_py(query, input_table, test_name)
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple')
         self.compare_tables(canonic_table, test_table)
         compare_warnings(self, ['null_value_in_output'], warnings)
 
         if TEST_JS:
             query = r'update set a3 = b2 left join ' + join_table_path + ' on a2 == b1 where b2 != "wings"'
-            test_table, warnings = run_conversion_test_js(query, input_table, test_name)
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple')
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, ['null_value_in_output'], warnings)
 
@@ -898,6 +897,8 @@ class TestFiles(unittest.TestCase):
                 delim = config.get('delim', 'TAB')
                 if delim == 'TAB':
                     delim = '\t'
+                default_policy = 'quoted' if delim in [';', ','] else 'simple'
+                policy = config.get('policy', default_policy)
                 meta_language = config.get('meta_language', 'python')
                 canonic_path = None if canonic_table is None else os.path.abspath(canonic_table)
                 canonic_md5 = calc_file_md5(canonic_table)
@@ -905,7 +906,7 @@ class TestFiles(unittest.TestCase):
                 if meta_language == 'python':
                     warnings = None
                     try:
-                        result_table, warnings = run_file_query_test_py(query, src_path, str(test_no), csv_encoding=encoding, delim=delim)
+                        result_table, warnings = run_file_query_test_py(query, src_path, str(test_no), delim, policy, encoding)
                     except Exception as e:
                         if canonic_error_msg is None or str(e).find(canonic_error_msg) == -1:
                             raise
@@ -920,7 +921,7 @@ class TestFiles(unittest.TestCase):
                     if not has_node:
                         continue
                     try:
-                        result_table, warnings = run_file_query_test_js(query, src_path, str(test_no), csv_encoding=encoding, delim=delim)
+                        result_table, warnings = run_file_query_test_js(query, src_path, str(test_no), delim, policy, encoding)
                     except Exception as e:
                         if canonic_error_msg is None or str(e).find(canonic_error_msg) == -1:
                             raise
@@ -970,10 +971,7 @@ def make_random_csv_fields(num_fields, max_field_len):
 def randomly_csv_escape(fields):
     efields = list()
     for field in fields:
-        escaped = field.replace('"', '""')
-        if escaped.find('"') != -1 or escaped.find(',') != -1 or random.randint(0, 1) == 1:
-            escaped = '"{}"'.format(escaped)
-        efields.append(escaped)
+        efields.append(stochastic_escape(field, ','))
     return ','.join(efields)
 
 
@@ -1015,7 +1013,7 @@ class TestSplitMethods(unittest.TestCase):
         for tc in test_cases:
             src = tc[0]
             canonic_dst = tc[1]
-            test_dst = rbql_utils.split_escaped_csv_str(tc[0])
+            test_dst = rbql_utils.split_quoted_str(tc[0], ',')
             self.assertEqual(canonic_dst, canonic_dst, msg = '\nsrc: {}\ntest_dst: {}\ncanonic_dst: {}\n'.format(src, test_dst, canonic_dst))
 
 
@@ -1025,7 +1023,7 @@ class TestSplitMethods(unittest.TestCase):
             canonic_fields = rec[0]
             escaped_entry = rec[1]
             canonic_warning = rec[2]
-            test_fields, test_warning = rbql_utils.split_escaped_csv_str(escaped_entry)
+            test_fields, test_warning = rbql_utils.split_quoted_str(escaped_entry, ',')
             self.assertEqual(canonic_warning, test_warning)
             if not canonic_warning:
                 self.assertEqual(canonic_fields, test_fields)
@@ -1050,7 +1048,7 @@ def test_random_csv_table(src_path):
             escaped_entry = rec[0]
             canonic_warning = int(rec[1])
             canonic_fields = rec[2].split(';')
-            test_fields, test_warning = rbql_utils.split_escaped_csv_str(escaped_entry)
+            test_fields, test_warning = rbql_utils.split_quoted_str(escaped_entry, ',')
             assert int(test_warning) == canonic_warning
             if not test_warning and (test_fields != canonic_fields):
                 print( "Errror", file=sys.stderr) #FOR_DEBUG

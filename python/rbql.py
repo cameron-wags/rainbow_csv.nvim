@@ -10,6 +10,13 @@ import importlib
 import codecs
 import io
 
+##########################################################################
+#
+# RBQL: RainBow Query Language
+# Authors: Dmitry Ignatovich, ...
+#
+#
+##########################################################################
 
 #This module must be both python2 and python3 compatible
 
@@ -312,9 +319,12 @@ def separate_actions(rbql_expression):
     return result
 
 
-def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encoding, import_modules=None):
+def parse_to_py(rbql_lines, py_dst, delim, policy, join_csv_encoding=default_csv_encoding, import_modules=None):
     if not py_dst.endswith('.py'):
         raise RBParsingError('python module file must have ".py" extension')
+
+    if delim == '"' and policy == 'quoted':
+        raise RBParsingError('Double quote delimiter is incompatible with "quoted" policy')
 
     rbql_lines = [strip_py_comments(l) for l in rbql_lines]
     rbql_lines = [l for l in rbql_lines if len(l)]
@@ -331,6 +341,7 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
     py_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
     py_meta_params['import_expression'] = import_expression
     py_meta_params['dlm'] = py_source_escape(delim)
+    py_meta_params['policy'] = policy
     py_meta_params['join_encoding'] = join_csv_encoding
 
     if ORDER_BY in rb_actions and UPDATE in rb_actions:
@@ -392,7 +403,10 @@ def parse_to_py(rbql_lines, py_dst, delim, join_csv_encoding=default_csv_encodin
         dst.write(rbql_meta_format(py_script_body, py_meta_params))
 
 
-def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_encoding=default_csv_encoding, import_modules=None):
+def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, policy, csv_encoding=default_csv_encoding, import_modules=None):
+    if delim == '"' and policy == 'quoted':
+        raise RBParsingError('Double quote delimiter is incompatible with "quoted" policy')
+
     rbql_lines = [strip_js_comments(l) for l in rbql_lines]
     rbql_lines = [l for l in rbql_lines if len(l)]
     full_rbql_expression = ' '.join(rbql_lines)
@@ -403,6 +417,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, csv_e
     #TODO add require modules feature
     js_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
     js_meta_params['dlm'] = py_source_escape(delim)
+    js_meta_params['policy'] = policy
     js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
     js_meta_params['src_table_path'] = "null" if src_table_path is None else "'{}'".format(py_source_escape(src_table_path))
     js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(py_source_escape(dst_table_path))

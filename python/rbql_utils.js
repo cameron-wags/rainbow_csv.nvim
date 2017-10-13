@@ -1,6 +1,6 @@
-function split_escaped_csv_str(src) {
+function split_quoted_str(src, dlm) {
     if (src.indexOf('"') == -1)
-        return [src.split(','), false];
+        return [src.split(dlm), false];
     var result = [];
     var warning = false;
     var cidx = 0;
@@ -12,7 +12,7 @@ function split_escaped_csv_str(src) {
                 if (uidx == -1) {
                     result.push(src.substring(cidx + 1).replace(/""/g, '"'));
                     return [result, true];
-                } else if (uidx + 1 >= src.length || src.charAt(uidx + 1) == ',') {
+                } else if (uidx + 1 >= src.length || src.charAt(uidx + 1) == dlm) {
                     result.push(src.substring(cidx + 1, uidx).replace(/""/g, '"'));
                     cidx = uidx + 2;
                     break;
@@ -26,7 +26,7 @@ function split_escaped_csv_str(src) {
                 }
             }
         } else {
-            var uidx = src.indexOf(',', cidx);
+            var uidx = src.indexOf(dlm, cidx);
             if (uidx == -1)
                 uidx = src.length;
             var field = src.substring(cidx, uidx);
@@ -36,9 +36,9 @@ function split_escaped_csv_str(src) {
             cidx = uidx + 1;
         }
     }
-    if (src.charAt(src.length - 1) == ',')
+    if (src.charAt(src.length - 1) == dlm)
         result.push('');
     return [result, warning];
 }
 
-module.exports.split_escaped_csv_str = split_escaped_csv_str;
+module.exports.split_quoted_str = split_quoted_str;

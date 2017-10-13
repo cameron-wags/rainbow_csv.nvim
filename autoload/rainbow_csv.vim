@@ -14,7 +14,9 @@ func! s:is_rainbow_table()
     return exists("b:rainbow_csv_delim")
 endfunc
 
-"FIXME add RainbowMonoColumn handling
+"FIXME add RainbowMonoColumn handling. Don't forget to put "monocolumn" value in b:rainbow_csv_policy too
+"FIXME pass policy to python
+"TODO test quoted policy with other tables
 
 func! s:get_meta_language()
     if exists("g:rbql_meta_language")
@@ -254,9 +256,9 @@ func! rainbow_csv#preserving_escaped_split(line, dlm)
 endfunc
 
 
-func! s:preserving_smart_split(line, dlm, dialect)
+func! s:preserving_smart_split(line, dlm, policy)
     let stripped = rainbow_csv#rstrip(a:line)
-    if a:dialect == 'quoted'
+    if a:policy == 'quoted'
         return rainbow_csv#preserving_escaped_split(stripped, a:dlm)
     else
         return split(stripped, a:dlm, 1)
@@ -264,13 +266,13 @@ func! s:preserving_smart_split(line, dlm, dialect)
 endfunc
 
 
-func! s:lines_are_delimited(lines, delim, dialect)
-    let num_fields = len(s:preserving_smart_split(a:lines[0], a:delim, a:dialect))
+func! s:lines_are_delimited(lines, delim, policy)
+    let num_fields = len(s:preserving_smart_split(a:lines[0], a:delim, a:policy))
     if (num_fields < 2 || num_fields > s:max_columns)
         return 0
     endif
     for line in a:lines
-        let nfields = len(s:preserving_smart_split(line, a:delim, a:dialect))
+        let nfields = len(s:preserving_smart_split(line, a:delim, a:policy))
         if (num_fields != nfields)
             return 0
         endif
@@ -289,9 +291,9 @@ func! s:auto_detect_delimiter(delimiters)
         call add(sampled_lines, getline(linenum))
     endfor
     for delim in a:delimiters
-        let dialect = (delim == ',' || delim == ';') ? 'quoted' : 'simple'
-        if (s:lines_are_delimited(sampled_lines, delim, dialect))
-            return [delim, dialect]
+        let policy = (delim == ',' || delim == ';') ? 'quoted' : 'simple'
+        if (s:lines_are_delimited(sampled_lines, delim, policy))
+            return [delim, policy]
         endif
     endfor
     return ['', '']
@@ -397,7 +399,7 @@ func! rainbow_csv#set_statusline_columns()
         let b:statusline_before = &statusline 
     endif
     let delim = b:rainbow_csv_delim
-    let dialect = b:rainbow_csv_dialect
+    let policy = b:rainbow_csv_policy
     let has_number_column = &number
     "TODO take "sign" column into account too. You can use :sign place buffer={nr}
     let indent = ''
@@ -406,7 +408,7 @@ func! rainbow_csv#set_statusline_columns()
         let indent = ' NR' . s:single_char_sring(indent_len - 3, ' ')
     endif
     let bottom_line = getline(line('w$'))
-    let bottom_fields = s:preserving_smart_split(bottom_line, delim, dialect)
+    let bottom_fields = s:preserving_smart_split(bottom_line, delim, policy)
     let status_labels = []
     if delim == "\t"
         let status_labels = rainbow_csv#generate_tab_statusline(&tabstop, bottom_fields)
@@ -524,7 +526,7 @@ func! rainbow_csv#select_mode()
     endif
 
     let delim = b:rainbow_csv_delim
-    let dialect = b:rainbow_csv_dialect
+    let policy = b:rainbow_csv_policy
     let buf_number = bufnr("%")
     let buf_path = expand("%:p")
 
@@ -537,7 +539,7 @@ func! rainbow_csv#select_mode()
         return
     endif
 
-    let fields = s:preserving_smart_split(lines[0], delim, dialect)
+    let fields = s:preserving_smart_split(lines[0], delim, policy)
     let num_fields = len(fields)
     call rainbow_csv#set_statusline_columns()
 
@@ -632,6 +634,7 @@ func! s:run_select(table_buf_number, rb_script_path)
     let table_path_esc = s:py_source_escape(table_path)
     let rb_script_path_esc = s:py_source_escape(a:rb_script_path)
     let root_delim_esc = s:py_source_escape(root_delim)
+    "FIXME pass policy
     let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path_esc . '", "' . rb_script_path_esc . '", "' . root_delim_esc . '")'
     if s:system_python_interpreter != ""
         let rbql_executable_path = s:script_folder_path . '/python/vim_rbql.py'
@@ -671,7 +674,7 @@ func! s:run_select(table_buf_number, rb_script_path)
         for wnum in range(len(warnings))
             let warnings[wnum] = 'Warning: ' . warnings[wnum]
         endfor
-        call s:ShowImportantMessage("Finished with WARNINGS!", warnings)
+        call s:ShowImportantMessage("Completed with WARNINGS!", warnings)
     endif
 
     let table_name = fnamemodify(table_path, ":t")
@@ -749,9 +752,9 @@ func! s:try_load_from_settings()
         let fields = split(line, "\t", 1)
         if fields[0] == fname
             let delim = fields[1] == 'TAB' ? "\t" : fields[1]
-            let dialect = len(fields) >= 4 ? fields[3] : 'simple'
+            let policy = len(fields) >= 4 ? fields[3] : 'simple'
             let header_name = len(fields) >= 3 ? fields[2] : ''
-            return [delim, dialect, header_name]
+            return [delim, policy, header_name]
         endif
     endfor
     return ['', '', '']
@@ -762,18 +765,18 @@ func! rainbow_csv#load_from_settings_or_autodetect()
     if exists("b:rainbow_csv_delim")
         unlet b:rainbow_csv_delim
     endif
-    let [delim, dialect, header_name] = s:try_load_from_settings() 
+    let [delim, policy, header_name] = s:try_load_from_settings() 
     if delim == 'DISABLED'
         return
     endif
     if (!len(delim))
         let header_name = ''
-        let [delim, dialect] = s:auto_detect_delimiter(s:delimiters)
+        let [delim, policy] = s:auto_detect_delimiter(s:delimiters)
     endif
     if (!len(delim))
         return
     endif
-    call rainbow_csv#enable_rainbow(delim, dialect, header_name)
+    call rainbow_csv#enable_rainbow(delim, policy, header_name)
 endfunc
 
 
@@ -839,9 +842,9 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
 endfunc
 
 
-func! rainbow_csv#regenerate_syntax(delim, dialect)
+func! rainbow_csv#regenerate_syntax(delim, policy)
     syntax clear
-    if a:dialect == 'quoted'
+    if a:policy == 'quoted'
         call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
     else
         call rainbow_csv#generate_rainbow_syntax(a:delim)
@@ -849,7 +852,7 @@ func! rainbow_csv#regenerate_syntax(delim, dialect)
 endfunc
 
 
-func! rainbow_csv#enable_rainbow(delim, dialect, header_name)
+func! rainbow_csv#enable_rainbow(delim, policy, header_name)
     if (len(s:pairs) < 2 || s:is_rainbow_table())
         return
     endif
@@ -861,7 +864,7 @@ func! rainbow_csv#enable_rainbow(delim, dialect, header_name)
     nnoremap <buffer> <F5> :RbSelect<cr>
     nnoremap <buffer> <Leader>d :RbGetColumn<cr>
 
-    call rainbow_csv#regenerate_syntax(a:delim, a:dialect)
+    call rainbow_csv#regenerate_syntax(a:delim, a:policy)
     call s:generate_status_highlighting()
     highlight status_line_default_hl ctermbg=black guibg=black
 
@@ -874,7 +877,7 @@ func! rainbow_csv#enable_rainbow(delim, dialect, header_name)
     cnoreabbrev <expr> <buffer> UPDATE rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
 
     let b:rainbow_csv_delim = a:delim
-    let b:rainbow_csv_dialect = a:dialect
+    let b:rainbow_csv_policy = a:policy
     if len(a:header_name)
         let b:rainbow_csv_header = a:header_name
     endif
@@ -885,16 +888,16 @@ func! rainbow_csv#enable_rainbow(delim, dialect, header_name)
 endfunc
 
 
-func! s:make_entry(delim, dialect, header_name)
+func! s:make_entry(delim, policy, header_name)
     let fname = expand("%:p")
     let delim = a:delim == "\t" ? 'TAB' : a:delim
-    let entry = join([fname, delim, a:header_name, a:dialect], "\t")
+    let entry = join([fname, delim, a:header_name, a:policy], "\t")
     return entry
 endfunc
 
 
-func! s:save_file_delim(delim, dialect, header_name)
-    let entry = s:make_entry(a:delim, a:dialect, a:header_name)
+func! s:save_file_delim(delim, policy, header_name)
+    let entry = s:make_entry(a:delim, a:policy, a:header_name)
     let lines = s:try_read_lines(s:tables_delims_settings)
     let lines = [entry] + lines
     let lines = lines[:50]
@@ -922,11 +925,15 @@ func! s:disable_rainbow()
 endfunc
 
 
-func! rainbow_csv#manual_set(dialect)
+func! rainbow_csv#manual_set(policy)
     let delim = getline('.')[col('.') - 1]  
+    if delim == '"' && a:policy == 'quoted'
+        echoerr 'Double quote delimiter is incompatible with "quoted" policy'
+        return
+    endif
     call s:disable_rainbow()
-    call rainbow_csv#enable_rainbow(delim, a:dialect, '')
-    call s:save_file_delim(delim, a:dialect, '')
+    call rainbow_csv#enable_rainbow(delim, a:policy, '')
+    call s:save_file_delim(delim, a:policy, '')
 endfunc
 
 
@@ -936,7 +943,7 @@ func! rainbow_csv#set_header_manually(header_name)
         return
     endif
     let b:rainbow_csv_header = a:header_name
-    call s:save_file_delim(b:rainbow_csv_delim, b:rainbow_csv_dialect, b:rainbow_csv_header)
+    call s:save_file_delim(b:rainbow_csv_delim, b:rainbow_csv_policy, b:rainbow_csv_header)
 endfunc
 
 
@@ -964,7 +971,7 @@ func! rainbow_csv#get_column()
         return
     endif
 
-    let fields = s:preserving_smart_split(line, b:rainbow_csv_delim, b:rainbow_csv_dialect)
+    let fields = s:preserving_smart_split(line, b:rainbow_csv_delim, b:rainbow_csv_policy)
     let numCols = len(fields)
 
     let col_num = 0
