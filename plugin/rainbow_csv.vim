@@ -6,7 +6,6 @@
 "
 "==============================================================================
 
-
 func! s:TryLoadHighlighting()
     if !exists("b:current_syntax") && !exists("g:disable_rainbow_csv_autodetect") && !exists("b:rainbow_csv_delim")
         call rainbow_csv#load_from_settings_or_autodetect()
@@ -21,7 +20,7 @@ augroup RainbowAutodetectAuGrp
     autocmd BufEnter * call s:TryLoadHighlighting()
 augroup END
 
-command! RainbowMonoColumn call rainbow_csv#set_mono_column()
+command! RainbowMonoColumn call rainbow_csv#manual_set('monocolumn')
 command! RainbowDelim call rainbow_csv#manual_set('simple')
 command! RainbowDelimQuoted call rainbow_csv#manual_set('quoted')
 command! NoRainbowDelim call rainbow_csv#manual_disable()
