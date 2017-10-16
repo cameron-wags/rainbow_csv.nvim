@@ -38,12 +38,32 @@ default_csv_encoding = 'latin-1'
 PY3 = sys.version_info[0] == 3
 
 rbql_home_dir = os.path.dirname(os.path.abspath(__file__))
+user_home_dir = os.path.expanduser('~')
+table_names_settings_path = os.path.join(user_home_dir, '.rbql_table_names')
+table_index_path = os.path.join(user_home_dir, '.rbql_table_index')
 
 js_script_body = codecs.open(os.path.join(rbql_home_dir, 'template.js.raw'), encoding='utf-8').read()
 py_script_body = codecs.open(os.path.join(rbql_home_dir, 'template.py.raw'), encoding='utf-8').read()
 
 
+def get_index_record(index_path, key):
+    lines = []
+    try:
+        with open(index_path) as f:
+            lines = f.readlines()
+    except Exception:
+        return None
+    for line in lines:
+        line = line.rstrip('\r\n')
+        record = line.split('\t')
+        if len(record) and record[0] == key:
+            return record
+    return None
+
+
 def normalize_delim(delim):
+    if delim == 'TAB':
+        return '\t'
     if delim == r'\t':
         return '\t'
     return delim
@@ -133,24 +153,12 @@ def parse_join_expression(src):
 
 
 def find_table_path(table_id):
-    table_path = None
     if os.path.exists(table_id):
-        table_path = table_id
-        return table_path
-    user_home_dir = os.path.expanduser('~')
-    lines = []
-    table_names_settings_path = os.path.join(user_home_dir, '.rbql_table_names')
-    if os.path.exists(table_names_settings_path):
-        with open(table_names_settings_path) as f:
-            lines = f.readlines()
-    for line in lines:
-        line = line.rstrip()
-        fields = line.split('\t')
-        if len(fields) > 1 and table_id == fields[0]:
-            table_path = fields[1]
-    if table_path is None or not os.path.exists(table_path):
-        raise RBParsingError('Unable to find join B table: "{}"'.format(table_id))
-    return table_path
+        return table_id
+    name_record = get_index_record(table_names_settings_path, table_id)
+    if name_record is not None and len(name_record) > 1 and os.path.exists(name_record[1]):
+        return name_record[1]
+    return None
 
 
 def replace_column_vars(rbql_expression):
@@ -319,11 +327,11 @@ def separate_actions(rbql_expression):
     return result
 
 
-def parse_to_py(rbql_lines, py_dst, delim, policy, join_csv_encoding=default_csv_encoding, import_modules=None):
+def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, join_csv_encoding=default_csv_encoding, import_modules=None):
     if not py_dst.endswith('.py'):
         raise RBParsingError('python module file must have ".py" extension')
 
-    if delim == '"' and policy == 'quoted':
+    if input_delim == '"' and input_policy == 'quoted':
         raise RBParsingError('Double quote delimiter is incompatible with "quoted" policy')
 
     rbql_lines = [strip_py_comments(l) for l in rbql_lines]
@@ -340,8 +348,8 @@ def parse_to_py(rbql_lines, py_dst, delim, policy, join_csv_encoding=default_csv
     py_meta_params = dict()
     py_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
     py_meta_params['import_expression'] = import_expression
-    py_meta_params['dlm'] = py_source_escape(delim)
-    py_meta_params['policy'] = policy
+    py_meta_params['input_delim'] = py_source_escape(input_delim)
+    py_meta_params['input_policy'] = input_policy
     py_meta_params['join_encoding'] = join_csv_encoding
 
     if ORDER_BY in rb_actions and UPDATE in rb_actions:
@@ -350,16 +358,29 @@ def parse_to_py(rbql_lines, py_dst, delim, policy, join_csv_encoding=default_csv
     if JOIN in rb_actions:
         rhs_table_id, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
         rhs_table_path = find_table_path(rhs_table_id)
+        if rhs_table_path is None:
+            raise RBParsingError('Unable to find join B table: "{}"'.format(rhs_table_id))
+
+        join_delim, join_policy = input_delim, input_policy
+        join_format_record = get_index_record(table_index_path, rhs_table_path)
+        if join_format_record is not None:
+            join_delim, join_policy = join_format_record[1:3]
+            join_delim = normalize_delim(join_delim)
+
         joiners = {JOIN: 'InnerJoiner', INNER_JOIN: 'InnerJoiner', LEFT_JOIN: 'LeftJoiner', STRICT_LEFT_JOIN: 'StrictLeftJoiner'}
         py_meta_params['joiner_type'] = joiners[rb_actions[JOIN]['join_subtype']]
         py_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
         py_meta_params['lhs_join_var'] = lhs_join_var
         py_meta_params['rhs_join_var'] = rhs_join_var
+        py_meta_params['join_delim'] = join_delim
+        py_meta_params['join_policy'] = join_policy
     else:
         py_meta_params['joiner_type'] = 'none_joiner'
         py_meta_params['rhs_table_path'] = 'None'
         py_meta_params['lhs_join_var'] = 'None'
         py_meta_params['rhs_join_var'] = 'None'
+        py_meta_params['join_delim'] = 'None'
+        py_meta_params['join_policy'] = 'None'
 
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])
@@ -403,8 +424,8 @@ def parse_to_py(rbql_lines, py_dst, delim, policy, join_csv_encoding=default_csv
         dst.write(rbql_meta_format(py_script_body, py_meta_params))
 
 
-def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, policy, csv_encoding=default_csv_encoding, import_modules=None):
-    if delim == '"' and policy == 'quoted':
+def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim, input_policy, csv_encoding=default_csv_encoding, import_modules=None):
+    if input_delim == '"' and input_policy == 'quoted':
         raise RBParsingError('Double quote delimiter is incompatible with "quoted" policy')
 
     rbql_lines = [strip_js_comments(l) for l in rbql_lines]
@@ -416,8 +437,8 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, polic
     js_meta_params = dict()
     #TODO add require modules feature
     js_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
-    js_meta_params['dlm'] = py_source_escape(delim)
-    js_meta_params['policy'] = policy
+    js_meta_params['input_delim'] = py_source_escape(input_delim)
+    js_meta_params['input_policy'] = input_policy
     js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
     js_meta_params['src_table_path'] = "null" if src_table_path is None else "'{}'".format(py_source_escape(src_table_path))
     js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(py_source_escape(dst_table_path))
@@ -425,16 +446,29 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, delim, polic
     if JOIN in rb_actions:
         rhs_table_id, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
         rhs_table_path = find_table_path(rhs_table_id)
+        if rhs_table_path is None:
+            raise RBParsingError('Unable to find join B table: "{}"'.format(rhs_table_id))
+
+        join_delim, join_policy = input_delim, input_policy
+        join_format_record = get_index_record(table_index_path, rhs_table_path)
+        if join_format_record is not None:
+            join_delim, join_policy = join_format_record[1:3]
+            join_delim = normalize_delim(join_delim)
+
         join_funcs = {JOIN: 'inner_join', INNER_JOIN: 'inner_join', LEFT_JOIN: 'left_join', STRICT_LEFT_JOIN: 'strict_left_join'}
         js_meta_params['join_function'] = join_funcs[rb_actions[JOIN]['join_subtype']]
         js_meta_params['rhs_table_path'] ="'{}'".format(py_source_escape(rhs_table_path))
         js_meta_params['lhs_join_var'] = lhs_join_var
         js_meta_params['rhs_join_var'] = rhs_join_var
+        js_meta_params['join_delim'] = join_delim
+        js_meta_params['join_policy'] = join_policy
     else:
         js_meta_params['join_function'] = 'null_join'
         js_meta_params['rhs_table_path'] = 'null'
         js_meta_params['lhs_join_var'] = 'null'
         js_meta_params['rhs_join_var'] = 'null'
+        js_meta_params['join_delim'] = 'null'
+        js_meta_params['join_policy'] = 'null'
 
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])

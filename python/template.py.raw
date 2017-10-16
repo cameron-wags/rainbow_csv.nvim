@@ -34,7 +34,7 @@ def str6(obj):
     return str(obj)
 
 
-DLM = '__RBQLMP__dlm'
+DLM = '__RBQLMP__input_delim'
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -74,11 +74,11 @@ defective_csv_line_in_join = 0
 
 
 #FIXME you need a different split function for join table
-if '__RBQLMP__policy' == 'simple':
+if '__RBQLMP__input_policy' == 'simple':
     split_impl = lambda line: (line.split(DLM), 0)
-elif '__RBQLMP__policy' == 'quoted':
+elif '__RBQLMP__input_policy' == 'quoted':
     split_impl = lambda line: rbql_utils.split_quoted_str(line, DLM)
-elif '__RBQLMP__policy' == 'monocolumn':
+elif '__RBQLMP__input_policy' == 'monocolumn':
     split_impl = lambda line: ([line], 0)
 else:
     raise RuntimeError('unknown csv policy')

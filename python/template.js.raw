@@ -3,7 +3,7 @@ readline = require('readline');
 rbql_utils = require('__RBQLMP__rbql_home_dir/rbql_utils.js')
 
 var csv_encoding = '__RBQLMP__csv_encoding';
-var DLM = '__RBQLMP__dlm';
+var DLM = '__RBQLMP__input_delim';
 var join_table_path = __RBQLMP__rhs_table_path;
 
 
@@ -16,11 +16,11 @@ function exit_with_error_msg(error_msg) {
 
 //FIXME you need a different split function for join table
 split_impl = null
-if ('__RBQLMP__policy' == 'simple') {
+if ('__RBQLMP__input_policy' == 'simple') {
     split_impl = function(line) { return [line.split(DLM), false]; }
-} else if ('__RBQLMP__policy' == 'quoted') {
+} else if ('__RBQLMP__input_policy' == 'quoted') {
     split_impl = function(line) { return rbql_utils.split_quoted_str(line, DLM); }
-} else if ('__RBQLMP__policy' == 'monocolumn') {
+} else if ('__RBQLMP__input_policy' == 'monocolumn') {
     split_impl = function(line) { return [[line], false]; }
 } else {
     exit_with_error_msg('unknown csv policy');

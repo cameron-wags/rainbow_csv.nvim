@@ -711,11 +711,12 @@ func! s:run_select(table_buf_number, rb_script_path)
     let rb_script_path_esc = s:py_source_escape(a:rb_script_path)
     let root_delim_esc = s:py_source_escape(root_delim)
     "FIXME pass output delim (and policy?)
+    "instead of output delim, provide output "format": csv or tsv. `:set g:output_format = "csv"`
     "FIXME do not pass input table delims? read them from index of vim_rbql.py using rbql.py lib
-    let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path_esc . '", "' . rb_script_path_esc . '", "' . root_delim_esc . '", "' . root_policy . '")'
+    let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path_esc . '", "' . rb_script_path_esc . '")'
     if s:system_python_interpreter != ""
         let rbql_executable_path = s:script_folder_path . '/python/vim_rbql.py'
-        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), meta_language, shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim), root_policy]
+        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), meta_language, shellescape(table_path), shellescape(a:rb_script_path)]
         let cmd = join(cmd_args, ' ')
         let report_content = system(cmd)
         let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)
