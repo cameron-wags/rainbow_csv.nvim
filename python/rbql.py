@@ -101,7 +101,9 @@ def rbql_meta_format(template_src, meta_params):
     for k, v in meta_params.items():
         template_marker = '__RBQLMP__{}'.format(k)
         #TODO make special replace for multiple statements, like in update, it should be indent-aware
-        template_src = template_src.replace(template_marker, v)
+        template_src_upd = template_src.replace(template_marker, v)
+        assert template_src_upd != template_src
+        template_src = template_src_upd
     return template_src
 
 
@@ -379,8 +381,8 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, join_csv_encoding
         py_meta_params['rhs_table_path'] = 'None'
         py_meta_params['lhs_join_var'] = 'None'
         py_meta_params['rhs_join_var'] = 'None'
-        py_meta_params['join_delim'] = 'None'
-        py_meta_params['join_policy'] = 'None'
+        py_meta_params['join_delim'] = ''
+        py_meta_params['join_policy'] = ''
 
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])
@@ -467,8 +469,8 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim,
         js_meta_params['rhs_table_path'] = 'null'
         js_meta_params['lhs_join_var'] = 'null'
         js_meta_params['rhs_join_var'] = 'null'
-        js_meta_params['join_delim'] = 'null'
-        js_meta_params['join_policy'] = 'null'
+        js_meta_params['join_delim'] = ''
+        js_meta_params['join_policy'] = ''
 
     if WHERE in rb_actions:
         where_expression = replace_column_vars(rb_actions[WHERE]['text'])

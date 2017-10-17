@@ -3,7 +3,10 @@ readline = require('readline');
 rbql_utils = require('__RBQLMP__rbql_home_dir/rbql_utils.js')
 
 var csv_encoding = '__RBQLMP__csv_encoding';
-var DLM = '__RBQLMP__input_delim';
+
+var input_delim = '__RBQLMP__input_delim';
+var join_delim = '__RBQLMP__join_delim'
+
 var join_table_path = __RBQLMP__rhs_table_path;
 
 
@@ -15,15 +18,28 @@ function exit_with_error_msg(error_msg) {
 }
 
 //FIXME you need a different split function for join table
-split_impl = null
+input_split = null
 if ('__RBQLMP__input_policy' == 'simple') {
-    split_impl = function(line) { return [line.split(DLM), false]; }
+    input_split = function(line) { return [line.split(input_delim), false]; }
 } else if ('__RBQLMP__input_policy' == 'quoted') {
-    split_impl = function(line) { return rbql_utils.split_quoted_str(line, DLM); }
+    input_split = function(line) { return rbql_utils.split_quoted_str(line, input_delim); }
 } else if ('__RBQLMP__input_policy' == 'monocolumn') {
-    split_impl = function(line) { return [[line], false]; }
+    input_split = function(line) { return [[line], false]; }
 } else {
-    exit_with_error_msg('unknown csv policy');
+    exit_with_error_msg('unknown input csv policy');
+}
+
+join_impl = null
+if ('__RBQLMP__join_policy' == '') {
+    join_split = function(line) { return [null, null]; }
+} else if ('__RBQLMP__join_policy' == 'simple') {
+    join_split = function(line) { return [line.split(join_delim), false]; }
+} else if ('__RBQLMP__join_policy' == 'quoted') {
+    join_split = function(line) { return rbql_utils.split_quoted_str(line, join_delim); }
+} else if ('__RBQLMP__join_policy' == 'monocolumn') {
+    join_split = function(line) { return [[line], false]; }
+} else {
+    exit_with_error_msg('unknown join csv policy');
 }
 
 
@@ -205,7 +221,7 @@ function read_join_table(table_path) {
         var line = strip_cr(lines[i]);
         if (i + 1 == lines.length && line.length == 0)
             break;
-        var split_result = split_impl(line);
+        var split_result = join_split(line);
         var bfields = split_result[0];
         var warning = split_result[1];
         if (warning && !defective_csv_line_in_join)
@@ -355,7 +371,7 @@ function process_select(NF, afields, rhs_records) {
 function process_line(line) {
     NR += 1;
     //readline strips last '\r'
-    var split_result = split_impl(line);
+    var split_result = input_split(line);
     var afields = split_result[0];
     var warning = split_result[1];
     if (warning && !defective_csv_line_in_input)

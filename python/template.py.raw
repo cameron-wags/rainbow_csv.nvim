@@ -34,7 +34,8 @@ def str6(obj):
     return str(obj)
 
 
-DLM = '__RBQLMP__input_delim'
+input_delim = '__RBQLMP__input_delim'
+join_delim = '__RBQLMP__join_delim'
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -73,15 +74,27 @@ defective_csv_line_in_input = 0
 defective_csv_line_in_join = 0
 
 
-#FIXME you need a different split function for join table
 if '__RBQLMP__input_policy' == 'simple':
-    split_impl = lambda line: (line.split(DLM), 0)
+    input_split = lambda line: (line.split(input_delim), 0)
 elif '__RBQLMP__input_policy' == 'quoted':
-    split_impl = lambda line: rbql_utils.split_quoted_str(line, DLM)
+    input_split = lambda line: rbql_utils.split_quoted_str(line, input_delim)
 elif '__RBQLMP__input_policy' == 'monocolumn':
-    split_impl = lambda line: ([line], 0)
+    input_split = lambda line: ([line], 0)
 else:
-    raise RuntimeError('unknown csv policy')
+    raise RuntimeError('unknown input csv policy')
+
+
+if '__RBQLMP__join_policy' == '':
+    join_split = lambda line: (None, None)
+elif '__RBQLMP__join_policy' == 'simple':
+    join_split = lambda line: (line.split(join_delim), 0)
+elif '__RBQLMP__join_policy' == 'quoted':
+    join_split = lambda line: rbql_utils.split_quoted_str(line, join_delim)
+elif '__RBQLMP__join_policy' == 'monocolumn':
+    join_split = lambda line: ([line], 0)
+else:
+    raise RuntimeError('unknown join csv policy')
+
 
 def register_num_fields(line_num, line):
     global output_fields_info
@@ -191,7 +204,7 @@ def read_join_table(join_table_path):
     with codecs.open(join_table_path, encoding='__RBQLMP__join_encoding') as src_text:
         for il, line in enumerate(rbql_utils.rows(src_text), 1):
             line = line.rstrip('\r\n')
-            bfields, warning = split_impl(line)
+            bfields, warning = join_split(line)
             if warning and not defective_csv_line_in_join:
                 defective_csv_line_in_join = il
             num_fields = len(bfields)
@@ -325,7 +338,7 @@ def rb_transform(source, destination):
     joiner = __RBQLMP__joiner_type('__RBQLMP__rhs_table_path')
     for NR, line in enumerate(rbql_utils.rows(source), 1):
         line = line.rstrip('\r\n')
-        afields, warning = split_impl(line)
+        afields, warning = input_split(line)
         if warning and not defective_csv_line_in_input:
             defective_csv_line_in_input = NR
         NF = len(afields)

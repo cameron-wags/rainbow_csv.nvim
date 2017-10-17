@@ -248,18 +248,27 @@ function! s:char_class_escape(src)
 endfunc
 
 
+function! s:test_coverage()
+    if !exists("g:rbql_dbg_test_coverage")
+        return 0
+    endif
+    return reltime()[1] % 2
+endfunc
+
+
 function! s:EnsurePythonInitialization()
     if (s:python_env_initialized)
         return 1
     endif
     let py_home_dir = s:script_folder_path . '/python'
     let py_home_dir = s:py_source_escape(py_home_dir)
-    if has("python3")
+    "FIXME if python version is 2.6 or less fallback to system python
+    if has("python3") && !s:test_coverage()
         py3 import sys
         py3 import vim
         exe 'python3 sys.path.insert(0, "' . py_home_dir . '")'
         py3 import vim_rbql
-    elseif has("python")
+    elseif has("python") && !s:test_coverage()
         py import sys
         py import vim
         exe 'python sys.path.insert(0, "' . py_home_dir . '")'
