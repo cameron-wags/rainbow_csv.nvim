@@ -83,7 +83,7 @@ def quote_field(src, delim):
 
 
 def quoted_join(fields, delim):
-    return delim.join([quote_field(str6(f)) for f in fields])
+    return delim.join([quote_field(str6(f), delim) for f in fields])
 
 
 def simple_join(fields, delim):

@@ -60,7 +60,7 @@ def execute_python(src_table_path, rb_script_path, input_delim, input_policy, ou
     meta_script_path = os.path.join(tmp_dir, meta_script_name)
     try:
         rbql_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
-        rbql.parse_to_py(rbql_lines, meta_script_path, input_delim, input_policy, out_delim, out_policy, csv_encoding)
+        rbql.parse_to_py(rbql_lines, meta_script_path, input_delim, input_policy, out_delim, out_policy, csv_encoding, None)
     except rbql.RBParsingError as e:
         rbql.remove_if_possible(meta_script_path)
         vim_interface.report_error_to_vim('Parsing Error', str(e))
@@ -96,7 +96,7 @@ def execute_js(src_table_path, rb_script_path, input_delim, input_policy, out_de
         return
     try:
         rbql_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
-        rbql.parse_to_js(src_table_path, dst_table_path, rbql_lines, meta_script_path, input_delim, input_policy, out_delim, out_policy, csv_encoding)
+        rbql.parse_to_js(src_table_path, dst_table_path, rbql_lines, meta_script_path, input_delim, input_policy, out_delim, out_policy, csv_encoding, None)
     except rbql.RBParsingError as e:
         vim_interface.report_error_to_vim('Parsing Error', str(e))
         return
