@@ -104,7 +104,16 @@ in source code in different colors. To return back to original syntax highlighti
 #### :NoRainbowDelim
 
 This command will disable rainbow columns highlighting for the current file.
-Useful when autodection mechanism has failed and marked non-csv file as csv.
+Use it to cancel _:RainbowDelim_ effect or when autodection mechanism has failed and marked non-csv file as csv 
+
+#### :RainbowDelimQuoted
+
+Same as _:RainbowDelim_ but allows delimiters inside fields if the field is double quoted by rules of Excel / [RFC 4180](https://tools.ietf.org/html/rfc4180)
+
+#### :RainbowMonoColumn
+
+Mark the current file as rainbow table with a single column without delimiters. 
+You will be able to run RBQL queries on it using _a1_ column variable.
 
 #### :RainbowName \<name\>
 
@@ -117,14 +126,29 @@ intead of:
 
 ### Configuration
 
+#### g:rbql_output_format
+Default: _tsv_
+Allowed values: _tsv_, _csv_
+
+Format of RBQL result set tables.
+
+* tsv format doesn't allow quoted tabs inside fields. 
+* csv is Excel-compatible and allows quoted commas.
+
+Essentially format here is a pair: delimiter + quoting policy.
+This setting for example can be used to convert files between tsv and csv format:
+* To convert csv -> tsv: **1.** open csv file. **2.** `:let g:rbql_output_format='tsv'` **3.** `:Select *`
+* To convert tsv -> csv: **1.** open tsv file. **2.** `:let g:rbql_output_format='csv'` **3.** `:Select *`
+
+
 #### g:rbql_meta_language
-Default: 'python'
+Default: _python_
 
 Scripting language to use in RBQL expression. Either 'js' or 'python'
 To use JavaScript add _let g:rbql_meta_language = 'js'_ to .vimrc
 
 #### g:rcsv_delimiters
-Default: ["\t", ","]
+Default: _["\t", ","]_
 
 By default plugin checks only TAB and comma characters during autodetection stage.
 You can override this variable to autodetect tables with other separators. e.g. _let g:rcsv\_delimiters = ["\t", ",", ";"]_
@@ -134,7 +158,7 @@ csv autodetection mechanism can be disabled by setting this variable value to 1.
 Manual delimiter selection would still be possible.
 
 #### g:rcsv_max_columns
-Default: 30
+Default: _30_
 
 Autodetection will fail if buffer has more than _g:rcsv\_max\_columns_ columns.
 You can increase or decrease this limit.
