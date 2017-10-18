@@ -754,7 +754,7 @@ func! s:run_select(table_buf_number, rb_script_path)
     let b:self_buf_number = bufnr("%")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
 
-    call rainbow_csv#buffer_enable_rainbow("\t", 'simple', '')
+    call rainbow_csv#buffer_enable_rainbow(out_delim, out_policy, '')
 
     nnoremap <buffer> <F4> :bd!<cr>
     nnoremap <buffer> <F6> :call rainbow_csv#create_save_dialog(b:self_buf_number, b:self_path)<cr>
