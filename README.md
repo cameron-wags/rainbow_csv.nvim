@@ -84,13 +84,13 @@ Some other rules:
 
 #### :Select ...
 
-Allows to enter RBQL select query in vim command line.
-The query must start with _:Select_ command e.g. _:Select a1, a2 order by a1_
+Allows to enter RBQL select query as vim command.
+e.g. _:Select a1, a2 order by a1_
 
 #### :Update ...
 
-Allows to enter RBQL update query in vim command line.
-The query must start with _:Update_ command e.g. _:Update a1 = a1 + " " + a2_
+Allows to enter RBQL update query as vim command.
+e.g. _:Update a1 = a1 + " " + a2_
 
 #### :RainbowDelim
 
@@ -137,8 +137,8 @@ Format of RBQL result set tables.
 
 Essentially format here is a pair: delimiter + quoting policy.
 This setting for example can be used to convert files between tsv and csv format:
-* To convert csv -> tsv: **1.** open csv file. **2.** `:let g:rbql_output_format='tsv'` **3.** `:Select *`
-* To convert tsv -> csv: **1.** open tsv file. **2.** `:let g:rbql_output_format='csv'` **3.** `:Select *`
+* To convert _csv_ to _tsv_: **1.** open csv file. **2.** `:let g:rbql_output_format='tsv'` **3.** `:Select *`
+* To convert _tsv_ to _csv_: **1.** open tsv file. **2.** `:let g:rbql_output_format='csv'` **3.** `:Select *`
 
 
 #### g:rbql_meta_language
