@@ -329,7 +329,7 @@ def separate_actions(rbql_expression):
     return result
 
 
-def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, join_csv_encoding=default_csv_encoding, import_modules=None):
+def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_policy, join_csv_encoding, import_modules):
     if not py_dst.endswith('.py'):
         raise RBParsingError('python module file must have ".py" extension')
 
@@ -353,6 +353,8 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, join_csv_encoding
     py_meta_params['input_delim'] = py_source_escape(input_delim)
     py_meta_params['input_policy'] = input_policy
     py_meta_params['join_encoding'] = join_csv_encoding
+    py_meta_params['output_delim'] = py_source_escape(out_delim)
+    py_meta_params['output_policy'] = out_policy
 
     if ORDER_BY in rb_actions and UPDATE in rb_actions:
         raise RBParsingError('"ORDER BY" is not allowed in "UPDATE" queries')
@@ -426,7 +428,7 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, join_csv_encoding
         dst.write(rbql_meta_format(py_script_body, py_meta_params))
 
 
-def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim, input_policy, csv_encoding=default_csv_encoding, import_modules=None):
+def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim, input_policy, out_delim, out_policy, csv_encoding, import_modules):
     if input_delim == '"' and input_policy == 'quoted':
         raise RBParsingError('Double quote delimiter is incompatible with "quoted" policy')
 
@@ -444,6 +446,8 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim,
     js_meta_params['csv_encoding'] = 'binary' if csv_encoding == 'latin-1' else csv_encoding
     js_meta_params['src_table_path'] = "null" if src_table_path is None else "'{}'".format(py_source_escape(src_table_path))
     js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(py_source_escape(dst_table_path))
+    js_meta_params['output_delim'] = py_source_escape(out_delim)
+    js_meta_params['output_policy'] = out_policy
 
     if JOIN in rb_actions:
         rhs_table_id, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
@@ -566,8 +570,6 @@ def make_warnings_human_readable(warnings):
             result.append('Defective double quote escaping in input table. E.g. at line {}.'.format(warning_value))
         elif warning_type == 'defective_csv_line_in_join':
             result.append('Defective double quote escaping in join table. E.g. at line {}.'.format(warning_value))
-        elif warning_type == 'output_fields_info':
-            result.append(make_inconsistent_num_fields_hr_warning('output', warning_value))
         elif warning_type == 'input_fields_info':
             result.append(make_inconsistent_num_fields_hr_warning('input', warning_value))
         elif warning_type == 'join_fields_info':

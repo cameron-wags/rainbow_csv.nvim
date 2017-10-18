@@ -52,14 +52,15 @@ def get_random_suffix():
     return str(time.time()).split('.')[0]
 
 
-def execute_python(src_table_path, rb_script_path, input_delim, input_policy, csv_encoding, dst_table_path):
+def execute_python(src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy, dst_table_path):
+    csv_encoding = rbql.default_csv_encoding
     tmp_dir = tempfile.gettempdir()
     module_name = 'vim_rb_convert_{}'.format(get_random_suffix())
     meta_script_name = '{}.py'.format(module_name)
     meta_script_path = os.path.join(tmp_dir, meta_script_name)
     try:
         rbql_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
-        rbql.parse_to_py(rbql_lines, meta_script_path, input_delim, input_policy, csv_encoding)
+        rbql.parse_to_py(rbql_lines, meta_script_path, input_delim, input_policy, out_delim, out_policy, csv_encoding)
     except rbql.RBParsingError as e:
         rbql.remove_if_possible(meta_script_path)
         vim_interface.report_error_to_vim('Parsing Error', str(e))
@@ -85,7 +86,8 @@ def execute_python(src_table_path, rb_script_path, input_delim, input_policy, cs
             traceback.print_exc(file=exc_dst)
 
 
-def execute_js(src_table_path, rb_script_path, input_delim, input_policy, csv_encoding, dst_table_path):
+def execute_js(src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy, dst_table_path):
+    csv_encoding = rbql.default_csv_encoding
     tmp_dir = tempfile.gettempdir()
     meta_script_name = 'vim_rb_convert_{}.js'.format(get_random_suffix())
     meta_script_path = os.path.join(tmp_dir, meta_script_name)
@@ -94,7 +96,7 @@ def execute_js(src_table_path, rb_script_path, input_delim, input_policy, csv_en
         return
     try:
         rbql_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
-        rbql.parse_to_js(src_table_path, dst_table_path, rbql_lines, meta_script_path, input_delim, input_policy, csv_encoding)
+        rbql.parse_to_js(src_table_path, dst_table_path, rbql_lines, meta_script_path, input_delim, input_policy, out_delim, out_policy, csv_encoding)
     except rbql.RBParsingError as e:
         vim_interface.report_error_to_vim('Parsing Error', str(e))
         return
@@ -117,13 +119,14 @@ def execute_js(src_table_path, rb_script_path, input_delim, input_policy, csv_en
     vim_interface.set_vim_variable('psv_query_status', 'OK')
 
 
-def do_run_execute(meta_language, src_table_path, rb_script_path, csv_encoding):
+def converged_execute(meta_language, src_table_path, rb_script_path, out_delim, out_policy):
     try:
         input_format_record = rbql.get_index_record(rbql.table_index_path, src_table_path)
         if input_format_record is None or len(input_format_record) < 3:
             raise RuntimeError('Unable to find input table ({}) format record in {}'.format(src_table_path, rbql.table_index_path))
         input_delim, input_policy = input_format_record[1:3]
         input_delim = rbql.normalize_delim(input_delim)
+        out_delim = rbql.normalize_delim(out_delim)
         tmp_dir = tempfile.gettempdir()
         table_name = os.path.basename(src_table_path)
         dst_table_name = '{}.txt'.format(table_name)
@@ -131,23 +134,23 @@ def do_run_execute(meta_language, src_table_path, rb_script_path, csv_encoding):
         vim_interface.set_vim_variable('psv_dst_table_path', dst_table_path)
         assert meta_language in ['python', 'js']
         if meta_language == 'python':
-            execute_python(src_table_path, rb_script_path, input_delim, input_policy, csv_encoding, dst_table_path)
+            execute_python(src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy, dst_table_path)
         else:
-            execute_js(src_table_path, rb_script_path, input_delim, input_policy, csv_encoding, dst_table_path)
+            execute_js(src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy, dst_table_path)
     except Exception as e:
         vim_interface.report_error_to_vim('Execution Error', str(e))
 
 
-def run_execute(meta_language, src_table_path, rb_script_path, csv_encoding=rbql.default_csv_encoding):
+def run_execute(meta_language, src_table_path, rb_script_path, out_delim, out_policy):
     global vim_interface
     vim_interface = VimInterface()
-    do_run_execute(meta_language, src_table_path, rb_script_path, csv_encoding)
+    converged_execute(meta_language, src_table_path, rb_script_path, out_delim, out_policy)
 
 
-def run_execute_cli(meta_language, src_table_path, rb_script_path, csv_encoding=rbql.default_csv_encoding):
+def run_execute_cli(meta_language, src_table_path, rb_script_path, out_delim, out_policy):
     global vim_interface
     vim_interface = CLIVimMediator()
-    do_run_execute(meta_language, src_table_path, rb_script_path, csv_encoding)
+    converged_execute(meta_language, src_table_path, rb_script_path, out_delim, out_policy)
     vim_interface.save_report(sys.stdout)
 
 
@@ -157,9 +160,10 @@ def main():
     parser.add_argument('meta_language', metavar='LANG', help='script language to use in query', choices=['python', 'js'])
     parser.add_argument('input_table_path', metavar='FILE', help='Read csv table from FILE')
     parser.add_argument('query_file', metavar='FILE', help='Read rbql query from FILE')
-    parser.add_argument('--csv_encoding', help='Manually set csv table encoding', default=rbql.default_csv_encoding, choices=['latin-1', 'utf-8'])
+    parser.add_argument('out_delim', metavar='DELIM', help='Output delimiter')
+    parser.add_argument('out_policy', metavar='POLICY', help='Output policy', choices=['simple', 'quoted', 'monocolumn'])
     args = parser.parse_args()
-    run_execute_cli(args.meta_language, args.input_table_path, args.query_file, args.csv_encoding)
+    run_execute_cli(args.meta_language, args.input_table_path, args.query_file, args.out_delim, args.out_policy)
 
 
 if __name__ == '__main__':

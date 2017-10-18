@@ -24,6 +24,7 @@ import rbql_utils
 default_csv_encoding = rbql.default_csv_encoding
 
 TEST_JS = True
+#TEST_JS = False #DBG
 
 def table_to_string(array2d, delim):
     result = '\n'.join([delim.join(ln) for ln in array2d])
@@ -55,7 +56,7 @@ def run_file_query_test_py(query, input_path, testname, delim, policy, csv_encod
     tmp_path = os.path.join(tmp_dir, module_filename)
     dst_table_filename = '{}.tsv'.format(module_name)
     output_path = os.path.join(tmp_dir, dst_table_filename)
-    rbql.parse_to_py([query], tmp_path, delim, policy, csv_encoding, None)
+    rbql.parse_to_py([query], tmp_path, delim, policy, '\t', 'simple', csv_encoding, None)
     rbconvert = rbql.dynamic_import(module_name)
     warnings = None
     with codecs.open(input_path, encoding=csv_encoding) as src, codecs.open(output_path, 'w', encoding=csv_encoding) as dst:
@@ -76,7 +77,7 @@ def run_conversion_test_py(query, input_table, testname, delim, policy, import_m
     #print( "tmp_path:", tmp_path) #FOR_DEBUG
     src = table_to_stream(input_table, delim)
     dst = io.StringIO()
-    rbql.parse_to_py([query], tmp_path, delim, policy, join_csv_encoding, import_modules)
+    rbql.parse_to_py([query], tmp_path, delim, policy, '\t', 'simple', join_csv_encoding, import_modules)
     assert os.path.isfile(tmp_path) and os.access(tmp_path, os.R_OK)
     rbconvert = rbql.dynamic_import(module_name)
     warnings = rbconvert.rb_transform(src, dst)
@@ -99,7 +100,7 @@ def run_file_query_test_js(query, input_path, testname, delim, policy, csv_encod
     tmp_path = os.path.join(tmp_dir, script_filename)
     dst_table_filename = '{}.tsv'.format(rnd_string)
     output_path = os.path.join(tmp_dir, dst_table_filename)
-    rbql.parse_to_js(input_path, output_path, [query], tmp_path, delim, policy, csv_encoding, None)
+    rbql.parse_to_js(input_path, output_path, [query], tmp_path, delim, policy, '\t', 'simple', csv_encoding, None)
     cmd = ['node', tmp_path]
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out_data, err_data = pobj.communicate()
@@ -122,7 +123,7 @@ def run_conversion_test_js(query, input_table, testname, delim, policy, import_m
     script_name = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
     script_name += '.js'
     tmp_path = os.path.join(tmp_dir, script_name)
-    rbql.parse_to_js(None, None, [query], tmp_path, delim, policy, csv_encoding, None)
+    rbql.parse_to_js(None, None, [query], tmp_path, delim, policy, '\t', 'simple', csv_encoding, None)
     src = table_to_string(input_table, delim)
     cmd = ['node', tmp_path]
     pobj = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -159,10 +160,11 @@ def make_random_csv_entry(min_len, max_len, restricted_chars):
 
 
 def stochastic_escape(src, delim):
-    escaped = src.replace('"', '""')
-    if escaped.find('"') != -1 or escaped.find(delim) != -1 or random.randint(0, 1) == 1:
+    if src.find('"') != -1 or src.find(delim) != -1 or random.randint(0, 1) == 1:
+        escaped = src.replace('"', '""')
         escaped = '"{}"'.format(escaped)
-    return escaped
+        return escaped
+    return src
 
 
 def generate_random_scenario(max_num_rows, max_num_cols, delims):
@@ -666,13 +668,13 @@ class TestEverything(unittest.TestCase):
         query = 'update set a2= "Наполеон" '
         test_table, warnings = run_conversion_test_py(query, input_table, test_name, '\t', 'simple', join_csv_encoding='utf-8')
         self.compare_tables(canonic_table, test_table)
-        compare_warnings(self, ['output_fields_info', 'input_fields_info'], warnings)
+        compare_warnings(self, ['input_fields_info'], warnings)
 
         if TEST_JS:
             query = 'update  set  a2= "Наполеон" '
             test_table, warnings = run_conversion_test_js(query, input_table, test_name, '\t', 'simple', csv_encoding='utf-8')
             self.compare_tables(canonic_table, test_table)
-            compare_warnings(self, ['output_fields_info', 'input_fields_info'], warnings)
+            compare_warnings(self, ['input_fields_info'], warnings)
 
 
     def test_run16(self):

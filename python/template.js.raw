@@ -5,7 +5,8 @@ rbql_utils = require('__RBQLMP__rbql_home_dir/rbql_utils.js')
 var csv_encoding = '__RBQLMP__csv_encoding';
 
 var input_delim = '__RBQLMP__input_delim';
-var join_delim = '__RBQLMP__join_delim'
+var join_delim = '__RBQLMP__join_delim';
+var output_delim = '__RBQLMP__output_delim';
 
 var join_table_path = __RBQLMP__rhs_table_path;
 
@@ -17,7 +18,44 @@ function exit_with_error_msg(error_msg) {
     process.exit(1);
 }
 
-//FIXME you need a different split function for join table
+
+function quote_field(src, delim) {
+    if (src.indexOf('"') != -1 || src.indexOf(delim) != -1) {
+        var escaped = src.replace(/"/g, '""');
+        escaped = '"' + escaped + '"';
+        return escaped;
+    }
+    return src;
+}
+
+
+function quoted_join(fields, delim) {
+    var quoted_fields = fields.map(function(v) { return quote_field(String(v), delim); });
+    return quoted_fields.join(delim);
+}
+
+
+function simple_join(fields, delim) {
+    var res = fields.join(delim);
+    if (fields.join('').indexOf(delim) != -1) {
+        var error_msg = 'Some result set fields already contain output delim. Use different output format e.g. "csv"\n';
+        error_msg += 'Example of defective output line: ' + res;
+        exit_with_error_msg(error_msg);
+    }
+    return res;
+}
+
+
+output_join = null
+if ('__RBQLMP__output_policy' == 'simple') {
+    output_join = simple_join;
+} else if ('__RBQLMP__output_policy' == 'quoted') {
+    output_join = quoted_join;
+} else {
+    exit_with_error_msg('unknown output csv policy');
+}
+
+
 input_split = null
 if ('__RBQLMP__input_policy' == 'simple') {
     input_split = function(line) { return [line.split(input_delim), false]; }
@@ -74,17 +112,9 @@ var NR = 0;
 
 var join_fields_info = new Object();
 var input_fields_info = new Object();
-var output_fields_info = new Object();
 var null_value_in_output = false;
 var defective_csv_line_in_input = 0
 var defective_csv_line_in_join = 0
-
-
-function register_num_fields(line_num, line) {
-    var num_fields = line.split('\t').length;
-    if (!output_fields_info.hasOwnProperty(num_fields))
-        output_fields_info[num_fields] = line_num;
-}
 
 
 function add_to_set(dst_set, value) {
@@ -113,7 +143,6 @@ function SimpleWriter(dst) {
         this.dst.write(record);
         this.dst.write('\n');
         this.NW += 1;
-        register_num_fields(this.NW, record);
         return true;
     }
     this.finish = function() {}
@@ -131,7 +160,6 @@ function UniqWriter(dst) {
             this.dst.write(record);
             this.dst.write('\n');
             this.NW += 1;
-            register_num_fields(this.NW, record);
         }
         return true;
     }
@@ -156,10 +184,9 @@ function UniqCountWriter(dst) {
         for (var [record, count] of this.records) {
             if (__RBQLMP__top_count !== null && NW >= __RBQLMP__top_count)
                 break;
-            var new_record = count + '\t' + record + '\n';
+            var new_record = count + output_delim + record + '\n';
             this.dst.write(new_record);
             NW += 1;
-            register_num_fields(NW, new_record);
         }
     }
 }
@@ -258,8 +285,6 @@ function generate_warnings() {
         warnings['defective_csv_line_in_input'] = defective_csv_line_in_input;
     if (defective_csv_line_in_join)
         warnings['defective_csv_line_in_join'] = defective_csv_line_in_join;
-    if (Object.keys(output_fields_info).length > 1)
-        warnings['output_fields_info'] = output_fields_info;
     if (Object.keys(input_fields_info).length > 1)
         warnings['input_fields_info'] = input_fields_info;
     if (Object.keys(join_fields_info).length > 1)
@@ -337,7 +362,7 @@ function process_update(NF, afields, rhs_records) {
     }
     var out_fields = afields;
     replace_null_values(out_fields);
-    var out_record = out_fields.join('\t')
+    var out_record = output_join(out_fields, output_delim);
     return writer.write(out_record);
 }
 
@@ -354,7 +379,7 @@ function process_select(NF, afields, rhs_records) {
             continue;
         var out_fields = __RBQLMP__select_expression;
         replace_null_values(out_fields);
-        var out_record = out_fields.join('\t');
+        var out_record = output_join(out_fields, output_delim);
         if (__RBQLMP__sort_flag) {
             var sort_entry = [__RBQLMP__sort_key_expression, NR, out_record];
             if (!writer.write(sort_entry))
