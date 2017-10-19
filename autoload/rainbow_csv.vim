@@ -722,6 +722,9 @@ func! s:run_select(table_buf_number, rb_script_path)
 
     let meta_language = s:get_meta_language()
 
+    let root_delim = getbufvar(a:table_buf_number, "rainbow_csv_delim")
+    let root_policy = getbufvar(a:table_buf_number, "rainbow_csv_policy")
+
     let table_path = expand("#" . a:table_buf_number . ":p")
     if table_path == ""
         "For unnamed buffers. E.g. can happen for stdin-read buffer: `cat data.tsv | vim -`
@@ -739,12 +742,13 @@ func! s:run_select(table_buf_number, rb_script_path)
     echo "executing..."
     let table_path_esc = s:py_source_escape(table_path)
     let rb_script_path_esc = s:py_source_escape(a:rb_script_path)
+    let root_delim_esc = s:py_source_escape(root_delim)
     let [out_delim, out_policy] = s:get_output_format_params()
     let out_delim_esc = s:py_source_escape(out_delim)
-    let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path_esc . '", "' . rb_script_path_esc . '", "' . out_delim_esc . '", "' . out_policy . '")'
+    let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path_esc . '", "' . rb_script_path_esc . '", "' . root_delim_esc . '", "' . root_policy . '", "' . out_delim_esc . '", "' . out_policy . '")'
     if s:system_python_interpreter != ""
         let rbql_executable_path = s:script_folder_path . '/python/vim_rbql.py'
-        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), meta_language, shellescape(table_path), shellescape(a:rb_script_path), shellescape(out_delim), out_policy]
+        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), meta_language, shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim), root_policy, shellescape(out_delim), out_policy]
         let cmd = join(cmd_args, ' ')
         let report_content = system(cmd)
         let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)

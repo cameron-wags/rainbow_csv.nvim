@@ -119,12 +119,8 @@ def execute_js(src_table_path, rb_script_path, input_delim, input_policy, out_de
     vim_interface.set_vim_variable('psv_query_status', 'OK')
 
 
-def converged_execute(meta_language, src_table_path, rb_script_path, out_delim, out_policy):
+def converged_execute(meta_language, src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy):
     try:
-        input_format_record = rbql.get_index_record(rbql.table_index_path, src_table_path)
-        if input_format_record is None or len(input_format_record) < 3:
-            raise RuntimeError('Unable to find input table ({}) format record in {}'.format(src_table_path, rbql.table_index_path))
-        input_delim, input_policy = input_format_record[1:3]
         input_delim = rbql.normalize_delim(input_delim)
         out_delim = rbql.normalize_delim(out_delim)
         tmp_dir = tempfile.gettempdir()
@@ -141,16 +137,16 @@ def converged_execute(meta_language, src_table_path, rb_script_path, out_delim, 
         vim_interface.report_error_to_vim('Execution Error', str(e))
 
 
-def run_execute(meta_language, src_table_path, rb_script_path, out_delim, out_policy):
+def run_execute(meta_language, src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy):
     global vim_interface
     vim_interface = VimInterface()
-    converged_execute(meta_language, src_table_path, rb_script_path, out_delim, out_policy)
+    converged_execute(meta_language, src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy)
 
 
-def run_execute_cli(meta_language, src_table_path, rb_script_path, out_delim, out_policy):
+def run_execute_cli(meta_language, src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy):
     global vim_interface
     vim_interface = CLIVimMediator()
-    converged_execute(meta_language, src_table_path, rb_script_path, out_delim, out_policy)
+    converged_execute(meta_language, src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy)
     vim_interface.save_report(sys.stdout)
 
 
@@ -160,10 +156,12 @@ def main():
     parser.add_argument('meta_language', metavar='LANG', help='script language to use in query', choices=['python', 'js'])
     parser.add_argument('input_table_path', metavar='FILE', help='Read csv table from FILE')
     parser.add_argument('query_file', metavar='FILE', help='Read rbql query from FILE')
+    parser.add_argument('input_delim', metavar='DELIM', help='Input delimiter')
+    parser.add_argument('input_policy', metavar='POLICY', help='Input policy', choices=['simple', 'quoted', 'monocolumn'])
     parser.add_argument('out_delim', metavar='DELIM', help='Output delimiter')
     parser.add_argument('out_policy', metavar='POLICY', help='Output policy', choices=['simple', 'quoted', 'monocolumn'])
     args = parser.parse_args()
-    run_execute_cli(args.meta_language, args.input_table_path, args.query_file, args.out_delim, args.out_policy)
+    run_execute_cli(args.meta_language, args.input_table_path, args.query_file, args.input_delim, args.input_policy, args.out_delim, args.out_policy)
 
 
 if __name__ == '__main__':
