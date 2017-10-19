@@ -274,7 +274,6 @@ function! s:EnsurePythonInitialization()
     endif
     let py_home_dir = s:script_folder_path . '/python'
     let py_home_dir = s:py_source_escape(py_home_dir)
-    "FIXME if python version is 2.6 or less fallback to system python
     if has("python3") && !s:test_coverage()
         py3 import sys
         py3 import vim
@@ -319,7 +318,8 @@ func! rainbow_csv#preserving_escaped_split(line, dlm)
     let src = a:line
     if stridx(src, '"') == -1
         "Optimization for majority of lines
-        return split(src, a:dlm, 1)
+        let regex_delim = escape(a:dlm, s:magic_chars)
+        return split(src, regex_delim, 1)
     endif
     let result = []
     let cidx = 0
@@ -367,7 +367,8 @@ func! s:preserving_smart_split(line, dlm, policy)
     elseif a:policy == 'quoted'
         return rainbow_csv#preserving_escaped_split(stripped, a:dlm)
     elseif a:policy == 'simple'
-        return split(stripped, a:dlm, 1)
+        let regex_delim = escape(a:dlm, s:magic_chars)
+        return split(stripped, regex_delim, 1)
     else
         echoerr 'bad delim policy'
     endif
@@ -431,7 +432,8 @@ func! s:read_column_names()
     if b:rainbow_csv_policy == 'monocolumn'
         let names = [line]
     else
-        let names = split(line, b:rainbow_csv_delim)
+        let regex_delim = escape(b:rainbow_csv_delim, s:magic_chars)
+        let names = split(line, regex_delim)
     endif
     return names
 endfunc
