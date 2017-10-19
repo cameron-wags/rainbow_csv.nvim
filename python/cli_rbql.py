@@ -21,9 +21,19 @@ def print_error_and_exit(error_msg):
     sys.exit(1)
 
 
+def interpret_format(format_name):
+    assert format_name in ['csv', 'tsv'], 'unknown format'
+    if format_name == 'csv':
+        return (',', 'quoted')
+    else:
+        return ('\t', 'simple')
+
+
 def run_with_python(args):
     delim = rbql.normalize_delim(args.delim)
     policy = args.policy
+    if policy is None:
+        policy = 'quoted' if delim in [';', ','] else 'simple'
     query = args.query
     query_path = args.query_file
     #convert_only = args.convert_only
@@ -31,6 +41,7 @@ def run_with_python(args):
     output_path = args.output_table_path
     import_modules = args.libs
     csv_encoding = args.csv_encoding
+    output_delim, output_policy = interpret_format(args.out_format)
 
     rbql_lines = None
     if query is None and query_path is None:
@@ -51,7 +62,7 @@ def run_with_python(args):
     tmp_path = os.path.join(tmp_dir, module_filename)
     sys.path.insert(0, tmp_dir)
     try:
-        rbql.parse_to_py(rbql_lines, tmp_path, delim, policy, csv_encoding, import_modules)
+        rbql.parse_to_py(rbql_lines, tmp_path, delim, policy, output_delim, output_policy, csv_encoding, import_modules)
     except rbql.RBParsingError as e:
         print_error_and_exit('RBQL Parsing Error: \t{}'.format(e))
     if not os.path.isfile(tmp_path) or not os.access(tmp_path, os.R_OK):
@@ -87,6 +98,8 @@ def run_with_js(args):
         print_error_and_exit('Error: Node.js is not found, test command: "node --version"')
     delim = rbql.normalize_delim(args.delim)
     policy = args.policy
+    if policy is None:
+        policy = 'quoted' if delim in [';', ','] else 'simple'
     query = args.query
     query_path = args.query_file
     #convert_only = args.convert_only
@@ -94,6 +107,7 @@ def run_with_js(args):
     output_path = args.output_table_path
     import_modules = args.libs
     csv_encoding = args.csv_encoding
+    output_delim, output_policy = interpret_format(args.out_format)
 
     rbql_lines = None
     if query is None and query_path is None:
@@ -110,7 +124,7 @@ def run_with_js(args):
     tmp_dir = tempfile.gettempdir()
     script_filename = 'rbconvert_{}'.format(time.time()).replace('.', '_') + '.js'
     tmp_path = os.path.join(tmp_dir, script_filename)
-    rbql.parse_to_js(input_path, output_path, rbql_lines, tmp_path, delim, policy, csv_encoding, import_modules)
+    rbql.parse_to_js(input_path, output_path, rbql_lines, tmp_path, delim, policy, output_delim, output_policy, csv_encoding, import_modules)
     cmd = ['node', tmp_path]
     pobj = subprocess.Popen(cmd, stderr=subprocess.PIPE)
     err_data = pobj.communicate()[1]
@@ -139,6 +153,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--delim', help='Delimiter', default='\t')
     parser.add_argument('--policy', help='csv split policy', choices=['simple', 'quoted', 'monocolumn'])
+    parser.add_argument('--out_format', help='output format', default='tsv', choices=['csv', 'tsv'])
     parser.add_argument('--query', help='Query string in rbql')
     parser.add_argument('--query_file', metavar='FILE', help='Read rbql query from FILE')
     parser.add_argument('--input_table_path', metavar='FILE', help='Read csv table from FILE instead of stdin')
