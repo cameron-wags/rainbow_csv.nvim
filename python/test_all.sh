@@ -83,7 +83,7 @@ if [ "$sanity_len" != 32 ] || [ "$md5sum_test_1" != $md5sum_canonic ] || [ "$md5
     exit 1
 fi
 
-if [ $md5sum_update != "fcc44cf2080ec88b56062472bbd89c3b" ] ; then
+if [ "$md5sum_update" != "fcc44cf2080ec88b56062472bbd89c3b" ] ; then
     echo "FAIL! Update integration tests failed: md5sums"  1>&2
     exit 1
 fi

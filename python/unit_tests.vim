@@ -34,7 +34,8 @@
 :let g:rbql_meta_language = 'python'
 :e test_datasets/university_ranking.csv
 :RbSelect
-:call setline(11, "Update set a3 = 'United States' where a3.find('of America') != -1")
+:%delete
+:call setline(1, "Update set a3 = 'United States' where a3.find('of America') != -1")
 :RbRun
 :w! ./university_ranking.rs.tsv
 :bd!
