@@ -113,6 +113,18 @@ func! s:get_meta_language()
 endfunc
 
 
+func! s:has_python_27()
+    if !has("python")
+        return 0
+    endif
+    py import sys
+    if pyeval('sys.version_info[1]') < 7
+        return 0
+    endif
+    return 1
+endfunc
+
+
 func! s:create_recurrent_tip(tip_text)
     let b:rb_tip_text = a:tip_text
     augroup RainbowHintGrp
@@ -268,7 +280,7 @@ function! s:EnsurePythonInitialization()
         py3 import vim
         exe 'python3 sys.path.insert(0, "' . py_home_dir . '")'
         py3 import vim_rbql
-    elseif has("python") && !s:test_coverage()
+    elseif s:has_python_27() && !s:test_coverage()
         py import sys
         py import vim
         exe 'python sys.path.insert(0, "' . py_home_dir . '")'
@@ -736,7 +748,7 @@ func! s:run_select(table_buf_number, rb_script_path)
         let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)
     elseif has("python3")
         exe 'python3 ' . py_call
-    elseif has("python")
+    elseif s:has_python_27()
         exe 'python ' . py_call
     else
         call s:ShowImportantMessage("Error", ["Python not found, vim must have 'python' or 'python3' feature installed to run in this mode"])
