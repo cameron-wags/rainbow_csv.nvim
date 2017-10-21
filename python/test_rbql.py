@@ -26,6 +26,7 @@ default_csv_encoding = rbql.default_csv_encoding
 TEST_JS = True
 #TEST_JS = False #DBG
 
+#FIXME add monocolumn unit test
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -54,9 +55,14 @@ def quoted_join(fields, delim):
 def smart_join(fields, dlm, policy):
     if policy == 'simple':
         return dlm.join(fields)
-    else:
+    elif policy == 'quoted':
         assert dlm != '"'
         return quoted_join(fields, dlm)
+    elif policy == 'monocolumn':
+        assert len(fields) == 1
+        return fields[0]
+    else:
+        raise RuntimeError('Unknown policy')
 
 
 def smart_split(src, dlm, policy):
@@ -955,6 +961,42 @@ class TestEverything(unittest.TestCase):
             test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, ['null_value_in_output'], warnings)
+
+
+    def test_run21(self):
+        test_name = 'test21'
+
+        input_table = list()
+        input_table.append(['cde'])
+        input_table.append(['abc'])
+        input_table.append(['abc'])
+        input_table.append(['efg'])
+        input_table.append(['abc'])
+        input_table.append(['cde'])
+        input_table.append(['aaa'])
+        input_table.append(['abc'])
+
+        canonic_table = list()
+        canonic_table.append(['cde'])
+        canonic_table.append(['abc'])
+        canonic_table.append(['efg'])
+        canonic_table.append(['aaa'])
+
+        input_delim = ''
+        input_policy = 'monocolumn'
+        output_delim = '\t'
+        output_policy = 'simple'
+
+        query = r'select distinct a1'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = r'select distinct a1'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
 
 
 def calc_file_md5(fname):
