@@ -135,6 +135,7 @@ def strip_js_comments(cline):
 def py_source_escape(src):
     result = src.replace('\\', '\\\\')
     result = result.replace('\t', '\\t')
+    result = result.replace("'", r"\'")
     return result
 
 
@@ -376,7 +377,7 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
         py_meta_params['rhs_table_path'] = py_source_escape(rhs_table_path)
         py_meta_params['lhs_join_var'] = lhs_join_var
         py_meta_params['rhs_join_var'] = rhs_join_var
-        py_meta_params['join_delim'] = join_delim
+        py_meta_params['join_delim'] = py_source_escape(join_delim)
         py_meta_params['join_policy'] = join_policy
     else:
         py_meta_params['joiner_type'] = 'none_joiner'
@@ -466,7 +467,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim,
         js_meta_params['rhs_table_path'] ="'{}'".format(py_source_escape(rhs_table_path))
         js_meta_params['lhs_join_var'] = lhs_join_var
         js_meta_params['rhs_join_var'] = rhs_join_var
-        js_meta_params['join_delim'] = join_delim
+        js_meta_params['join_delim'] = py_source_escape(join_delim)
         js_meta_params['join_policy'] = join_policy
     else:
         js_meta_params['join_function'] = 'null_join'
