@@ -46,16 +46,24 @@ js_script_body = codecs.open(os.path.join(rbql_home_dir, 'template.js.raw'), enc
 py_script_body = codecs.open(os.path.join(rbql_home_dir, 'template.py.raw'), encoding='utf-8').read()
 
 
-def get_index_record(index_path, key):
+def try_read_index(index_path):
     lines = []
     try:
         with open(index_path) as f:
             lines = f.readlines()
     except Exception:
-        return None
+        return []
+    result = list()
     for line in lines:
         line = line.rstrip('\r\n')
         record = line.split('\t')
+        result.append(record)
+    return result
+
+
+def get_index_record(index_path, key):
+    records = try_read_index(index_path)
+    for record in records:
         if len(record) and record[0] == key:
             return record
     return None
