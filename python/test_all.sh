@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
 
+cleanup_tmp_files() {
+    rm movies.tsv.py.rs 2> /dev/null
+    rm movies.tsv.js.rs 2> /dev/null
+    rm movies.tsv.system_py.py.rs 2> /dev/null
+    rm movies.tsv.system_py.js.rs 2> /dev/null
+    #rm movies.tsv.f5_ui.py.rs 2> /dev/null
+    rm university_ranking.rs.tsv 2> /dev/null
+    rm vim_unit_tests.log 2> /dev/null
+    rm random_ut.csv 2> /dev/null
+    rm vim_debug.log 2> /dev/null
+    rm movies_small.tsv.csv 2> /dev/null
+    rm movies_small.tsv.csv.tsv 2> /dev/null
+}
+
 vim=vim
 skip_python_ut="False"
 
@@ -27,7 +41,7 @@ else
     echo "Skipping python unit tests"
 fi
 
-rm random_ut.csv 2> /dev/null
+cleanup_tmp_files
 
 python test_rbql.py --create_random_csv_table random_ut.csv
 
@@ -47,15 +61,6 @@ if [ "$md5sum_canonic" != "$md5sum_test" ] ; then
 fi
 
 #vim integration tests:
-rm movies.tsv.py.rs 2> /dev/null
-rm movies.tsv.js.rs 2> /dev/null
-rm movies.tsv.system_py.py.rs 2> /dev/null
-rm movies.tsv.system_py.js.rs 2> /dev/null
-#rm movies.tsv.f5_ui.py.rs 2> /dev/null
-rm university_ranking.rs.tsv 2> /dev/null
-
-rm vim_unit_tests.log 2> /dev/null
-rm vim_debug.log 2> /dev/null
 
 $vim -s unit_tests.vim -V0vim_debug.log -u test_vimrc
 errors=$( cat vim_debug.log | grep '^E[0-9][0-9]*' | wc -l )
@@ -68,12 +73,17 @@ if [ $total != 5 ] || [ $started != $finished ] || [ $fails != 0 ] ; then
     exit 1
 fi
 
+md5sum_movies_csv_canon="bb13547839020c33ba0da324fd0bb197"
+md5sum_movies_tsv_canon="2a8016ac2cb05f52a1fd391a909112f5"
+
 md5sum_test_1=($( md5sum movies.tsv.py.rs ))
 md5sum_test_2=($( md5sum movies.tsv.js.rs ))
 md5sum_test_3=($( md5sum movies.tsv.system_py.py.rs ))
 md5sum_test_4=($( md5sum movies.tsv.system_py.js.rs ))
 #md5sum_test_5=($( md5sum movies.tsv.f5_ui.py.rs ))
 md5sum_update=($( md5sum university_ranking.rs.tsv ))
+md5sum_movies_csv_test=($( md5sum movies_small.tsv.csv ))
+md5sum_movies_tsv_test=($( md5sum movies_small.tsv.csv.tsv ))
 
 md5sum_canonic=($( md5sum unit_tests/canonic_integration_1.tsv ))
 sanity_len=$( printf "$md5sum_canonic" | wc -c )
@@ -83,26 +93,21 @@ if [ "$sanity_len" != 32 ] || [ "$md5sum_test_1" != $md5sum_canonic ] || [ "$md5
     exit 1
 fi
 
+if [ "$md5sum_movies_csv_canon" != "$md5sum_movies_csv_test" ] || [ "$md5sum_movies_tsv_canon" != "$md5sum_movies_tsv_test" ] ; then
+    echo "FAIL! Integration tests failed: md5sums for movies_small"  1>&2
+    exit 1
+fi
+
 if [ "$md5sum_update" != "fcc44cf2080ec88b56062472bbd89c3b" ] ; then
     echo "FAIL! Update integration tests failed: md5sums"  1>&2
     exit 1
 fi
 
-rm movies.tsv.py.rs 2> /dev/null
-rm movies.tsv.js.rs 2> /dev/null
-rm movies.tsv.system_py.py.rs 2> /dev/null
-rm movies.tsv.system_py.js.rs 2> /dev/null
-#rm movies.tsv.f5_ui.py.rs 2> /dev/null
-rm university_ranking.rs.tsv 2> /dev/null
-
-rm vim_unit_tests.log 2> /dev/null
-
-rm random_ut.csv 2> /dev/null
-
 if [ $errors != 0 ] || [ ! -e vim_debug.log ] ; then
     echo "Warning: some errors were detected during vim integration testing, see vim_debug.log"  1>&2
-else
-    rm vim_debug.log 2> /dev/null
+    exit 1
 fi
+
+cleanup_tmp_files
 
 echo "Finished vim integration tests"

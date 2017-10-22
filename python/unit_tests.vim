@@ -8,11 +8,13 @@
 
 :let g:rbql_meta_language = 'python'
 :Select top 20 a1, * where a7.find('Adventure') != -1 order by int(a4) desc
+:sleep 1
 :w! ./movies.tsv.py.rs
 :bd!
 
 :let g:rbql_meta_language = 'js'
 :Select top 20 a1, * where a7.indexOf('Adventure') != -1 order by a4 * 1.0 desc
+:sleep 1
 :w! ./movies.tsv.js.rs
 :bd!
 
@@ -22,11 +24,13 @@
 
 :let g:rbql_meta_language = 'python'
 :Select top 20 a1, * where a7.find('Adventure') != -1 order by int(a4) desc
+:sleep 1
 :w! ./movies.tsv.system_py.py.rs
 :bd!
 
 :let g:rbql_meta_language = 'js'
 :Select top 20 a1, * where a7.indexOf('Adventure') != -1 order by a4 * 1.0 desc
+:sleep 1
 :w! ./movies.tsv.system_py.js.rs
 :bd!
 
@@ -37,8 +41,20 @@
 :%delete
 :call setline(1, "Update set a3 = 'United States' where a3.find('of America') != -1")
 :RbRun
+:sleep 1
 :w! ./university_ranking.rs.tsv
 :bd!
+
+
+:e unit_tests/movies_small.tsv
+:let g:rbql_output_format='csv'
+:Select *
+:sleep 1
+:w! ./movies_small.tsv.csv
+:let g:rbql_output_format='tsv'
+:Select *
+:sleep 1
+:w! ./movies_small.tsv.csv.tsv
 
 
 :call add(g:rbql_test_log_records, 'Finished full integration tests')
