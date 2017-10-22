@@ -32,6 +32,21 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
+def write_index(records, index_path):
+    with open(index_path, 'w') as f:
+        for record in records:
+            f.write('\t'.join(record) + '\n')
+
+
+def update_index(index_path, new_record, index_max_size):
+    records = rbql.try_read_index(index_path)
+    records = [rec for rec in records if not len(rec) or rec[0] != new_record[0]]
+    records.append(new_record)
+    if len(records) > index_max_size:
+        del records[0]
+    write_index(records, index_path)
+
+
 def stochastic_quote_field(src, delim):
     if src.find('"') != -1 or src.find(delim) != -1 or random.randint(0, 1) == 1:
         escaped = src.replace('"', '""')
@@ -438,8 +453,6 @@ class TestEverything(unittest.TestCase):
         input_table.append(['80', 'train', 'Thomas'])
 
         input_delim, input_policy, output_delim, output_policy = select_random_formats(input_table)
-        input_delim = ' '
-        input_policy = 'quoted'
 
         join_table = list()
         join_table.append(['bicycle', 'legs'])
@@ -447,10 +460,12 @@ class TestEverything(unittest.TestCase):
         join_table.append(['plane', 'wings  '])
         join_table.append(['boat', 'wind'])
         join_table.append(['rocket', 'some stuff'])
-        #FIXME use separate delim and policy for join
 
+        join_delim = ';'
+        join_policy = 'simple'
         join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
-        table_to_file(join_table, join_table_path, input_delim, input_policy)
+        table_to_file(join_table, join_table_path, join_delim, join_policy)
+        update_index(rbql.table_index_path, [join_table_path, join_delim, join_policy, ''], 100)
 
         canonic_table = list()
         canonic_table.append(['5', '10', 'boat', 'yacht ', 'boat', 'wind'])
@@ -994,6 +1009,50 @@ class TestEverything(unittest.TestCase):
 
         if TEST_JS:
             query = r'select distinct a1'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
+
+
+    def test_run22(self):
+        test_name = 'test22'
+
+        input_table = list()
+        input_table.append(['100', 'magic carpet', 'nimbus 3000'])
+        input_table.append(['5', 'car', 'lada'])
+        input_table.append(['-20', 'car', 'ferrari'])
+        input_table.append(['50', 'plane', 'tu-134'])
+        input_table.append(['20', 'boat', 'destroyer'])
+        input_table.append(['10', 'boat', 'yacht'])
+        input_table.append(['200', 'plane', 'boeing 737'])
+
+        input_delim, input_policy, output_delim, output_policy = select_random_formats(input_table)
+
+        join_table = list()
+        join_table.append(['bicycle'])
+        join_table.append(['car'])
+        join_table.append(['plane'])
+        join_table.append(['rocket'])
+
+        join_delim = ''
+        join_policy = 'monocolumn'
+        join_table_path = os.path.join(tempfile.gettempdir(), '{}_rhs_join_table.tsv'.format(test_name))
+        table_to_file(join_table, join_table_path, join_delim, join_policy)
+        update_index(rbql.table_index_path, [join_table_path, join_delim, join_policy, ''], 100)
+
+        canonic_table = list()
+        canonic_table.append(['5', 'car', 'lada'])
+        canonic_table.append(['-20', 'car', 'ferrari'])
+        canonic_table.append(['50', 'plane', 'tu-134'])
+        canonic_table.append(['200', 'plane', 'boeing 737'])
+
+        query = r'select a1,a2,a3 left join ' + join_table_path + ' on a2 == b1 where b1 is not None'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = r'select a1,a2,a3 left join ' + join_table_path + ' on a2 == b1 where b1 != null'
             test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
             self.compare_tables(canonic_table, test_table)
             compare_warnings(self, None, warnings)
