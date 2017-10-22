@@ -766,13 +766,13 @@ func! s:run_select(table_buf_number, rb_script_path)
         return 0
     endif
 
+    call s:update_table_record(psv_dst_table_path, out_delim, out_policy, '')
+
     execute "e " . psv_dst_table_path
     let b:self_path = psv_dst_table_path
     let b:root_table_buf_number = a:table_buf_number
     let b:self_buf_number = bufnr("%")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
-
-    call rainbow_csv#buffer_enable_rainbow(out_delim, out_policy, '')
 
     nnoremap <buffer> <F4> :bd!<cr>
     nnoremap <buffer> <F6> :call rainbow_csv#create_save_dialog(b:self_buf_number, b:self_path)<cr>
