@@ -489,6 +489,19 @@ func! s:status_escape_string(src)
 endfunc
 
 
+func! rainbow_csv#restore_statusline()
+    if !exists("b:statusline_before")
+        return
+    endif
+    augroup StatusDisableGrp
+        autocmd!
+    augroup END
+    let escaped_statusline = s:status_escape_string(b:statusline_before)
+    execute "set statusline=" . escaped_statusline
+    unlet b:statusline_before
+endfunc
+
+
 func! rainbow_csv#set_statusline_columns()
     if !s:is_rainbow_table()
         return
@@ -530,6 +543,10 @@ func! rainbow_csv#set_statusline_columns()
     let rb_statusline = s:status_escape_string(rb_statusline)
     execute "setlocal statusline=" . rb_statusline
     redraw!
+    augroup StatusDisableGrp
+        autocmd CursorHold * call rainbow_csv#restore_statusline()
+        autocmd CursorMoved * call rainbow_csv#restore_statusline()
+    augroup END
 endfunc
 
 
@@ -608,15 +625,22 @@ func! s:make_rbql_demo(num_fields, rbql_welcome_path)
 endfunc
 
 
-func! rainbow_csv#select_mode()
+func! rainbow_csv#select_from_file(qmode)
     if !s:is_rainbow_table()
-        echomsg "Error: rainbow_csv is disabled for this buffer"
+        echoerr "Error: rainbow_csv is disabled for this buffer"
         return
     endif
 
     if !s:EnsurePythonInitialization()
         echoerr "Python not found. Unable to run in this mode."
         return
+    endif
+
+    let lnum1 = -1
+    let lnum2 = -1
+    if a:qmode == "visual"
+        let lnum1 = getpos("'<")[1]
+        let lnum2 = getpos("'>")[1]
     endif
 
     if exists("b:selected_buf") && buflisted(b:selected_buf)
@@ -648,10 +672,14 @@ func! rainbow_csv#select_mode()
         return
     endif
 
-    nnoremap <buffer> <F5> :RbRun<cr>
+    let b:lnum1 = lnum1
+    let b:lnum2 = lnum2
+
     let b:table_path = buf_path
     let b:table_buf_number = buf_number
     let b:rainbow_select = 1
+
+    nnoremap <buffer> <F5> :call rainbow_csv#finish_query_editing()<cr>
 
     call s:generate_microlang_syntax(num_fields)
     if !already_exists
@@ -714,7 +742,7 @@ func! s:get_output_format_params()
 endfunc
 
 
-func! s:run_select(table_buf_number, rb_script_path)
+func! s:converged_select(table_buf_number, rb_script_path, lnum1, lnum2, query_buf_nr)
     if !s:EnsurePythonInitialization()
         echoerr "Python not found. Unable to run in this mode."
         return 0
@@ -726,7 +754,12 @@ func! s:run_select(table_buf_number, rb_script_path)
     let root_policy = getbufvar(a:table_buf_number, "rainbow_csv_policy")
 
     let table_path = expand("#" . a:table_buf_number . ":p")
-    if table_path == ""
+    if a:lnum1 != -1
+        let tmp_file_name = "tmp_table_" .  strftime("%Y_%m_%d_%H_%M_%S") . ".txt"
+        let table_path = s:rb_storage_dir . "/" . tmp_file_name
+        let src_lines = getbufline(a:table_buf_number, a:lnum1, a:lnum2)
+        call writefile(src_lines, table_path)
+    elseif table_path == ""
         "For unnamed buffers. E.g. can happen for stdin-read buffer: `cat data.tsv | vim -`
         let tmp_file_name = "tmp_table_" .  strftime("%Y_%m_%d_%H_%M_%S") . ".txt"
         let table_path = s:rb_storage_dir . "/" . tmp_file_name
@@ -766,9 +799,23 @@ func! s:run_select(table_buf_number, rb_script_path)
         return 0
     endif
 
-    call s:update_table_record(psv_dst_table_path, out_delim, out_policy, '')
+    if a:query_buf_nr != -1
+        execute "bd! " . a:query_buf_nr
+    endif
 
+    if a:lnum1 != -1
+        execute "b " . a:table_buf_number
+        let lines = readfile(psv_dst_table_path)
+        call cursor(a:lnum1, 1)
+        let num_old = a:lnum2 - a:lnum1 + 1
+        silent execute "delete " . num_old
+        call append(a:lnum1 - 1, lines)
+        return 1
+    endif
+
+    call s:update_table_record(psv_dst_table_path, out_delim, out_policy, '')
     execute "e " . psv_dst_table_path
+
     let b:self_path = psv_dst_table_path
     let b:root_table_buf_number = a:table_buf_number
     let b:self_buf_number = bufnr("%")
@@ -805,31 +852,40 @@ func! rainbow_csv#set_table_name_for_buffer(table_name)
 endfunction
 
 
-func! s:run_cmd_query(query)
+func! s:run_cmd_query(lnum1, lnum2, query)
     if !s:is_rainbow_table()
         echomsg "Error: rainbow_csv is disabled for this buffer"
+        return
+    endif
+    let ln1 = a:lnum1
+    let ln2 = a:lnum2
+    if ln1 == ln2
+        let ln1 = -1
+        let ln2 = -1
+    elseif visualmode() != "V"
+        echoerr "Only line-wise visual mode is supported"
         return
     endif
     let rb_script_path = s:get_rb_script_path_for_this_table()
     call writefile([a:query], rb_script_path)
     let table_buf_number = bufnr("%")
-    call s:run_select(table_buf_number, rb_script_path)
+    call s:converged_select(table_buf_number, rb_script_path, ln1, ln2, -1)
 endfunction
 
 
-func! rainbow_csv#run_select_cmd_query(query_string)
+func! rainbow_csv#run_select_cmd_query(lnum1, lnum2, query_string)
     let query = 'SELECT ' . a:query_string
-    call s:run_cmd_query(query)
+    call s:run_cmd_query(a:lnum1, a:lnum2, query)
 endfunction
 
 
-func! rainbow_csv#run_update_cmd_query(query_string)
+func! rainbow_csv#run_update_cmd_query(lnum1, lnum2, query_string)
     let query = 'UPDATE ' . a:query_string
-    call s:run_cmd_query(query)
+    call s:run_cmd_query(a:lnum1, a:lnum2, query)
 endfunction
 
 
-func! rainbow_csv#select_from_file()
+func! rainbow_csv#finish_query_editing()
     if !exists("b:rainbow_select")
         echoerr "Execute from rainbow query buffer"
         return
@@ -838,10 +894,7 @@ func! rainbow_csv#select_from_file()
     let rb_script_path = expand("%:p")
     let query_buf_nr = bufnr("%")
     let table_buf_number = b:table_buf_number
-    let success = s:run_select(table_buf_number, rb_script_path)
-    if success
-        execute "bd! " . query_buf_nr
-    endif
+    let success = s:converged_select(table_buf_number, rb_script_path, b:lnum1, b:lnum2, query_buf_nr)
 endfunc
 
 
@@ -961,7 +1014,8 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
     set nocompatible
     set number
 
-    nnoremap <buffer> <F5> :RbSelect<cr>
+    nnoremap <buffer> <F5> :call rainbow_csv#select_from_file("normal")<cr>
+    vnoremap <buffer> <F5> :<C-U>call rainbow_csv#select_from_file("visual")<cr>
     nnoremap <buffer> <Leader>d :RbGetColumn<cr>
 
     call rainbow_csv#regenerate_syntax(a:delim, a:policy)
