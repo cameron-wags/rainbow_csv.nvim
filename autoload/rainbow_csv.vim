@@ -417,7 +417,7 @@ endfunc
 func! s:read_column_names()
     let fname = expand("%:p")
     let headerName = fname . '.header'
-    if exists(b:rainbow_csv_header)
+    if exists("b:rainbow_csv_header")
         let headerName = b:rainbow_csv_header
     endif
     if (!filereadable(headerName))
