@@ -1,11 +1,11 @@
 ## Overview
 Rainbow CSV has 2 main features:
 * Highlights csv columns in different rainbow colors. 
-* Allows to run _SELECT_ and _UPDATE_ queries in RBQL: SQL-like transprogramming query language.
+* Provides _SELECT_ and _UPDATE_ queries in RBQL: SQL-like transprogramming query language.
 
 There are 2 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
-2. Manual CSV delimiter selection with _:RainbowDelim_ command (So you can use it even for non-csv files, e.g. to highlight function arguments in different colors)
+2. Manual CSV delimiter selection with _:RainbowDelim_ command (So you can use rainbow_csv for non-table files, e.g. to highlight function arguments in different colors)
 
 To run an RBQL query either press _F5_ or enter the query in vim command line e.g. _:Select a1, a2_
 
@@ -37,7 +37,7 @@ RBQL is a technology which provides SQL-like language that supports _SELECT_ and
 * [ [ STRICT ] LEFT | INNER ] JOIN
 
 #### Keywords rules
-All keywords have the same meaning as in SQL queries. You can check them online e.g. [here](https://www.w3schools.com/sql/default.asp)
+All keywords have the same meaning as in SQL queries. You can check them [online](https://www.w3schools.com/sql/default.asp)
 But there are also two new keywords: _DISTINCT COUNT_ and _STRICT LEFT JOIN_:
 * _DISTINCT COUNT_ is like _DISTINCT_, but adds a new column to the "distinct" result set: number of occurences of the entry, similar to _uniq -c_ unix command.
 * _STRICT LEFT JOIN_ is like _LEFT JOIN_, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".
@@ -51,11 +51,10 @@ Some other rules:
 
 | Variable Name          | Variable Type | Variable Description                 |
 |------------------------|---------------|--------------------------------------|
-| *                      |N/A            | Current record                       |
-| a1, a2, ... , a**N**   |string         | Value of i-th column                 |
-| b1, b2, ... , b**N**   |string         | Value of i-th column in join table B |
-| NR                     |integer        | Line number (1-based)                |
-| NF                     |integer        | Number of fields in line             |
+| **a1**, **a2**,...,**a**N   |string         | Value of i-th column                 |
+| **b1**, **b2**,...,**b**N   |string         | Value of i-th column in join table B |
+| **NR**                     |integer        | Line number (1-based)                |
+| **NF**                     |integer        | Number of fields in line             |
 
 ### Examples of RBQL queries
 
@@ -94,17 +93,12 @@ e.g. _:Update a1 = a1 + " " + a2_
 
 #### :RainbowDelim
 
-Mark current file as csv and highlight columns in rainbow colors. Character
+Mark current file as a table and highlight it's columns in rainbow colors. Character
 under the cursor will be used as a delimiter. The delimiter will be saved in a
 config file for future vim sessions.
 
 You can also use this command for non-csv files, e.g. to highlight function arguments
 in source code in different colors. To return back to original syntax highlighting run _:NoRainbowDelim_
-
-#### :NoRainbowDelim
-
-This command will disable rainbow columns highlighting for the current file.
-Use it to cancel _:RainbowDelim_ effect or when autodection mechanism has failed and marked non-csv file as csv 
 
 #### :RainbowDelimQuoted
 
@@ -115,14 +109,21 @@ Same as _:RainbowDelim_ but allows delimiters inside fields if the field is doub
 Mark the current file as rainbow table with a single column without delimiters. 
 You will be able to run RBQL queries on it using _a1_ column variable.
 
+#### :NoRainbowDelim
+
+This command will disable rainbow columns highlighting for the current file.
+Use it to cancel _:RainbowDelim_, _:RainbowDelimQuoted_ and _:RainbowMonoColumn_ effects or when autodection mechanism has failed and marked non-table file as a table
+
 #### :RainbowName \<name\>
 
-Assign any name to the table in the current buffer. You can use this name in join operation instead of the table path.
-e.g. you can now use:
-```JOIN customers ON a1 == b1``` 
-
+Assign any name to the current table. You can use this name in join operation instead of the table path. E.g.
+```
+JOIN customers ON a1 == b1
+``` 
 intead of:
-```JOIN /path/to/my/customers/table ON a1 == b1```
+```
+JOIN /path/to/my/customers/table ON a1 == b1
+```
 
 ### Configuration
 
