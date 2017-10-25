@@ -166,7 +166,7 @@ You can increase or decrease this limit.
 
 ### Optional "Header" file feature
 
-Rainbow csv allows you to create a special "header" file for your table files. It should have the same name as the table file but with ".header" suffix (e.g. for "input.tsv" the header file is "input.tsv.header"). The only purpose of header file is to provide csv column names for **\d** key.
+Rainbow csv allows you to create a special "header" file for any of your table files. It must have the same name as the table file but with ".header" suffix (e.g. for "table.tsv" table the header file is "table.tsv.header"). The only purpose of header file is to provide csv column names for **\d** key.
 It is also possible to use `:RainbowSetHeader <file_name>` command to set a differently named file as a header for the current table.
 
 ### Installation
