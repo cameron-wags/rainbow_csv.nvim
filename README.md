@@ -51,10 +51,10 @@ Some other rules:
 
 | Variable Name          | Variable Type | Variable Description                 |
 |------------------------|---------------|--------------------------------------|
-| **a1**, **a2**,...,**a**N   |string         | Value of i-th column                 |
-| **b1**, **b2**,...,**b**N   |string         | Value of i-th column in join table B |
-| **NR**                     |integer        | Line number (1-based)                |
-| **NF**                     |integer        | Number of fields in line             |
+| _a1_, _a2_,..., _a_N   |string         | Value of i-th column                 |
+| _b1_, _b2_,..., _b_N   |string         | Value of i-th column in join table B |
+| _NR_                     |integer        | Line number (1-based)                |
+| _NF_                     |integer        | Number of fields in line             |
 
 ### Examples of RBQL queries
 
