@@ -186,25 +186,27 @@ Python module rbql.py parses RBQL query, creates a new python worker module, the
 
 #### With Python expressions
 
-* `select a1, a2 where a2 in ["car", "plane", "boat"]` - use Python's "in" to emulate SQL's "in"
-* `update set a3 = 'United States' where a3.find('of America') != -1`
+* `select top 20 len(a1) / 10, a2 where a2 in ["car", "plane", "boat"]` - use Python's "in" to emulate SQL's "in"
+* `update set a3 = 'US' where a3.find('of America') != -1`
 * `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
 * `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
 * `select * order by int(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
 * `select NR, *` - enumerate lines, NR is 1-based
 * `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
-* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1` - an example of join query
+* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - an example of join query
+* `select distinct count len(a1) where a2 != 'US'`
 
 #### With JavaScript expressions
 
-* `select a1, a2 where ["car", "plane", "boat"].indexOf(a2) > -1`
-* `update set a3 = 'United States' where a3.indexOf('of America') != -1`
+* `select top 20 a1.length / 10, a2 where ["car", "plane", "boat"].indexOf(a2) > -1`
+* `update set a3 = 'US' where a3.indexOf('of America') != -1`
 * `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
 * `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
 * `select * order by parseInt(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
 * `select * order by Math.random()` - random sort, this is an equivalent of bash command "sort -R"
 * `select NR, *` - enumerate lines, NR is 1-based
-* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1` - an example of join query
+* `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - an example of join query
+* `select distinct count a1.length where a2 != 'US'`
 
 
 ### cli_rbql.py script
