@@ -70,6 +70,17 @@ Some other rules:
 
 # Plugin description
 
+### Rainbow highlighting for non-table files
+You can use rainbow highlighting and RBQL even for non-csv/tsv files.
+E.g. you can highlight records in log files, one-line xmls and other delimited records.
+You can even highlight function arguments in your programming language using comma as a delimiter for _:RainbowDelim_ command.
+And you can always turn off the rainbow highlighting using _:NoRainbowDelim_ command.
+
+Here is an example of how to extract some fields from a bunch of uniform single-line xmls:
+
+![demo_xml_screencast](https://i.imgur.com/WB49PLc.gifv)
+
+
 ### Mappings
 
 |Key                       | Action                                             |
