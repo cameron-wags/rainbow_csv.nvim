@@ -958,7 +958,6 @@ endfunc
 
 
 func! rainbow_csv#regenerate_syntax(delim, policy)
-    syntax clear
     if a:policy == 'quoted'
         call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
     elseif a:policy == 'simple'
