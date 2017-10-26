@@ -78,7 +78,7 @@ And you can always turn off the rainbow highlighting using _:NoRainbowDelim_ com
 
 Here is an example of how to extract some fields from a bunch of uniform single-line xmls:
 
-![demo_xml_screencast](https://i.imgur.com/WB49PLc.gifv)
+![demo_xml_screencast](https://i.imgur.com/WB49PLc.gif)
 
 
 ### Mappings
