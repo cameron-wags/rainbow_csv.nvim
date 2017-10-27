@@ -10,13 +10,13 @@ There are 2 ways to enable csv columns highlighting:
 To run an RBQL query either press _F5_ or enter the query in vim command line e.g. _:Select a1, a2_
 
 ### Demonstration of rainbow_csv highlighting and RBQL queries 
-1-st query with Python expressions and 2-nd query with JavaScript:
 
 
-![demo_screencast](https://raw.githubusercontent.com/mechatroner/rainbow_csv/master/demo/rbql_demo_2.gif)
+![demo_screencast](https://i.imgur.com/Tnk9KZv.gif)
 
 
 The demo table is _demo/movies.tsv_. There are also some other test datasets in _python/test\_datasets_.
+In this demo python expressions were used, but JavaScript is also available.
 
 
 # RBQL (RainBow Query Language) Description
