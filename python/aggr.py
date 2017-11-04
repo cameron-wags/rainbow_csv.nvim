@@ -66,16 +66,16 @@ class SubkeyChecker:
 
 
 aggr_init_stage = True
-initialization_counter = 0
+aggr_init_counter = 0
 functional_aggregators = list()
 
 
 def init_aggregator(generator_name, val):
-    global initialization_counter
-    assert initialization_counter == len(functional_aggregators)
+    global aggr_init_counter
+    assert aggr_init_counter == len(functional_aggregators)
     functional_aggregators.append(generator_name())
-    res = Marker(initialization_counter, val)
-    initialization_counter += 1
+    res = Marker(aggr_init_counter, val)
+    aggr_init_counter += 1
     return res
 
 
@@ -98,15 +98,12 @@ def main():
     #file_name = args.file_name
 
     global aggr_init_stage
-    global initialization_counter
 
     all_keys = set()
-    nfields = 0
     aggregators = []
     for line in sys.stdin:
         line = line.rstrip('\n')
         fields = line.split('\t')
-        nfields = max(nfields, len(fields))
 
         key = fields[1]
         all_keys.add(key)
