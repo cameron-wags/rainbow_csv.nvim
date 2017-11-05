@@ -62,3 +62,55 @@ def rows(f, chunksize=1024, sep='\n'):
             incomplete_row = chunk
 
 
+class Marker:
+    def __init__(self, marker_id, value):
+        self.marker_id = marker_id
+        self.value = value
+
+    def __str__(self):
+        raise TypeError('Marker')
+
+
+class MinAggregator:
+    def __init__(self):
+        self.stats = dict()
+
+    def increment(self, key, val):
+        cur_aggr = self.stats.get(key)
+        if cur_aggr is None:
+            self.stats[key] = val
+        else:
+            self.stats[key] = min(cur_aggr, val)
+
+    def get_final(self, key):
+        return self.stats[key]
+
+
+class MaxAggregator:
+    def __init__(self):
+        self.stats = dict()
+
+    def increment(self, key, val):
+        cur_aggr = self.stats.get(key)
+        if cur_aggr is None:
+            self.stats[key] = val
+        else:
+            self.stats[key] = max(cur_aggr, val)
+
+    def get_final(self, key):
+        return self.stats[key]
+
+
+class SubkeyChecker:
+    def __init__(self):
+        self.subkeys = dict()
+
+    def increment(self, key, subkey):
+        old_subkey = self.subkeys.get(key)
+        if old_subkey is None:
+            self.subkeys[key] = subkey
+        elif old_subkey != subkey:
+            raise RuntimeError('Unable to group by "{}", different values in output: "{}" and "{}"'.format(key, old_subkey, subkey))
+
+    def get_final(self, key):
+        return self.subkeys[key]

@@ -21,6 +21,7 @@ import io
 #This module must be both python2 and python3 compatible
 
 
+GROUP_BY = 'GROUP BY'
 UPDATE = 'UPDATE'
 SELECT = 'SELECT'
 SELECT_TOP = 'SELECT TOP'
@@ -264,6 +265,7 @@ def locate_statements(rbql_expression):
     statement_groups.append([ORDER_BY])
     statement_groups.append([WHERE])
     statement_groups.append([UPDATE])
+    statement_groups.append([GROUP_BY])
 
     result = list()
     for st_group in statement_groups:
@@ -367,6 +369,12 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
 
     if ORDER_BY in rb_actions and UPDATE in rb_actions:
         raise RBParsingError('"ORDER BY" is not allowed in "UPDATE" queries')
+
+    if GROUP_BY in rb_actions:
+        aggregation_key_expression = replace_column_vars(rb_actions[GROUP_BY]['text'])
+        py_meta_params['aggregation_key_expression'] = '[{}]'.format(combine_string_literals(aggregation_key_expression, string_literals))
+    else:
+        py_meta_params['aggregation_key_expression'] = 'None'
 
     if JOIN in rb_actions:
         rhs_table_id, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
