@@ -372,7 +372,6 @@ def select_simple(NR, NF, afields, bfields, out_fields):
 
 
 def select_aggregated(NR, NF, afields, bfields, transparent_values):
-    NF = len(afields)
     global aggregation_stage
     key = __RBQLMP__aggregation_key_expression
     if key is not None:
