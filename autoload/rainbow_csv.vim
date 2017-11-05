@@ -71,6 +71,10 @@ endfunc
 
 
 func! s:update_table_record(table_path, delim, policy, header_name)
+    if !len(a:table_path)
+        " for tmp buffers e.g. `cat table.csv | vim -`
+        return
+    endif
     let delim = a:delim == "\t" ? 'TAB' : a:delim
     let new_record = [a:table_path, delim, a:policy, a:header_name]
     let records = s:try_read_index(s:rainbow_table_index)
@@ -83,6 +87,9 @@ endfunc
 
 
 func! s:get_table_record(table_path)
+    if !len(a:table_path)
+        return []
+    endif
     let records = s:try_read_index(s:rainbow_table_index)
     for record in records
         if len(record) == 4 && record[0] == a:table_path
@@ -873,7 +880,7 @@ func! rainbow_csv#load_from_settings_or_autodetect()
     "reading record doesn't move it to the first position, can potentially be a problem
     if !len(record)
         let record = s:guess_table_record()
-        if len(record)
+        if len(record) && len(buffer_path)
             call s:update_table_record(buffer_path, record[0], record[1], record[2])
             let record = s:get_table_record(buffer_path)
             if !len(record)
