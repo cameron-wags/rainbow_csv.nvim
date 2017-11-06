@@ -398,6 +398,8 @@ def select_aggregated(NR, NF, afields, bfields, transparent_values):
         key = output_join(key, output_delim)
     if aggregation_stage == 1:
         global writer
+        if type(writer) is not SimpleWriter:
+            raise RbqlRuntimeError('Unable to use "ORDER BY" or "DISTINCT" keywords in aggregate query')
         writer = AggregateWriter(writer)
         for i, trans_value in enumerate(transparent_values):
             if isinstance(trans_value, rbql_utils.Marker):
