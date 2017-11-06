@@ -292,6 +292,7 @@ def locate_statements(rbql_expression):
 def separate_actions(rbql_expression):
     #TODO add more checks: 
     #make sure all rbql_expression was separated and SELECT or UPDATE is at the beginning
+    rbql_expression = rbql_expression.strip(' ')
     ordered_statements = locate_statements(rbql_expression)
     result = dict()
     for i in range(len(ordered_statements)):
@@ -310,8 +311,8 @@ def separate_actions(rbql_expression):
             statement = JOIN
 
         if statement == UPDATE:
-            if len(result):
-                raise RBParsingError('UPDATE must be the first statement in query')
+            if statement_start != 0:
+                raise RBParsingError('UPDATE keyword must be at the beginning of the query')
             span = re.sub('(?i)^ *SET ', '', span)
 
         if statement == ORDER_BY:
@@ -324,8 +325,8 @@ def separate_actions(rbql_expression):
                 statement_params['reverse'] = False
 
         if statement == SELECT:
-            if len(result):
-                raise RBParsingError('SELECT must be the first statement in query')
+            if statement_start != 0:
+                raise RBParsingError('SELECT keyword must be at the beginning of the query')
             match = re.match('(?i)^ *TOP *([0-9]+) ', span)
             if match is not None:
                 statement_params['top'] = int(match.group(1))
