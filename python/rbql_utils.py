@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 def split_quoted_str(src, dlm):
     assert dlm != '"'
     if src.find('"') == -1: #optimization for majority of lines
@@ -76,6 +78,7 @@ class MinAggregator:
         self.stats = dict()
 
     def increment(self, key, val):
+        val = float(val)
         cur_aggr = self.stats.get(key)
         if cur_aggr is None:
             self.stats[key] = val
@@ -91,6 +94,7 @@ class MaxAggregator:
         self.stats = dict()
 
     def increment(self, key, val):
+        val = float(val)
         cur_aggr = self.stats.get(key)
         if cur_aggr is None:
             self.stats[key] = val
@@ -99,6 +103,79 @@ class MaxAggregator:
 
     def get_final(self, key):
         return self.stats[key]
+
+
+class CountAggregator:
+    def __init__(self):
+        self.stats = defaultdict(int)
+
+    def increment(self, key, val):
+        self.stats[key] += 1
+
+    def get_final(self, key):
+        return self.stats[key]
+
+
+class SumAggregator:
+    def __init__(self):
+        self.stats = defaultdict(int)
+
+    def increment(self, key, val):
+        val = float(val)
+        self.stats[key] += val
+
+    def get_final(self, key):
+        return self.stats[key]
+
+
+class AvgAggregator:
+    def __init__(self):
+        self.stats = dict()
+
+    def increment(self, key, val):
+        val = float(val)
+        cur_aggr = self.stats.get(key)
+        if cur_aggr is None:
+            self.stats[key] = (val, 1)
+        else:
+            cur_sum, cur_cnt = cur_aggr
+            self.stats[key] = (cur_sum + val, cur_cnt + 1)
+
+    def get_final(self, key):
+        final_sum, final_cnt = self.stats[key]
+        return float(final_sum) / final_cnt
+
+
+class VarianceAggregator:
+    def __init__(self):
+        self.stats = dict()
+
+    def increment(self, key, val):
+        val = float(val)
+        cur_aggr = self.stats.get(key)
+        if cur_aggr is None:
+            self.stats[key] = (val, val ** 2, 1)
+        else:
+            cur_sum, cur_sum_of_squares, cur_cnt = cur_aggr
+            self.stats[key] = (cur_sum + val, cur_sum_of_squares + val ** 2, cur_cnt + 1)
+
+    def get_final(self, key):
+        final_sum, final_sum_of_squares, final_cnt = self.stats[key]
+        return float(final_sum_of_squares) / final_cnt - (float(final_sum) / final_cnt) ** 2
+
+
+class MedianAggregator:
+    def __init__(self):
+        self.stats = defaultdict(list)
+
+    def increment(self, key, val):
+        val = float(val)
+        self.stats[key].append(val)
+
+    def get_final(self, key):
+        sorted_vals = sorted(self.stats[key])
+        result = sorted_vals[int(len(sorted_vals) / 2)]
+        return result
 
 
 class SubkeyChecker:

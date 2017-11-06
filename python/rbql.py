@@ -178,6 +178,10 @@ def replace_column_vars(rbql_expression):
     return translated
 
 
+def replace_star_count(aggregate_expression):
+    return re.sub(r'(^|(?<=,)) *COUNT\( *\* *\) *($|(?=,))', ' COUNT(1)', aggregate_expression).lstrip(' ')
+
+
 def replace_star_vars_py(rbql_expression):
     rbql_expression = re.sub(r'(?:^|,) *\* *(?=, *\* *($|,))', '] + star_fields + [', rbql_expression)
     rbql_expression = re.sub(r'(?:^|,) *\* *(?:$|,)', '] + star_fields + [', rbql_expression)
@@ -206,7 +210,8 @@ def translate_update_expression(update_expression, indent):
 
 
 def translate_select_expression_py(select_expression):
-    translated = replace_column_vars(select_expression)
+    translated = replace_star_count(select_expression)
+    translated = replace_column_vars(translated)
     translated = replace_star_vars_py(translated)
     translated = translated.strip()
     if not len(translated):

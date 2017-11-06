@@ -99,6 +99,26 @@ def MAX(val):
     return init_aggregator(rbql_utils.MaxAggregator, val) if aggregation_stage < 2 else val
 
 
+def COUNT(val):
+    return init_aggregator(rbql_utils.CountAggregator, 1) if aggregation_stage < 2 else 1
+
+
+def SUM(val):
+    return init_aggregator(rbql_utils.SumAggregator, val) if aggregation_stage < 2 else val
+
+
+def AVG(val):
+    return init_aggregator(rbql_utils.AvgAggregator, val) if aggregation_stage < 2 else val
+
+
+def VARIANCE(val):
+    return init_aggregator(rbql_utils.VarianceAggregator, val) if aggregation_stage < 2 else val
+
+
+def MEDIAN(val):
+    return init_aggregator(rbql_utils.MedianAggregator, val) if aggregation_stage < 2 else val
+
+
 def quote_field(src, delim):
     if src.find('"') != -1 or src.find(delim) != -1:
         escaped = src.replace('"', '""')
