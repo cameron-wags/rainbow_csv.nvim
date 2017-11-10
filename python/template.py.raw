@@ -80,13 +80,23 @@ functional_aggregators = list()
 
 writer = None
 
+
+class Marker:
+    def __init__(self, marker_id, value):
+        self.marker_id = marker_id
+        self.value = value
+
+    def __str__(self):
+        raise TypeError('Marker')
+
+
 def init_aggregator(generator_name, val):
     global aggregation_stage
     global aggr_init_counter
     aggregation_stage = 1
     assert aggr_init_counter == len(functional_aggregators)
     functional_aggregators.append(generator_name())
-    res = rbql_utils.Marker(aggr_init_counter, val)
+    res = Marker(aggr_init_counter, val)
     aggr_init_counter += 1
     return res
 
@@ -402,7 +412,7 @@ def select_aggregated(NR, NF, afields, bfields, transparent_values):
             raise RbqlRuntimeError('Unable to use "ORDER BY" or "DISTINCT" keywords in aggregate query')
         writer = AggregateWriter(writer)
         for i, trans_value in enumerate(transparent_values):
-            if isinstance(trans_value, rbql_utils.Marker):
+            if isinstance(trans_value, Marker):
                 writer.aggregators.append(functional_aggregators[trans_value.marker_id])
                 writer.aggregators[-1].increment(key, trans_value.value)
             else:

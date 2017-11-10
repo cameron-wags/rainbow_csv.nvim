@@ -64,15 +64,6 @@ def rows(f, chunksize=1024, sep='\n'):
             incomplete_row = chunk
 
 
-class Marker:
-    def __init__(self, marker_id, value):
-        self.marker_id = marker_id
-        self.value = value
-
-    def __str__(self):
-        raise TypeError('Marker')
-
-
 class MinAggregator:
     def __init__(self):
         self.stats = dict()

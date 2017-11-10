@@ -474,6 +474,14 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim,
     js_meta_params['output_delim'] = py_source_escape(out_delim)
     js_meta_params['output_policy'] = out_policy
 
+    if GROUP_BY in rb_actions:
+        if ORDER_BY in rb_actions or UPDATE in rb_actions:
+            raise RBParsingError('"ORDER BY" and "UPDATE" are not allowed in aggregate queries')
+        aggregation_key_expression = replace_column_vars(rb_actions[GROUP_BY]['text'])
+        js_meta_params['aggregation_key_expression'] = '[{}]'.format(combine_string_literals(aggregation_key_expression, string_literals))
+    else:
+        js_meta_params['aggregation_key_expression'] = 'null'
+
     if JOIN in rb_actions:
         rhs_table_id, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
         rhs_table_path = find_table_path(rhs_table_id)

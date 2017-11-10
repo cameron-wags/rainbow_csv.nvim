@@ -41,4 +41,62 @@ function split_quoted_str(src, dlm) {
     return [result, warning];
 }
 
+
+function MinAggregator() {
+    this.stats = new Map();
+
+    this.increment = function(key, val) {
+        var cur_aggr = this.stats.get(key);
+        if (cur_aggr === undefined) {
+            this.stats.set(key, val);
+        } else {
+            this.stats.set(key, Math.min(cur_aggr, val));
+        }
+    }
+
+    this.get_final = function(key) {
+        return this.stats.get(key);
+    }
+}
+
+
+function MaxAggregator() {
+    this.stats = new Map();
+
+    this.increment = function(key, val) {
+        var cur_aggr = this.stats.get(key);
+        if (cur_aggr === undefined) {
+            this.stats.set(key, val);
+        } else {
+            this.stats.set(key, Math.max(cur_aggr, val));
+        }
+    }
+
+    this.get_final = function(key) {
+        return this.stats.get(key);
+    }
+}
+
+
+function SubkeyChecker() {
+    this.subkeys = new Map();
+
+    this.increment = function(key, subkey) {
+        var old_subkey = this.subkeys.get(key);
+        if (old_subkey === undefined) {
+            this.subkeys.set(key, subkey);
+        } else if (old_subkey != subkey) {
+            throw 'Unable to group by "' + key + '", different values in output: "' + old_subkey + '" and "' + subkey + '"';
+        }
+    }
+
+    this.get_final = function(key) {
+        return this.subkeys.get(key);
+    }
+}
+
+
 module.exports.split_quoted_str = split_quoted_str;
+module.exports.MinAggregator = MinAggregator;
+module.exports.MaxAggregator = MaxAggregator;
+module.exports.SubkeyChecker = SubkeyChecker;

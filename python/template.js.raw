@@ -19,6 +19,13 @@ function exit_with_error_msg(error_msg) {
 }
 
 
+function assert(condition, message) {
+    if (!condition) {
+        exit_with_error_msg(message);
+    }
+}
+
+
 function quote_field(src, delim) {
     if (src.indexOf('"') != -1 || src.indexOf(delim) != -1) {
         var escaped = src.replace(/"/g, '""');
@@ -110,16 +117,49 @@ if (dst_table_path != null) {
 
 var NR = 0;
 
+// For warnings:
 var join_fields_info = new Object();
 var input_fields_info = new Object();
 var null_value_in_output = false;
 var defective_csv_line_in_input = 0
 var defective_csv_line_in_join = 0
 
+// Aggregators:
+var aggregation_stage = 0;
+var aggr_init_counter = 0;
+var functional_aggregators = [];
+
+
+function Marker(marker_id, value) {
+    this.marker_id = marker_id;
+    this.value = value;
+    this.toString = function() {
+        exit_with_error_msg('Unsupported aggregate expression');
+    }
+}
+
+
+function init_aggregator(generator_name, val) {
+    aggregation_stage = 1;
+    assert(aggr_init_counter == functional_aggregators.length, 'Unable to process aggregation expression');
+    functional_aggregators.push(new generator_name());
+    var res = new Marker(aggr_init_counter, val);
+    aggr_init_counter += 1;
+    return res;
+}
+
+
+function MIN(val) {
+    return aggregation_stage < 2 ? init_aggregator(rbql_utils.MinAggregator, val) : val;
+}
+
+
+function MAX(val) {
+    return aggregation_stage < 2 ? init_aggregator(rbql_utils.MaxAggregator, val) : val;
+}
+
 
 function add_to_set(dst_set, value) {
-    // https://stackoverflow.com/a/27427447/2898283
-    // TODO run tests to compare performance
     var len_before = dst_set.size;
     dst_set.add(value);
     return len_before != dst_set.size;
@@ -209,6 +249,26 @@ function SortedWriter(subwriter) {
         for (var i = 0; i < unsorted_entries.length; i++) {
             entry = unsorted_entries[i];
             if (!this.subwriter.write(entry[entry.length - 1]))
+                break;
+        }
+        this.subwriter.finish();
+    }
+}
+
+
+function AggregateWriter(subwriter) {
+    this.subwriter = subwriter;
+    this.aggregators = [];
+    this.aggregation_keys = new Set();
+
+    this.finish = function() {
+        for (var key of this.aggregation_keys) {
+            var out_fields = [];
+            for (var ag of this.aggregators) {
+                out_fields.push(ag.get_final(key));
+            }
+            var out_record = output_join(out_fields, output_delim);
+            if (!this.subwriter.write(out_record))
                 break;
         }
         this.subwriter.finish();
@@ -367,6 +427,52 @@ function process_update(NF, afields, rhs_records) {
 }
 
 
+function select_simple(NF, afields, bfields, out_fields) {
+    replace_null_values(out_fields);
+    var out_record = output_join(out_fields, output_delim);
+    if (__RBQLMP__sort_flag) {
+        var sort_entry = [__RBQLMP__sort_key_expression, NR, out_record];
+        if (!writer.write(sort_entry))
+            return false;
+    } else {
+        if (!writer.write(out_record))
+            return false;
+    }
+    return true;
+}
+
+
+function select_aggregated(NF, afields, bfields, transparent_values) {
+    var key = __RBQLMP__aggregation_key_expression
+    if (key !== null) {
+        key = output_join(key, output_delim);
+    }
+    if (aggregation_stage === 1) {
+        if (!(writer instanceof SimpleWriter)) {
+            exit_with_error_msg('Unable to use "ORDER BY" or "DISTINCT" keywords in aggregate query');
+        }
+        writer = new AggregateWriter(writer);
+        for (var i = 0; i < transparent_values.length; i++) {
+            var trans_value = transparent_values[i];
+            if (trans_value instanceof Marker) {
+                writer.aggregators.push(functional_aggregators[trans_value.marker_id]);
+                writer.aggregators[writer.aggregators.length - 1].increment(key, trans_value.value);
+            } else {
+                writer.aggregators.push(new rbql_utils.SubkeyChecker());
+                writer.aggregators[writer.aggregators.length - 1].increment(key, trans_value);
+            }
+        }
+        aggregation_stage = 2;
+    } else {
+        for (var i = 0; i < transparent_values.length; i++) {
+            var trans_value = transparent_values[i];
+            writer.aggregators[i].increment(key, trans_value);
+        }
+    }
+    writer.aggregation_keys.add(key)
+}
+
+
 function process_select(NF, afields, rhs_records) {
     if (rhs_records == null)
         rhs_records = [null];
@@ -378,14 +484,10 @@ function process_select(NF, afields, rhs_records) {
         if (!(__RBQLMP__where_expression))
             continue;
         var out_fields = __RBQLMP__select_expression;
-        replace_null_values(out_fields);
-        var out_record = output_join(out_fields, output_delim);
-        if (__RBQLMP__sort_flag) {
-            var sort_entry = [__RBQLMP__sort_key_expression, NR, out_record];
-            if (!writer.write(sort_entry))
-                return false;
+        if (aggregation_stage > 0) {
+            select_aggregated(NF, afields, bfields, out_fields);
         } else {
-            if (!writer.write(out_record))
+            if (!select_simple(NF, afields, bfields, out_fields))
                 return false;
         }
     }
@@ -395,7 +497,7 @@ function process_select(NF, afields, rhs_records) {
 
 function process_line(line) {
     NR += 1;
-    //readline strips last '\r'
+    // readline strips last '\r'
     var split_result = input_split(line);
     var afields = split_result[0];
     var warning = split_result[1];
@@ -408,6 +510,7 @@ function process_line(line) {
         rhs_records = null;
         if (join_map != null)
             rhs_records = __RBQLMP__join_function(__RBQLMP__lhs_join_var);
+        // __RBQLMP__process_function below is either "process_select" or "process_update"
         if (!__RBQLMP__process_function(NF, afields, rhs_records)) {
             lineReader.close();
             return;
@@ -415,6 +518,9 @@ function process_line(line) {
     } catch (e) {
         if (e instanceof BadFieldError) {
             exit_with_error_msg('No "a' + (e.idx + 1) + '" column at line: ' + NR);
+        }
+        if (typeof e === 'string') {
+            exit_with_error_msg('Error while processing line ' + NR + ': "' + e + '"');
         }
         throw(e);
     }
