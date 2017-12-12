@@ -81,7 +81,7 @@ functional_aggregators = list()
 writer = None
 
 
-class Marker:
+class Marker(object):
     def __init__(self, marker_id, value):
         self.marker_id = marker_id
         self.value = value
@@ -187,7 +187,7 @@ def add_to_set(dst_set, value):
     return len_before != len(dst_set)
 
 
-class SimpleWriter:
+class SimpleWriter(object):
     def __init__(self, dst):
         self.dst = dst
         self.NW = 0
@@ -204,7 +204,7 @@ class SimpleWriter:
         pass
 
 
-class UniqWriter:
+class UniqWriter(object):
     def __init__(self, dst):
         self.dst = dst
         self.seen = set()
@@ -224,7 +224,7 @@ class UniqWriter:
         pass
 
 
-class UniqCountWriter:
+class UniqCountWriter(object):
     # we can't optimize this for ordered result set:
     # they might be ordered not by output records, but by some other expression
     def __init__(self, dst):
@@ -248,7 +248,7 @@ class UniqCountWriter:
             NW += 1
 
 
-class SortedWriter:
+class SortedWriter(object):
     def __init__(self, subwriter):
         self.subwriter = subwriter
         self.unsorted_entries = list()
@@ -267,7 +267,7 @@ class SortedWriter:
         self.subwriter.finish()
 
 
-class AggregateWriter:
+class AggregateWriter(object):
     def __init__(self, subwriter):
         self.subwriter = subwriter
         self.aggregators = []
@@ -312,7 +312,7 @@ def none_joiner(path):
     return None
 
 
-class InnerJoiner:
+class InnerJoiner(object):
     def __init__(self, join_table_path):
         self.join_data, self.fields_max_len = read_join_table(join_table_path)
 
@@ -320,7 +320,7 @@ class InnerJoiner:
         return self.join_data.get(lhs_key, [])
 
 
-class LeftJoiner:
+class LeftJoiner(object):
     def __init__(self, join_table_path):
         self.join_data, self.fields_max_len = read_join_table(join_table_path)
         self.null_record = [[None] * self.fields_max_len]
@@ -329,7 +329,7 @@ class LeftJoiner:
         return self.join_data.get(lhs_key, self.null_record)
 
 
-class StrictLeftJoiner:
+class StrictLeftJoiner(object):
     def __init__(self, join_table_path):
         self.join_data, self.fields_max_len = read_join_table(join_table_path)
 

@@ -46,6 +46,7 @@ function MinAggregator() {
     this.stats = new Map();
 
     this.increment = function(key, val) {
+        val = parseFloat(val);
         var cur_aggr = this.stats.get(key);
         if (cur_aggr === undefined) {
             this.stats.set(key, val);
@@ -64,6 +65,7 @@ function MaxAggregator() {
     this.stats = new Map();
 
     this.increment = function(key, val) {
+        val = parseFloat(val);
         var cur_aggr = this.stats.get(key);
         if (cur_aggr === undefined) {
             this.stats.set(key, val);
@@ -74,6 +76,116 @@ function MaxAggregator() {
 
     this.get_final = function(key) {
         return this.stats.get(key);
+    }
+}
+
+
+function CountAggregator() {
+    this.stats = new Map();
+
+    this.increment = function(key, val) {
+        var cur_aggr = this.stats.get(key);
+        if (cur_aggr === undefined) {
+            this.stats.set(key, 1);
+        } else {
+            this.stats.set(key, cur_aggr + 1);
+        }
+    }
+
+    this.get_final = function(key) {
+        return this.stats.get(key);
+    }
+}
+
+
+function SumAggregator() {
+    this.stats = new Map();
+
+    this.increment = function(key, val) {
+        val = parseFloat(val);
+        var cur_aggr = this.stats.get(key);
+        if (cur_aggr === undefined) {
+            this.stats.set(key, val);
+        } else {
+            this.stats.set(key, cur_aggr + val);
+        }
+    }
+
+    this.get_final = function(key) {
+        return this.stats.get(key);
+    }
+}
+
+
+function AvgAggregator() {
+    this.stats = new Map();
+
+    this.increment = function(key, val) {
+        val = parseFloat(val);
+        var cur_aggr = this.stats.get(key);
+        if (cur_aggr === undefined) {
+            this.stats.set(key, [val, 1]);
+        } else {
+            var cur_sum = cur_aggr[0];
+            var cur_cnt = cur_aggr[1];
+            this.stats.set(key, [cur_sum + val, cur_cnt + 1]);
+        }
+    }
+
+    this.get_final = function(key) {
+        var cur_aggr = this.stats.get(key);
+        var cur_sum = cur_aggr[0];
+        var cur_cnt = cur_aggr[1];
+        return cur_sum / cur_cnt;
+    }
+}
+
+
+function VarianceAggregator() {
+    this.stats = new Map();
+
+    this.increment = function(key, val) {
+        val = parseFloat(val);
+        var cur_aggr = this.stats.get(key);
+        if (cur_aggr === undefined) {
+            this.stats.set(key, [val, val * val, 1]);
+        } else {
+            var cur_sum = cur_aggr[0];
+            var cur_sum_sq = cur_aggr[1];
+            var cur_cnt = cur_aggr[2];
+            this.stats.set(key, [cur_sum + val, cur_sum_sq + val * val, cur_cnt + 1]);
+        }
+    }
+
+    this.get_final = function(key) {
+        var cur_aggr = this.stats.get(key);
+        var cur_sum = cur_aggr[0];
+        var cur_sum_sq = cur_aggr[1];
+        var cur_cnt = cur_aggr[2];
+        var avg_val = cur_sum / cur_cnt;
+        return cur_sum_sq / cur_cnt - avg_val * avg_val;
+    }
+}
+
+
+function MedianAggregator() {
+    this.stats = new Map();
+
+    this.increment = function(key, val) {
+        val = parseFloat(val);
+        var cur_aggr = this.stats.get(key);
+        if (cur_aggr === undefined) {
+            this.stats.set(key, [val]);
+        } else {
+            cur_aggr.push(val);
+            this.stats.set(key, cur_aggr); // do we really need to do this? mutable cur_aggr already holds a reference to the value
+        }
+    }
+
+    this.get_final = function(key) {
+        var cur_aggr = this.stats.get(key);
+        cur_aggr.sort();
+        return cur_aggr[Math.floor(cur_aggr.length / 2)];
     }
 }
 
@@ -97,6 +209,13 @@ function SubkeyChecker() {
 
 
 module.exports.split_quoted_str = split_quoted_str;
+
 module.exports.MinAggregator = MinAggregator;
 module.exports.MaxAggregator = MaxAggregator;
+module.exports.CountAggregator = CountAggregator;
+module.exports.SumAggregator = SumAggregator;
+module.exports.AvgAggregator = AvgAggregator;
+module.exports.VarianceAggregator = VarianceAggregator;
+module.exports.MedianAggregator = MedianAggregator;
+
 module.exports.SubkeyChecker = SubkeyChecker;

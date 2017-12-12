@@ -158,6 +158,26 @@ function MAX(val) {
     return aggregation_stage < 2 ? init_aggregator(rbql_utils.MaxAggregator, val) : val;
 }
 
+function COUNT(val) {
+    return aggregation_stage < 2 ? init_aggregator(rbql_utils.CountAggregator, 1) : 1;
+}
+
+function SUM(val) {
+    return aggregation_stage < 2 ? init_aggregator(rbql_utils.SumAggregator, val) : val;
+}
+
+function AVG(val) {
+    return aggregation_stage < 2 ? init_aggregator(rbql_utils.AvgAggregator, val) : val;
+}
+
+function VARIANCE(val) {
+    return aggregation_stage < 2 ? init_aggregator(rbql_utils.VarianceAggregator, val) : val;
+}
+
+function MEDIAN(val) {
+    return aggregation_stage < 2 ? init_aggregator(rbql_utils.MedianAggregator, val) : val;
+}
+
 
 function add_to_set(dst_set, value) {
     var len_before = dst_set.size;
