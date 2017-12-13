@@ -64,12 +64,27 @@ def rows(f, chunksize=1024, sep='\n'):
             incomplete_row = chunk
 
 
+class NumHandler:
+    def __init__(self):
+        self.is_int = True
+    
+    def parse(self, str_val):
+        if not self.is_int:
+            return float(str_val)
+        try:
+            return int(str_val)
+        except ValueError:
+            self.is_int = False
+            return float(str_val)
+
+
 class MinAggregator:
     def __init__(self):
         self.stats = dict()
+        self.num_handler = NumHandler()
 
     def increment(self, key, val):
-        val = float(val)
+        val = self.num_handler.parse(val)
         cur_aggr = self.stats.get(key)
         if cur_aggr is None:
             self.stats[key] = val
@@ -83,9 +98,10 @@ class MinAggregator:
 class MaxAggregator:
     def __init__(self):
         self.stats = dict()
+        self.num_handler = NumHandler()
 
     def increment(self, key, val):
-        val = float(val)
+        val = self.num_handler.parse(val)
         cur_aggr = self.stats.get(key)
         if cur_aggr is None:
             self.stats[key] = val
@@ -110,9 +126,10 @@ class CountAggregator:
 class SumAggregator:
     def __init__(self):
         self.stats = defaultdict(int)
+        self.num_handler = NumHandler()
 
     def increment(self, key, val):
-        val = float(val)
+        val = self.num_handler.parse(val)
         self.stats[key] += val
 
     def get_final(self, key):
@@ -158,15 +175,20 @@ class VarianceAggregator:
 class MedianAggregator:
     def __init__(self):
         self.stats = defaultdict(list)
+        self.num_handler = NumHandler()
 
     def increment(self, key, val):
-        val = float(val)
+        val = self.num_handler.parse(val)
         self.stats[key].append(val)
 
     def get_final(self, key):
         sorted_vals = sorted(self.stats[key])
-        result = sorted_vals[int(len(sorted_vals) / 2)]
-        return result
+        assert len(sorted_vals)
+        m = int(len(sorted_vals) / 2)
+        if len(sorted_vals) % 2:
+            return sorted_vals[m]
+        else:
+            return (sorted_vals[m - 1] + sorted_vals[m]) / 2.0
 
 
 class SubkeyChecker:
