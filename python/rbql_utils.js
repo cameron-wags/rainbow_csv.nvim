@@ -1,3 +1,9 @@
+//function debug_dump(data) {
+//    fs = require('fs');
+//    fs.appendFile('./last_run.log', data);
+//}
+
+
 function split_quoted_str(src, dlm) {
     if (src.indexOf('"') == -1)
         return [src.split(dlm), false];
@@ -184,8 +190,13 @@ function MedianAggregator() {
 
     this.get_final = function(key) {
         var cur_aggr = this.stats.get(key);
-        cur_aggr.sort();
-        return cur_aggr[Math.floor(cur_aggr.length / 2)];
+        cur_aggr.sort(function(a, b) { return a - b; });
+        var m = Math.floor(cur_aggr.length / 2);
+        if (cur_aggr.length % 2) {
+            return cur_aggr[m];
+        } else {
+            return (cur_aggr[m - 1] + cur_aggr[m]) / 2.0;
+        }
     }
 }
 

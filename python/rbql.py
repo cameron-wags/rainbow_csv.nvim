@@ -220,7 +220,8 @@ def translate_select_expression_py(select_expression):
 
 
 def translate_select_expression_js(select_expression):
-    translated = replace_column_vars(select_expression)
+    translated = replace_star_count(select_expression)
+    translated = replace_column_vars(translated)
     translated = replace_star_vars_js(translated)
     translated = translated.strip()
     if not len(translated):
