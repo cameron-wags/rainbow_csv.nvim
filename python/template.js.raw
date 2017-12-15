@@ -282,7 +282,10 @@ function AggregateWriter(subwriter) {
     this.aggregation_keys = new Set();
 
     this.finish = function() {
-        for (var key of this.aggregation_keys) {
+        var all_keys = Array.from(this.aggregation_keys);
+        all_keys.sort();
+        for (var i = 0; i < all_keys.length; i++) {
+            var key = all_keys[i];
             var out_fields = [];
             for (var ag of this.aggregators) {
                 out_fields.push(ag.get_final(key));

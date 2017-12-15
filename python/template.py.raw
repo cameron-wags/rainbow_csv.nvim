@@ -274,7 +274,8 @@ class AggregateWriter(object):
         self.aggregation_keys = set()
 
     def finish(self):
-        for key in self.aggregation_keys:
+        all_keys = sorted(list(self.aggregation_keys))
+        for key in all_keys:
             out_fields = [ag.get_final(key) for ag in self.aggregators]
             out_record = output_join(out_fields, output_delim)
             if not self.subwriter.write(out_record):

@@ -136,6 +136,19 @@ class SumAggregator:
         return self.stats[key]
 
 
+def pretty_format(val):
+    if val == 0:
+        return '0.0'
+    if abs(val) < 1:
+        return str(val)
+    formatted = "{0:.6f}".format(val)
+    if formatted.find('.') != -1:
+        formatted = formatted.rstrip('0')
+    if formatted.endswith('.'):
+        formatted += '0'
+    return formatted
+
+
 class AvgAggregator:
     def __init__(self):
         self.stats = dict()
@@ -151,7 +164,8 @@ class AvgAggregator:
 
     def get_final(self, key):
         final_sum, final_cnt = self.stats[key]
-        return float(final_sum) / final_cnt
+        avg = float(final_sum) / final_cnt
+        return pretty_format(avg)
 
 
 class VarianceAggregator:
@@ -169,7 +183,9 @@ class VarianceAggregator:
 
     def get_final(self, key):
         final_sum, final_sum_of_squares, final_cnt = self.stats[key]
-        return float(final_sum_of_squares) / final_cnt - (float(final_sum) / final_cnt) ** 2
+        variance = float(final_sum_of_squares) / final_cnt - (float(final_sum) / final_cnt) ** 2
+        return pretty_format(variance)
+
 
 
 class MedianAggregator:
@@ -188,7 +204,9 @@ class MedianAggregator:
         if len(sorted_vals) % 2:
             return sorted_vals[m]
         else:
-            return (sorted_vals[m - 1] + sorted_vals[m]) / 2.0
+            a = sorted_vals[m - 1]
+            b = sorted_vals[m]
+            return a if a == b else (a + b) / 2.0
 
 
 class SubkeyChecker:

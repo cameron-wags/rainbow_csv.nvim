@@ -123,6 +123,20 @@ function SumAggregator() {
 }
 
 
+function pretty_format(val) {
+    if (val == 0)
+        return '0.0'
+    var res = val.toFixed(6);
+    if (res.indexOf('.') != -1) {
+        res = res.replace(/0*$/, '')
+        if (res.endsWith('.')) {
+            res += '0';
+        }
+    }
+    return res;
+}
+
+
 function AvgAggregator() {
     this.stats = new Map();
 
@@ -142,7 +156,8 @@ function AvgAggregator() {
         var cur_aggr = this.stats.get(key);
         var cur_sum = cur_aggr[0];
         var cur_cnt = cur_aggr[1];
-        return cur_sum / cur_cnt;
+        var avg = cur_sum / cur_cnt;
+        return pretty_format(avg);
     }
 }
 
@@ -169,7 +184,8 @@ function VarianceAggregator() {
         var cur_sum_sq = cur_aggr[1];
         var cur_cnt = cur_aggr[2];
         var avg_val = cur_sum / cur_cnt;
-        return cur_sum_sq / cur_cnt - avg_val * avg_val;
+        var variance = cur_sum_sq / cur_cnt - avg_val * avg_val;
+        return pretty_format(variance);
     }
 }
 
