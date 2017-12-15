@@ -14,8 +14,9 @@ import time
 import importlib
 import codecs
 import io
-import rbql
 import subprocess
+
+import rbql
 import rbql_utils
 
 #This module must be both python2 and python3 compatible
@@ -1145,9 +1146,6 @@ class TestFiles(unittest.TestCase):
     def test_all(self):
         import json
         ut_config_path = 'unit_tests.cfg'
-        has_node = rbql.system_has_node_js()
-        if not has_node:
-            eprint('unable to run js tests: Node.js is not found')
         with codecs.open(ut_config_path, encoding='utf-8') as src:
             for test_no, line in enumerate(src, 1):
                 config = json.loads(line)
@@ -1183,8 +1181,6 @@ class TestFiles(unittest.TestCase):
                 
                 elif TEST_JS:
                     assert meta_language == 'js'
-                    if not has_node:
-                        continue
                     try:
                         result_table, warnings = run_file_query_test_js(query, src_path, str(test_no), delim, policy, encoding)
                     except Exception as e:
@@ -1352,6 +1348,14 @@ def make_random_bin_table(num_rows, num_cols, key_col1, key_col2, delim, dst_pat
                 f.write('\r\n')
             else:
                 f.write('\n')
+
+
+def setUpModule():
+    has_node = rbql.system_has_node_js()
+    if not has_node:
+        eprint('Warning: Node.js was not found, skipping js unit tests')
+        global TEST_JS
+        TEST_JS = False
 
 
 class TestParsing(unittest.TestCase):
