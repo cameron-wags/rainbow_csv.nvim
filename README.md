@@ -63,6 +63,7 @@ Some other rules:
 ### Aggregate functions and queries
 RBQL supports the following aggregate functions, which can be used with _GROUP BY_ keyword:
 _COUNT_, _MIN_, _MAX_, _SUM_, _AVG_, _VARIANCE_, _MEDIAN_
+
 **Limitations:**
 * Aggregate function are CASE SENSITIVE and must be CAPITALIZED.
 * It is illegal to use aggregate functions inside Python (or JS) expressions. Although you can use expressions inside aggregate functions.
