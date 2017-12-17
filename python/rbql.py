@@ -18,7 +18,7 @@ import io
 #
 ##########################################################################
 
-#This module must be both python2 and python3 compatible
+# This module must be both python2 and python3 compatible
 
 
 GROUP_BY = 'GROUP BY'
@@ -109,7 +109,7 @@ def xrange6(x):
 def rbql_meta_format(template_src, meta_params):
     for k, v in meta_params.items():
         template_marker = '__RBQLMP__{}'.format(k)
-        #TODO make special replace for multiple statements, like in update, it should be indent-aware
+        # TODO make special replace for multiple statements, like in update, it should be indent-aware
         template_src_upd = template_src.replace(template_marker, v)
         assert template_src_upd != template_src
         template_src = template_src_upd
@@ -291,8 +291,8 @@ def locate_statements(rbql_expression):
 
 
 def separate_actions(rbql_expression):
-    #TODO add more checks: 
-    #make sure all rbql_expression was separated and SELECT or UPDATE is at the beginning
+    # TODO add more checks: 
+    # make sure all rbql_expression was separated and SELECT or UPDATE is at the beginning
     rbql_expression = rbql_expression.strip(' ')
     ordered_statements = locate_statements(rbql_expression)
     result = dict()
@@ -465,7 +465,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim,
     rb_actions = separate_actions(format_expression)
 
     js_meta_params = dict()
-    #TODO add require modules feature
+    # TODO add require modules feature
     js_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
     js_meta_params['input_delim'] = py_source_escape(input_delim)
     js_meta_params['input_policy'] = input_policy
