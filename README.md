@@ -61,7 +61,7 @@ Some other rules:
 | _NF_                     |integer        | Number of fields in line             |
 
 ### Aggregate functions and queries
-RBQL supports the following aggregate functions, which can be used with _GROUP BY_ keyword:
+RBQL supports the following aggregate functions, which can also be used with _GROUP BY_ keyword:
 
 _COUNT_, _MIN_, _MAX_, _SUM_, _AVG_, _VARIANCE_, _MEDIAN_
 
