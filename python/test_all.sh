@@ -5,7 +5,6 @@ cleanup_tmp_files() {
     rm movies.tsv.js.rs 2> /dev/null
     rm movies.tsv.system_py.py.rs 2> /dev/null
     rm movies.tsv.system_py.js.rs 2> /dev/null
-    #rm movies.tsv.f5_ui.py.rs 2> /dev/null
     rm university_ranking.rs.tsv 2> /dev/null
     rm vim_unit_tests.log 2> /dev/null
     rm random_ut.csv 2> /dev/null
@@ -43,26 +42,48 @@ fi
 
 cleanup_tmp_files
 
+has_node="yes"
+
+node_version=$( node --version 2> /dev/null )
+rc=$?
+if [ "$rc" != 0 ] || [ -z "$node_version" ] ; then
+    echo "WARNING! Node.js was not found. Skipping node unit tests"  1>&2
+    has_node="no"
+fi
+
+# We also need random_ut.csv file in vim unit tests
 python test_rbql.py --create_random_csv_table random_ut.csv
 
-node ./unit_tests.js random_ut.csv
+if [ "$has_node" == "yes" ] ; then
+    node ./unit_tests.js random_ut.csv
+fi
 
-#Some CLI tests:
+
+# CLI tests:
 md5sum_test=($( ./cli_rbql.py --query "select a1,a2,a7,b2,b3,b4 left join test_datasets/countries.tsv on a2 == b1 where 'Sci-Fi' in a7.split('|') and b2!='US' and int(a4) > 2010" < test_datasets/movies.tsv | md5sum))
 md5sum_canonic=($( md5sum unit_tests/canonic_result_4.tsv ))
 if [ "$md5sum_canonic" != "$md5sum_test" ] ; then
     echo "CLI test FAIL!"  1>&2
 fi
 
-md5sum_test=($( ./cli_rbql.py --query "select a1,a2,a7,b2,b3,b4 left join test_datasets/countries.tsv on a2 == b1 where a7.split('|').includes('Sci-Fi') && b2!='US' && a4 > 2010" --meta_language js < test_datasets/movies.tsv | md5sum))
-md5sum_canonic=($( md5sum unit_tests/canonic_result_4.tsv ))
-if [ "$md5sum_canonic" != "$md5sum_test" ] ; then
-    echo "CLI test FAIL!"  1>&2
+if [ "$has_node" == "yes" ] ; then
+    md5sum_test=($( ./cli_rbql.py --query "select a1,a2,a7,b2,b3,b4 left join test_datasets/countries.tsv on a2 == b1 where a7.split('|').includes('Sci-Fi') && b2!='US' && a4 > 2010" --meta_language js < test_datasets/movies.tsv | md5sum))
+    md5sum_canonic=($( md5sum unit_tests/canonic_result_4.tsv ))
+    if [ "$md5sum_canonic" != "$md5sum_test" ] ; then
+        echo "CLI test FAIL!"  1>&2
+    fi
 fi
 
-#vim integration tests:
 
-$vim -s unit_tests.vim -V0vim_debug.log -u test_vimrc
+# vim integration tests:
+
+if [ "$has_node" == "yes" ] ; then
+    $vim -s unit_tests.vim -V0vim_debug.log -u test_vimrc
+else
+    $vim -s unit_tests_py_only.vim -V0vim_debug.log -u test_vimrc
+    cp movies.tsv.py.rs movies.tsv.js.rs 2> /dev/null
+    cp movies.tsv.system_py.py.rs movies.tsv.system_py.js.rs 2> /dev/null
+fi
 errors=$( cat vim_debug.log | grep '^E[0-9][0-9]*' | wc -l )
 total=$( cat vim_unit_tests.log | wc -l )
 started=$( cat vim_unit_tests.log | grep 'Starting' | wc -l )
@@ -80,7 +101,6 @@ md5sum_test_1=($( md5sum movies.tsv.py.rs ))
 md5sum_test_2=($( md5sum movies.tsv.js.rs ))
 md5sum_test_3=($( md5sum movies.tsv.system_py.py.rs ))
 md5sum_test_4=($( md5sum movies.tsv.system_py.js.rs ))
-#md5sum_test_5=($( md5sum movies.tsv.f5_ui.py.rs ))
 md5sum_update=($( md5sum university_ranking.rs.tsv ))
 md5sum_movies_csv_test=($( md5sum movies_small.tsv.csv ))
 md5sum_movies_tsv_test=($( md5sum movies_small.tsv.csv.tsv ))

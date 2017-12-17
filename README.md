@@ -9,6 +9,8 @@ There are 2 ways to enable csv columns highlighting:
 
 To run an RBQL query either press _F5_ or enter the query in vim command line e.g. _:Select a1, a2_
 
+Extension is written in pure vimscript/python, no additional libraries required.
+
 ### Demonstration of rainbow_csv highlighting and RBQL queries 
 
 
@@ -24,9 +26,10 @@ RBQL is a technology which provides SQL-like language that supports _SELECT_ and
 
 ### Main Features
 * Use Python or Java Script expressions inside _SELECT_, _UPDATE_, _WHERE_ and _ORDER BY_ statements
-* Output entries appear in the same order as in input unless _ORDER BY_ is provided.
-* Input csv/tsv table may contain varying number of entries (but select query must be written in a way that prevents output of missing values)
 * Result set of any query immediately becomes a first-class table on it's own.
+* Output entries appear in the same order as in input unless _ORDER BY_ is provided.
+* Input csv/tsv spreadsheet may contain varying number of entries (but select query must be written in a way that prevents output of missing values)
+* Works out of the box, no external dependencies.
 
 ### Supported SQL Keywords (Keywords are case insensitive)
 
@@ -35,6 +38,7 @@ RBQL is a technology which provides SQL-like language that supports _SELECT_ and
 * WHERE
 * ORDER BY ... [ DESC | ASC ]
 * [ [ STRICT ] LEFT | INNER ] JOIN
+* GROUP BY
 
 #### Keywords rules
 All keywords have the same meaning as in SQL queries. You can check them [online](https://www.w3schools.com/sql/default.asp)
@@ -55,6 +59,16 @@ Some other rules:
 | _b1_, _b2_,..., _b{N}_   |string         | Value of i-th column in join table B |
 | _NR_                     |integer        | Line number (1-based)                |
 | _NF_                     |integer        | Number of fields in line             |
+
+### Aggregate functions and queries
+RBQL supports the following aggregate functions, which can be used with _GROUP BY_ keyword:
+
+_COUNT_, _MIN_, _MAX_, _SUM_, _AVG_, _VARIANCE_, _MEDIAN_
+
+**Limitations:**
+* Aggregate function are CASE SENSITIVE and must be CAPITALIZED.
+* It is illegal to use aggregate functions inside Python (or JS) expressions. Although you can use expressions inside aggregate functions.
+  E.g. `MAX(float(a1) / 1000)` - legal; `MAX(a1) / 1000` - illegal.
 
 ### Examples of RBQL queries
 
@@ -178,7 +192,7 @@ You can increase or decrease this limit.
 
 ### Optional "Header" file feature
 
-Rainbow csv allows you to create a special "header" file for any of your table files. It must have the same name as the table file but with ".header" suffix (e.g. for "table.tsv" table the header file is "table.tsv.header"). The only purpose of header file is to provide csv column names for **\d** key.
+Rainbow csv allows you to create a special "header" file for any of your spreadsheet table files. It must have the same name as the table file but with ".header" suffix (e.g. for "table.tsv" table the header file is "table.tsv.header"). The only purpose of header file is to provide csv column names for **\d** key.
 It is also possible to use `:RainbowSetHeader <file_name>` command to set a differently named file as a header for the current table.
 
 ### Installation
@@ -206,6 +220,7 @@ Python module rbql.py parses RBQL query, creates a new python worker module, the
 * `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - an example of join query
 * `select distinct count len(a1) where a2 != 'US'`
+* `select MAX(a1), MIN(a1) where a2 != 'US' group by a2, a3`
 
 #### With JavaScript expressions
 
@@ -218,6 +233,7 @@ Python module rbql.py parses RBQL query, creates a new python worker module, the
 * `select NR, *` - enumerate lines, NR is 1-based
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - an example of join query
 * `select distinct count a1.length where a2 != 'US'`
+* `select MAX(a1), MIN(a1) where a2 != 'US' group by a2, a3`
 
 
 ### cli_rbql.py script

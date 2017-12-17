@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 def split_quoted_str(src, dlm):
     assert dlm != '"'
     if src.find('"') == -1: #optimization for majority of lines
@@ -62,3 +64,161 @@ def rows(f, chunksize=1024, sep='\n'):
             incomplete_row = chunk
 
 
+class NumHandler:
+    def __init__(self):
+        self.is_int = True
+    
+    def parse(self, str_val):
+        if not self.is_int:
+            return float(str_val)
+        try:
+            return int(str_val)
+        except ValueError:
+            self.is_int = False
+            return float(str_val)
+
+
+class MinAggregator:
+    def __init__(self):
+        self.stats = dict()
+        self.num_handler = NumHandler()
+
+    def increment(self, key, val):
+        val = self.num_handler.parse(val)
+        cur_aggr = self.stats.get(key)
+        if cur_aggr is None:
+            self.stats[key] = val
+        else:
+            self.stats[key] = min(cur_aggr, val)
+
+    def get_final(self, key):
+        return self.stats[key]
+
+
+class MaxAggregator:
+    def __init__(self):
+        self.stats = dict()
+        self.num_handler = NumHandler()
+
+    def increment(self, key, val):
+        val = self.num_handler.parse(val)
+        cur_aggr = self.stats.get(key)
+        if cur_aggr is None:
+            self.stats[key] = val
+        else:
+            self.stats[key] = max(cur_aggr, val)
+
+    def get_final(self, key):
+        return self.stats[key]
+
+
+class CountAggregator:
+    def __init__(self):
+        self.stats = defaultdict(int)
+
+    def increment(self, key, val):
+        self.stats[key] += 1
+
+    def get_final(self, key):
+        return self.stats[key]
+
+
+class SumAggregator:
+    def __init__(self):
+        self.stats = defaultdict(int)
+        self.num_handler = NumHandler()
+
+    def increment(self, key, val):
+        val = self.num_handler.parse(val)
+        self.stats[key] += val
+
+    def get_final(self, key):
+        return self.stats[key]
+
+
+def pretty_format(val):
+    if val == 0:
+        return '0.0'
+    if abs(val) < 1:
+        return str(val)
+    formatted = "{0:.6f}".format(val)
+    if formatted.find('.') != -1:
+        formatted = formatted.rstrip('0')
+    if formatted.endswith('.'):
+        formatted += '0'
+    return formatted
+
+
+class AvgAggregator:
+    def __init__(self):
+        self.stats = dict()
+
+    def increment(self, key, val):
+        val = float(val)
+        cur_aggr = self.stats.get(key)
+        if cur_aggr is None:
+            self.stats[key] = (val, 1)
+        else:
+            cur_sum, cur_cnt = cur_aggr
+            self.stats[key] = (cur_sum + val, cur_cnt + 1)
+
+    def get_final(self, key):
+        final_sum, final_cnt = self.stats[key]
+        avg = float(final_sum) / final_cnt
+        return pretty_format(avg)
+
+
+class VarianceAggregator:
+    def __init__(self):
+        self.stats = dict()
+
+    def increment(self, key, val):
+        val = float(val)
+        cur_aggr = self.stats.get(key)
+        if cur_aggr is None:
+            self.stats[key] = (val, val ** 2, 1)
+        else:
+            cur_sum, cur_sum_of_squares, cur_cnt = cur_aggr
+            self.stats[key] = (cur_sum + val, cur_sum_of_squares + val ** 2, cur_cnt + 1)
+
+    def get_final(self, key):
+        final_sum, final_sum_of_squares, final_cnt = self.stats[key]
+        variance = float(final_sum_of_squares) / final_cnt - (float(final_sum) / final_cnt) ** 2
+        return pretty_format(variance)
+
+
+
+class MedianAggregator:
+    def __init__(self):
+        self.stats = defaultdict(list)
+        self.num_handler = NumHandler()
+
+    def increment(self, key, val):
+        val = self.num_handler.parse(val)
+        self.stats[key].append(val)
+
+    def get_final(self, key):
+        sorted_vals = sorted(self.stats[key])
+        assert len(sorted_vals)
+        m = int(len(sorted_vals) / 2)
+        if len(sorted_vals) % 2:
+            return sorted_vals[m]
+        else:
+            a = sorted_vals[m - 1]
+            b = sorted_vals[m]
+            return a if a == b else (a + b) / 2.0
+
+
+class SubkeyChecker:
+    def __init__(self):
+        self.subkeys = dict()
+
+    def increment(self, key, subkey):
+        old_subkey = self.subkeys.get(key)
+        if old_subkey is None:
+            self.subkeys[key] = subkey
+        elif old_subkey != subkey:
+            raise RuntimeError('Unable to group by "{}", different values in output: "{}" and "{}"'.format(key, old_subkey, subkey))
+
+    def get_final(self, key):
+        return self.subkeys[key]

@@ -14,8 +14,9 @@ import time
 import importlib
 import codecs
 import io
-import rbql
 import subprocess
+
+import rbql
 import rbql_utils
 
 #This module must be both python2 and python3 compatible
@@ -1058,6 +1059,99 @@ class TestEverything(unittest.TestCase):
             compare_warnings(self, None, warnings)
 
 
+    def test_run23(self):
+        test_name = 'test23'
+
+        input_table = list()
+        input_table.append(['car', '1', '100', '1'])
+        input_table.append(['car', '2', '100', '1'])
+        input_table.append(['dog', '3', '100', '2'])
+        input_table.append(['car', '4', '100', '2'])
+        input_table.append(['cat', '5', '100', '3'])
+        input_table.append(['cat', '6', '100', '3'])
+        input_table.append(['car', '7', '100', '100'])
+        input_table.append(['car', '8', '100', '100'])
+
+        canonic_table = list()
+        canonic_table.append(['100', '10', '8', '8', '8', '8', '800', '4.5', '5.25', '2.5'])
+
+        input_delim, input_policy, output_delim, output_policy = select_random_formats(input_table)
+
+        query = r'select a3, MIN(int(a2) * 10), MAX(a2), COUNT(*), COUNT(1), COUNT(a1), SUM(a3), AVG(a2), VARIANCE(a2), MEDIAN(a4)'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = r'select a3, MIN(a2 * 10), MAX(a2), COUNT(*), COUNT(1), COUNT(a1), SUM(a3), AVG(a2), VARIANCE(a2), MEDIAN(a4)'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
+
+
+    def test_run24(self):
+        test_name = 'test24'
+
+        input_table = list()
+        input_table.append(['car', '1', '100', '1'])
+        input_table.append(['car', '2', '100', '1'])
+        input_table.append(['dog', '3', '100', '2'])
+        input_table.append(['car', '4', '100', '2'])
+        input_table.append(['cat', '5', '100', '3'])
+        input_table.append(['cat', '6', '100', '3'])
+        input_table.append(['car', '7', '100', '100'])
+        input_table.append(['car', '8', '100', '100'])
+
+        canonic_table = list()
+        canonic_table.append(['car', '100', '10', '8', '5', '5', '5', '500', '4.4', '7.44', '2'])
+        canonic_table.append(['cat', '100', '50', '6', '2', '2', '2', '200', '5.5', '0.25', '3'])
+        canonic_table.append(['dog', '100', '30', '3', '1', '1', '1', '100', '3.0', '0.0', '2'])
+
+        input_delim, input_policy, output_delim, output_policy = select_random_formats(input_table)
+
+        query = r'select a1, a3, MIN(int(a2) * 10), MAX(a2), COUNT(*), COUNT(1), COUNT(a1), SUM(a3), AVG(a2), VARIANCE(a2), MEDIAN(a4) group by a1'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = r'select a1, a3, MIN(a2 * 10), MAX(a2), COUNT(*), COUNT(1), COUNT(a1), SUM(a3), AVG(a2), VARIANCE(a2), MEDIAN(a4) group by a1'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
+
+
+    def test_run25(self):
+        test_name = 'test25'
+
+        input_table = list()
+        input_table.append(['car', '1', '100', '1'])
+        input_table.append(['car', '2', '100', '1'])
+        input_table.append(['dog', '3', '100', '2'])
+        input_table.append(['car', '4', '100', '2'])
+        input_table.append(['cat', '5', '100', '3'])
+        input_table.append(['cat', '6', '100', '3'])
+        input_table.append(['car', '7', '100', '100'])
+        input_table.append(['car', '8', '100', '100'])
+
+        canonic_table = list()
+        canonic_table.append(['car', '100', '10', '8', '5', '5', '5', '500', '4.4', '7.44', '2'])
+        canonic_table.append(['dog', '100', '30', '3', '1', '1', '1', '100', '3.0', '0.0', '2'])
+
+        input_delim, input_policy, output_delim, output_policy = select_random_formats(input_table)
+
+        query = r'select a1, a3, MIN(int(a2) * 10), MAX(a2), COUNT(*), COUNT(1), COUNT(a1), SUM(a3), AVG(a2), VARIANCE(a2), MEDIAN(a4) where a1 != "cat" group by a1'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = r'select a1, a3, MIN(a2 * 10), MAX(a2), COUNT(*), COUNT(1), COUNT(a1), SUM(a3), AVG(a2), VARIANCE(a2), MEDIAN(a4) where a1 != "cat" group by a1'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
+
+
 def calc_file_md5(fname):
     import hashlib
     hash_md5 = hashlib.md5()
@@ -1083,9 +1177,6 @@ class TestFiles(unittest.TestCase):
     def test_all(self):
         import json
         ut_config_path = 'unit_tests.cfg'
-        has_node = rbql.system_has_node_js()
-        if not has_node:
-            eprint('unable to run js tests: Node.js is not found')
         with codecs.open(ut_config_path, encoding='utf-8') as src:
             for test_no, line in enumerate(src, 1):
                 config = json.loads(line)
@@ -1121,8 +1212,6 @@ class TestFiles(unittest.TestCase):
                 
                 elif TEST_JS:
                     assert meta_language == 'js'
-                    if not has_node:
-                        continue
                     try:
                         result_table, warnings = run_file_query_test_js(query, src_path, str(test_no), delim, policy, encoding)
                     except Exception as e:
@@ -1290,6 +1379,14 @@ def make_random_bin_table(num_rows, num_cols, key_col1, key_col2, delim, dst_pat
                 f.write('\r\n')
             else:
                 f.write('\n')
+
+
+def setUpModule():
+    has_node = rbql.system_has_node_js()
+    if not has_node:
+        eprint('Warning: Node.js was not found, skipping js unit tests')
+        global TEST_JS
+        TEST_JS = False
 
 
 class TestParsing(unittest.TestCase):

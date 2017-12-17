@@ -18,9 +18,10 @@ import io
 #
 ##########################################################################
 
-#This module must be both python2 and python3 compatible
+# This module must be both python2 and python3 compatible
 
 
+GROUP_BY = 'GROUP BY'
 UPDATE = 'UPDATE'
 SELECT = 'SELECT'
 SELECT_TOP = 'SELECT TOP'
@@ -108,7 +109,7 @@ def xrange6(x):
 def rbql_meta_format(template_src, meta_params):
     for k, v in meta_params.items():
         template_marker = '__RBQLMP__{}'.format(k)
-        #TODO make special replace for multiple statements, like in update, it should be indent-aware
+        # TODO make special replace for multiple statements, like in update, it should be indent-aware
         template_src_upd = template_src.replace(template_marker, v)
         assert template_src_upd != template_src
         template_src = template_src_upd
@@ -177,6 +178,10 @@ def replace_column_vars(rbql_expression):
     return translated
 
 
+def replace_star_count(aggregate_expression):
+    return re.sub(r'(^|(?<=,)) *COUNT\( *\* *\) *($|(?=,))', ' COUNT(1)', aggregate_expression).lstrip(' ')
+
+
 def replace_star_vars_py(rbql_expression):
     rbql_expression = re.sub(r'(?:^|,) *\* *(?=, *\* *($|,))', '] + star_fields + [', rbql_expression)
     rbql_expression = re.sub(r'(?:^|,) *\* *(?:$|,)', '] + star_fields + [', rbql_expression)
@@ -205,7 +210,8 @@ def translate_update_expression(update_expression, indent):
 
 
 def translate_select_expression_py(select_expression):
-    translated = replace_column_vars(select_expression)
+    translated = replace_star_count(select_expression)
+    translated = replace_column_vars(translated)
     translated = replace_star_vars_py(translated)
     translated = translated.strip()
     if not len(translated):
@@ -214,7 +220,8 @@ def translate_select_expression_py(select_expression):
 
 
 def translate_select_expression_js(select_expression):
-    translated = replace_column_vars(select_expression)
+    translated = replace_star_count(select_expression)
+    translated = replace_column_vars(translated)
     translated = replace_star_vars_js(translated)
     translated = translated.strip()
     if not len(translated):
@@ -264,6 +271,7 @@ def locate_statements(rbql_expression):
     statement_groups.append([ORDER_BY])
     statement_groups.append([WHERE])
     statement_groups.append([UPDATE])
+    statement_groups.append([GROUP_BY])
 
     result = list()
     for st_group in statement_groups:
@@ -283,8 +291,9 @@ def locate_statements(rbql_expression):
 
 
 def separate_actions(rbql_expression):
-    #TODO add more checks: 
-    #make sure all rbql_expression was separated and SELECT or UPDATE is at the beginning
+    # TODO add more checks: 
+    # make sure all rbql_expression was separated and SELECT or UPDATE is at the beginning
+    rbql_expression = rbql_expression.strip(' ')
     ordered_statements = locate_statements(rbql_expression)
     result = dict()
     for i in range(len(ordered_statements)):
@@ -303,8 +312,8 @@ def separate_actions(rbql_expression):
             statement = JOIN
 
         if statement == UPDATE:
-            if len(result):
-                raise RBParsingError('UPDATE must be the first statement in query')
+            if statement_start != 0:
+                raise RBParsingError('UPDATE keyword must be at the beginning of the query')
             span = re.sub('(?i)^ *SET ', '', span)
 
         if statement == ORDER_BY:
@@ -317,8 +326,8 @@ def separate_actions(rbql_expression):
                 statement_params['reverse'] = False
 
         if statement == SELECT:
-            if len(result):
-                raise RBParsingError('SELECT must be the first statement in query')
+            if statement_start != 0:
+                raise RBParsingError('SELECT keyword must be at the beginning of the query')
             match = re.match('(?i)^ *TOP *([0-9]+) ', span)
             if match is not None:
                 statement_params['top'] = int(match.group(1))
@@ -367,6 +376,14 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
 
     if ORDER_BY in rb_actions and UPDATE in rb_actions:
         raise RBParsingError('"ORDER BY" is not allowed in "UPDATE" queries')
+
+    if GROUP_BY in rb_actions:
+        if ORDER_BY in rb_actions or UPDATE in rb_actions:
+            raise RBParsingError('"ORDER BY" and "UPDATE" are not allowed in aggregate queries')
+        aggregation_key_expression = replace_column_vars(rb_actions[GROUP_BY]['text'])
+        py_meta_params['aggregation_key_expression'] = '[{}]'.format(combine_string_literals(aggregation_key_expression, string_literals))
+    else:
+        py_meta_params['aggregation_key_expression'] = 'None'
 
     if JOIN in rb_actions:
         rhs_table_id, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
@@ -448,7 +465,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim,
     rb_actions = separate_actions(format_expression)
 
     js_meta_params = dict()
-    #TODO add require modules feature
+    # TODO add require modules feature
     js_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
     js_meta_params['input_delim'] = py_source_escape(input_delim)
     js_meta_params['input_policy'] = input_policy
@@ -457,6 +474,14 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim,
     js_meta_params['dst_table_path'] = "null" if dst_table_path is None else "'{}'".format(py_source_escape(dst_table_path))
     js_meta_params['output_delim'] = py_source_escape(out_delim)
     js_meta_params['output_policy'] = out_policy
+
+    if GROUP_BY in rb_actions:
+        if ORDER_BY in rb_actions or UPDATE in rb_actions:
+            raise RBParsingError('"ORDER BY" and "UPDATE" are not allowed in aggregate queries')
+        aggregation_key_expression = replace_column_vars(rb_actions[GROUP_BY]['text'])
+        js_meta_params['aggregation_key_expression'] = '[{}]'.format(combine_string_literals(aggregation_key_expression, string_literals))
+    else:
+        js_meta_params['aggregation_key_expression'] = 'null'
 
     if JOIN in rb_actions:
         rhs_table_id, lhs_join_var, rhs_join_var = parse_join_expression(rb_actions[JOIN]['text'])
