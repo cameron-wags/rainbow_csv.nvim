@@ -229,7 +229,6 @@ Python module rbql.py parses RBQL query, creates a new python worker module, the
 * `select * where NR <= 10` - this is an equivalent of bash command "head -n 10", NR is 1-based')
 * `select a1, a4` - this is an equivalent of bash command "cut -f 1,4"
 * `select * order by parseInt(a2) desc` - this is an equivalent of bash command "sort -k2,2 -r -n"
-* `select * order by Math.random()` - random sort, this is an equivalent of bash command "sort -R"
 * `select NR, *` - enumerate lines, NR is 1-based
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - an example of join query
 * `select distinct count a1.length where a2 != 'US'`
