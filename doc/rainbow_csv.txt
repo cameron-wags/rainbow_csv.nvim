@@ -6,9 +6,14 @@
 Rainbow CSV: highlight columns in csv/tsv files and execute SELECT and UPDATE
 queries in SQL-like language
 
-1. Overview           |overview|
-2. RBQL               |RBQL|
-3. Description        |description|
+1. Overview        |overview|
+2. RBQL            |RBQL|
+3. Mappings        |mappings|
+4. Commands        |commands|
+5. Configuration   |configuration|
+6. Tips            |tips|
+
+
 
 ==============================================================================
 1. Overview                                                        *overview*
@@ -28,6 +33,7 @@ To run an RBQL query either press <F5> or enter the query in vim command line e.
 Extension is written in pure vimscript/python, no additional libraries required.
 
 github page of the project: https://github.com/mechatroner/rainbow_csv
+
 
 
 ==============================================================================
@@ -54,7 +60,8 @@ Supported SQL Keywords (Keywords are case insensitive) ~
 *  [ [ STRICT ] LEFT | INNER ] JOIN
 *  GROUP BY
 
-All keywords have the same meaning as in SQL queries. You can check them here: https://www.w3schools.com/sql/default.asp
+All keywords have the same meaning as in SQL queries. You can check them here
+https://www.w3schools.com/sql/default.asp
 
 But there are also two new keywords: DISTINCT COUNT and STRICT LEFT JOIN.
 *  DISTINCT COUNT is like DISTINCT, but adds a new column to the "distinct" 
@@ -63,8 +70,10 @@ But there are also two new keywords: DISTINCT COUNT and STRICT LEFT JOIN.
    in left table "A" doesn't have exactly one matching key in the right table "B".
 
 Some important rules:
-*  UPDATE SET is synonym to UPDATE, because in RBQL there is no need to specify the source table.
-*  UPDATE has the same semantic as in SQL, but it is actually a special type of SELECT query.
+*  UPDATE SET is synonym to UPDATE, because in RBQL there is no need to
+   specify the source table.
+*  UPDATE has the same semantic as in SQL, but it is actually a special type
+   of SELECT query.
 *  JOIN statements must have the following form: >
    <JOIN KEYWORD> ( {/path/to/table.tsv} | {table_name} ) ON a{i} == b{j}
 <
@@ -80,7 +89,8 @@ NF	                integer		Number of fields in line
 
 
 Aggregate functions and queries ~
-RBQL supports the following aggregate functions, which can also be used with "GROUP BY" keyword:
+RBQL supports the following aggregate functions, which can also be used with
+"GROUP BY" keyword:
 
 COUNT(), MIN(), MAX(), SUM(), AVG(), VARIANCE(), MEDIAN()
 
@@ -124,10 +134,140 @@ Examples of RBQL queries with Java Script expressions~
   select MAX(a1), MIN(a1) where a2 != 'US' group by a2, a3
 <
 
+
 ==============================================================================
-3. Description                                                  *Description*
+3. Mappings                                                        *mappings*
+
+Key		Action
+<Leader>d	Print info about current column (under the cursor)
+<F5>		Start query editing for the current csv file
+<F5>		Execute currently edited query
 
 
+
+==============================================================================
+4. Commands                                                        *commands*
+
+*:Select* {...}
+
+Allows to enter RBQL select query as vim command. 
+Example: >
+  :Select a1, a2 order by a1
+<
+
+*:Update* {...}
+
+Allows to enter RBQL update query as vim command.
+Example >
+  :Update a1 = a1 + " " + a2
+<
+
+*:RainbowDelim*
+
+Mark current file as a table and highlight it's columns in rainbow colors.
+Character under the cursor will be used as a delimiter. The delimiter will be
+saved in a config file for future vim sessions.
+
+You can also use this command for non-csv files, e.g. to highlight function 
+arguments in source code in different colors. To return back to original
+syntax highlighting run |:NoRainbowDelim|
+
+
+*:RainbowDelimQuoted*
+
+Same as |:RainbowDelim| but allows delimiters inside fields if the field is
+double quoted by rules of Excel/RFC 4180 https://tools.ietf.org/html/rfc4180
+
+
+*:RainbowMonoColumn*
+
+Mark the current file as rainbow table with a single column without delimiters. 
+You will be able to run RBQL queries on it using "a1" column variable.
+
+
+*:NoRainbowDelim*
+
+This command will disable rainbow columns highlighting for the current file.
+Use it to cancel |:RainbowDelim|, |:RainbowDelimQuoted| and |:RainbowMonoColumn| 
+effects or when autodection mechanism has failed and marked non-table file as a table
+
+
+*:RainbowName* {name}
+
+Assign any name to the current table. You can use this name in join operation
+instead of the table path.
+Example: >
+  JOIN customers ON a1 == b1
+<
+Intead of: >
+  JOIN /path/to/my/customers/table ON a1 == b1
+<
+
+
+==============================================================================
+5. Configuration                                              *configuration*
+
+*g:rbql_output_format*
+Default: "tsv"
+Allowed values: "tsv", "csv"
+
+Format of RBQL result set tables.
+
+* tsv format doesn't allow quoted tabs inside fields. 
+* csv is Excel-compatible and allows quoted commas.
+
+Essentially format here is a pair: delimiter + quoting policy.
+This setting for example can be used to convert files between tsv and csv format:
+*  To convert csv to tsv: 
+   1.  open csv file.
+   2.  execute "let g:rbql_output_format='tsv'" 
+   3.  execute ":Select *"
+* To convert tsv to csv: 
+   1.  open tsv file.
+   2.  execute ":let g:rbql_output_format='csv'"
+   3.  execute ":Select *"
+
+
+*g:rbql_meta_language*
+Default: "python"
+
+Scripting language to use in RBQL expression. Either "js" or "python"
+To use JavaScript add "let g:rbql_meta_language = 'js'" to .vimrc
+
+
+*g:rcsv_delimiters*
+Default: ["\t", ","]
+
+By default plugin checks only TAB and comma characters during autodetection stage.
+You can override this variable to autodetect tables with other separators. 
+Example: >
+  let g:rcsv_delimiters = ["\t", ",", ";"]
+<
+
+*g:disable_rainbow_csv_autodetect*
+
+csv autodetection mechanism can be disabled by setting this variable value to 1.
+Manual delimiter selection would still be possible.
+
+
+*g:rcsv_max_columns*
+Default: 30
+
+Autodetection will fail if buffer has more than |g:rcsv_max_columns| columns.
+You can increase or decrease this limit.
+
+
+
+==============================================================================
+6. Tips                                                                *tips*
+
+Rainbow highlighting for non-table files ~
+
+You can use rainbow highlighting and |RBQL| even for non-csv/tsv files.
+E.g. you can highlight records in log files, one-line xmls and other delimited records.
+You can even highlight function arguments in your programming language using comma as
+a delimiter for |:RainbowDelim| command.
+And you can always turn off the rainbow highlighting using |:NoRainbowDelim| command.
 
 
 vim:tw=78:ts=8:ft=help
