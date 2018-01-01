@@ -6,14 +6,16 @@
 Rainbow CSV: highlight columns in csv/tsv files and execute SELECT and UPDATE
 queries in SQL-like language
 
-1. Overview       |overview|
+1. Overview           |overview|
+2. RBQL               |RBQL|
+3. Description        |description|
 
 ==============================================================================
 1. Overview                                                        *overview*
 
-Rainbow CSV has 2 main features:
+Rainbow CSV has 2 main features: ~
 1.  Highlights csv columns in different rainbow colors. 
-2.  Provides |SELECT| and |UPDATE| queries in |RBQL|: SQL-like transprogramming query language.
+2.  Provides SELECT and UPDATE queries in |RBQL|: SQL-like transprogramming query language.
 
 There are 2 ways to enable csv columns highlighting:
 1.  CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
@@ -26,6 +28,106 @@ To run an RBQL query either press <F5> or enter the query in vim command line e.
 Extension is written in pure vimscript/python, no additional libraries required.
 
 github page of the project: https://github.com/mechatroner/rainbow_csv
+
+
+==============================================================================
+2. RBQL                                                                *RBQL*
+
+RBQL stands for "RainBow Query Language"
+
+
+Main Features ~
+*  Use Python or Java Script expressions inside SELECT, UPDATE, WHERE and ORDER BY statements
+*  Result set of any query immediately becomes a first-class table on it's own.
+*  Output entries appear in the same order as in input unless ORDER BY is provided.
+*  Input csv/tsv spreadsheet may contain varying number of entries (but select query 
+   must be written in a way that prevents output of missing values)
+*  Works out of the box, no external dependencies.
+
+
+Supported SQL Keywords (Keywords are case insensitive) ~
+
+*  SELECT TOP {N} DISTINCT [ COUNT ]
+*  UPDATE [ SET ]
+*  WHERE
+*  ORDER BY ... [ DESC | ASC ]
+*  [ [ STRICT ] LEFT | INNER ] JOIN
+*  GROUP BY
+
+All keywords have the same meaning as in SQL queries. You can check them here: https://www.w3schools.com/sql/default.asp
+
+But there are also two new keywords: DISTINCT COUNT and STRICT LEFT JOIN.
+*  DISTINCT COUNT is like DISTINCT, but adds a new column to the "distinct" 
+   result set: number of occurences of the entry, similar to "uniq -c" unix command.
+*  STRICT LEFT JOIN is like LEFT JOIN, but generates an error if any key 
+   in left table "A" doesn't have exactly one matching key in the right table "B".
+
+Some important rules:
+*  UPDATE SET is synonym to UPDATE, because in RBQL there is no need to specify the source table.
+*  UPDATE has the same semantic as in SQL, but it is actually a special type of SELECT query.
+*  JOIN statements must have the following form: >
+   <JOIN KEYWORD> ( {/path/to/table.tsv} | {table_name} ) ON a{i} == b{j}
+<
+
+Special RBQL variables ~
+
+Variable name		Variable Type	Variable description
+
+a1, a2,..., a{N}	string		Value of i-th column
+b1, b2,..., b{N}	string		Value of i-th column in join table B
+NR	                integer		Line number (1-based)
+NF	                integer		Number of fields in line
+
+
+Aggregate functions and queries ~
+RBQL supports the following aggregate functions, which can also be used with "GROUP BY" keyword:
+
+COUNT(), MIN(), MAX(), SUM(), AVG(), VARIANCE(), MEDIAN()
+
+Limitations~
+*  Aggregate function are CASE SENSITIVE and must be CAPITALIZED.
+*  It is illegal to use aggregate functions inside Python (or JS) expressions. 
+*  Although you can use expressions inside aggregate functions.
+   E.g. this is legal: >
+   MAX(float(a1) / 1000)
+<   But this is illegal: >
+   MAX(a1) / 1000
+< 
+
+Examples of RBQL queries with Python expressions~
+>
+  select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2)
+  select * order by Math.random()
+  select top 20 len(a1) / 10, a2 where a2 in ["car", "plane", "boat"]
+  update set a3 = 'US' where a3.find('of America') != -1
+  select * where NR <= 10
+  select a1, a4
+  select * order by int(a2) desc
+  select NR, *
+  select * where re.match(".*ab.*", a1) is not None
+  select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3
+  select distinct count len(a1) where a2 != 'US'
+  select MAX(a1), MIN(a1) where a2 != 'US' group by a2, a3
+<
+
+Examples of RBQL queries with Java Script expressions~
+>
+  select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2)
+  select * order by Math.random()
+  update set a3 = 'US' where a3.indexOf('of America') != -1
+  select * where NR <= 10
+  select a1, a4
+  select * order by parseInt(a2) desc
+  select NR, *
+  select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3
+  select distinct count a1.length where a2 != 'US'
+  select MAX(a1), MIN(a1) where a2 != 'US' group by a2, a3
+<
+
+==============================================================================
+3. Description                                                  *Description*
+
+
 
 
 vim:tw=78:ts=8:ft=help
