@@ -63,7 +63,7 @@ Some other rules:
 ### Aggregate functions and queries
 RBQL supports the following aggregate functions, which can also be used with _GROUP BY_ keyword:
 
-_COUNT_, _MIN_, _MAX_, _SUM_, _AVG_, _VARIANCE_, _MEDIAN_
+_COUNT()_, _MIN()_, _MAX()_, _SUM()_, _AVG()_, _VARIANCE()_, _MEDIAN()_
 
 **Limitations:**
 * Aggregate function are CASE SENSITIVE and must be CAPITALIZED.
