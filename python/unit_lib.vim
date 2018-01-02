@@ -48,24 +48,12 @@ func! RunUnitTests()
     call add(test_cases, ['"a,bc","adf,asf","asdf,asdf,","as,df"', '"a,bc";"adf,asf";"asdf,asdf,";"as,df"'])
 
     for nt in range(len(test_cases))
-        let test_str = join(rainbow_csv#preserving_escaped_split(test_cases[nt][0], ','), ';')
+        let test_str = join(rainbow_csv#preserving_quoted_split(test_cases[nt][0], ','), ';')
         let canonic_str = test_cases[nt][1]
         call AssertEqual(test_str, canonic_str)
     endfor
 
     call add(g:rbql_test_log_records, 'Finished Test: Statusline')
-endfunc
-
-
-func! UnescapeQuotedFields(src)
-    let res = a:src
-    for nt in range(len(res))
-        if len(res[nt]) >= 2 && res[nt][0] == '"'
-            let res[nt] = strpart(res[nt], 1, len(res[nt]) - 2)
-        endif
-        let res[nt] = substitute(res[nt], '""', '"', 'g')
-    endfor
-    return res
 endfunc
 
 
@@ -78,11 +66,11 @@ func! TestSplitRandomCsv()
         let canonic_warning = str2nr(records[1])
         call AssertTrue(canonic_warning == 0 || canonic_warning == 1, 'warning must be either 0 or 1')
         let canonic_dst = split(records[2], ';', 1)
-        let test_dst = rainbow_csv#preserving_escaped_split(escaped_entry, ',')
+        let test_dst = rainbow_csv#preserving_quoted_split(escaped_entry, ',')
         if !canonic_warning
             call AssertEqual(len(canonic_dst), len(test_dst))
             call AssertEqual(join(test_dst, ','), escaped_entry)
-            let unescaped_dst = UnescapeQuotedFields(test_dst)
+            let unescaped_dst = rainbow_csv#unescape_quoted_fields(test_dst)
             call AssertEqual(join(unescaped_dst, ';'), records[2])
         endif
     endfor

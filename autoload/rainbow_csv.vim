@@ -132,6 +132,108 @@ func! s:has_python_27()
 endfunc
 
 
+func! s:guess_if_header(potential_header, sampled_records)
+    "FIXME unit tests
+
+    " single line - not header
+    if len(a:sampled_records) < 1
+        return 0
+    endif
+
+    " different number of columns - not header
+    let num_fields = len(a:potential_header)
+    for sri in range(len(sampled_records))
+        if len(sampled_records[sri]) != num_fields
+            return 0
+        endif
+    endfor
+
+    " all sampled lines has a number in a column and potential header doesn't - header
+    let number_re = '^[0-9]\+\([.,][0-9]\+\)\?$'
+    for coli in range(num_fields)
+        if match(potential_header[coli], number_re) != -1
+            continue
+        endif
+        let all_numbers = 1
+        for rowi in range(len(sampled_records))
+            " sampled record doesn't have a number at position
+            if (match(sampled_records[rowi], number_re) == -1)
+                let all_numbers = 0
+                break
+            endif
+        endfor
+        if all_numbers
+            return 1
+        endif
+    endfor
+
+    " FIXME add last heuristic:
+    " at least N columns 2 times longer than MAX or 2 times smaller than MIN - header
+    
+    return 0
+endfunc
+
+
+func! s:guess_document_header()
+    let sampled_records = []
+    let num_lines = line("$")
+    let head_count = 10
+    if num_lines <= head_count * 2
+        for lnum in range(2, num_lines)
+            let cline = getline(lnum)
+            let crecord = s:smart_split(cline, b:rainbow_csv_delim, b:rainbow_csv_policy)
+            call add(sampled_records, crecord)
+        endfor
+    else
+        for lnum in range(2, head_count)
+            let cline = getline(lnum)
+            let crecord = s:smart_split(cline, b:rainbow_csv_delim, b:rainbow_csv_policy)
+            call add(sampled_records, crecord)
+        endfor
+        for lnum in range(num_lines - head_count, num_lines)
+            let cline = getline(lnum)
+            let crecord = s:smart_split(cline, b:rainbow_csv_delim, b:rainbow_csv_policy)
+            call add(sampled_records, crecord)
+        endfor
+    endif
+    if len(sampled_records) < 10
+        return []
+    endif
+    let line1 = getline(1)
+    let potential_header = s:smart_split(line1, b:rainbow_csv_delim, b:rainbow_csv_policy)
+    let has_header = s:guess_if_header(potential_header, sampled_records)
+    return has_header ? potential_header : []
+endfunc
+
+
+func! rainbow_csv#provide_column_info()
+    let line = getline('.')
+    let kb_pos = col('.')
+    if !s:is_rainbow_table()
+        return
+    endif
+
+    let fields = s:preserving_smart_split(line, b:rainbow_csv_delim, b:rainbow_csv_policy)
+    let num_cols = len(fields)
+
+    let col_num = 0
+    let cpos = len(fields[col_num]) 
+    while kb_pos > cpos && col_num + 1 < len(fields)
+        let col_num = col_num + 1
+        let cpos = cpos + 1 + len(fields[col_num])
+    endwhile
+
+    let col_name = s:try_read_column_name_from_header(col_num, num_cols)
+    if col_name == ""
+        let header = s:guess_document_header()
+        if len(header) && len(header) == num_cols
+            let col_name = header[col_num]
+        endif
+    endif
+    echo printf('Col: [%s], Name: [%s]', col_num + 1, col_name)
+endfunc
+
+
 func! s:create_recurrent_tip(tip_text)
     let b:rb_tip_text = a:tip_text
     augroup RainbowHintGrp
@@ -321,7 +423,26 @@ func! rainbow_csv#rstrip(line)
 endfunc
 
 
-func! rainbow_csv#preserving_escaped_split(line, dlm)
+func! rainbow_csv#unescape_quoted_fields(src)
+    let res = a:src
+    for nt in range(len(res))
+        if len(res[nt]) >= 2 && res[nt][0] == '"'
+            let res[nt] = strpart(res[nt], 1, len(res[nt]) - 2)
+        endif
+        let res[nt] = substitute(res[nt], '""', '"', 'g')
+    endfor
+    return res
+endfunc
+
+
+func! rainbow_csv#quoted_split(line, dlm)
+    let quoted_fields = rainbow_csv#preserving_quoted_split(a:line, a:dlm)
+    let clean_fields = rainbow_csv#unescape_quoted_fields(quoted_fields)
+    return clean_fields
+endfunc
+
+
+func! rainbow_csv#preserving_quoted_split(line, dlm)
     let src = a:line
     if stridx(src, '"') == -1
         "Optimization for majority of lines
@@ -367,12 +488,27 @@ func! rainbow_csv#preserving_escaped_split(line, dlm)
 endfunc
 
 
+func! s:smart_split(line, dlm, policy)
+    let stripped = rainbow_csv#rstrip(a:line)
+    if a:policy == 'monocolumn'
+        return [stripped]
+    elseif a:policy == 'quoted'
+        return rainbow_csv#quoted_split(stripped, a:dlm)
+    elseif a:policy == 'simple'
+        let regex_delim = escape(a:dlm, s:magic_chars)
+        return split(stripped, regex_delim, 1)
+    else
+        echoerr 'bad delim policy'
+    endif
+endfunc
+
+
 func! s:preserving_smart_split(line, dlm, policy)
     let stripped = rainbow_csv#rstrip(a:line)
     if a:policy == 'monocolumn'
         return [stripped]
     elseif a:policy == 'quoted'
-        return rainbow_csv#preserving_escaped_split(stripped, a:dlm)
+        return rainbow_csv#preserving_quoted_split(stripped, a:dlm)
     elseif a:policy == 'simple'
         let regex_delim = escape(a:dlm, s:magic_chars)
         return split(stripped, regex_delim, 1)
@@ -1007,9 +1143,14 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
         let b:rainbow_csv_header = a:header_name
     endif
 
-    if s:EnsurePythonInitialization()
-        call s:create_recurrent_tip("Press F5 to enter \"select\" query mode")
-    endif
+    augroup RainbowHintGrp
+        autocmd! CursorHold <buffer>
+        autocmd CursorHold <buffer> call rainbow_csv#provide_column_info()
+    augroup END
+
+    "if s:EnsurePythonInitialization()
+    "    call s:create_recurrent_tip("Press F5 to enter \"select\" query mode")
+    "endif
 endfunc
 
 
@@ -1060,42 +1201,19 @@ func! rainbow_csv#set_header_manually(header_name)
 endfunc
 
 
-func! s:read_column_name(colNo, numCols)
+func! s:try_read_column_name_from_header(col_num, num_cols)
     let names = s:read_column_names()
     if !len(names)
-        return 'n/a (header not found/empty)'
+        return ''
     endif
 
-    if (a:colNo >= len(names))
-        return 'n/a (no field in header)'
+    if (a:col_num >= len(names))
+        return ''
     endif
-    if (a:numCols != len(names))
-        return names[a:colNo] . ' (Warning: number of columns in header and csv file mismatch)'
+    if (a:num_cols != len(names))
+        return names[a:col_num] . ' (Warning: number of columns in header and csv file mismatch)'
     endif
-    return names[a:colNo]
-endfunc
-
-
-func! rainbow_csv#get_column()
-    let line = getline('.')
-    let kb_pos = col('.')
-    if !s:is_rainbow_table()
-        echomsg "Error: rainbow_csv is disabled for this buffer"
-        return
-    endif
-
-    let fields = s:preserving_smart_split(line, b:rainbow_csv_delim, b:rainbow_csv_policy)
-    let numCols = len(fields)
-
-    let col_num = 0
-    let cpos = len(fields[col_num]) 
-    while kb_pos > cpos && col_num + 1 < len(fields)
-        let col_num = col_num + 1
-        let cpos = cpos + 1 + len(fields[col_num])
-    endwhile
-
-    let col_name = s:read_column_name(col_num, numCols)
-    echo printf('Col: [%s], Name: [%s]', col_num + 1, col_name)
+    return names[a:col_num]
 endfunc
 
 
