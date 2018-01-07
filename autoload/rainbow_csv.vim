@@ -149,7 +149,7 @@ func! s:guess_if_header(potential_header, sampled_records)
     endfor
 
     " all sampled lines has a number in a column and potential header doesn't - header
-    let number_re = '^[0-9]\+\([.,][0-9]\+\)\?$'
+    let number_re = '^-\?[0-9]\+\([.,][0-9]\+\)\?$'
     for coli in range(num_fields)
         if match(potential_header[coli], number_re) != -1
             continue
