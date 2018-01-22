@@ -256,7 +256,7 @@ func! rainbow_csv#provide_column_info()
         let ui_message = ui_message . printf(', "%s"', col_name)
     endif
     if exists("b:root_table_name")
-        let ui_message = ui_message . printf(';  F5: Recursive query; F7: Copy to %s', b:root_table_name)
+        let ui_message = ui_message . printf(';  F5: Recursive query, F6: Save, F7: Copy to %s', b:root_table_name)
     else
         let ui_message = ui_message . ';  Press F5 for query mode'
     endif
@@ -970,10 +970,8 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let b:self_buf_number = bufnr("%")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
 
-    nnoremap <buffer> <F4> :bd!<cr>
     nnoremap <buffer> <F6> :call rainbow_csv#create_save_dialog(b:self_buf_number, b:self_path)<cr>
     nnoremap <buffer> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
-    setlocal nomodifiable
 
     if len(psv_warning_report)
         let warnings = split(psv_warning_report, "\n")
