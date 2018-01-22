@@ -139,7 +139,6 @@ Examples of RBQL queries with Java Script expressions~
 3. Mappings                                                        *mappings*
 
 Key		Action
-<Leader>d	Print info about current column (under the cursor)
 <F5>		Start query editing for the current csv file
 <F5>		Execute currently edited query
 

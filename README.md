@@ -99,7 +99,6 @@ Here is an example of how to extract some fields from a bunch of uniform single-
 
 |Key                       | Action                                             |
 |--------------------------|----------------------------------------------------|
-|**\<Leader\>d**  (**\d**) | Print info about current column (under the cursor) |
 |**F5**                    | Start query editing for the current csv file       |
 |**F5**                    | Execute currently edited query                     |
 

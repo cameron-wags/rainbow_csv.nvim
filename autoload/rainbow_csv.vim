@@ -1154,7 +1154,6 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
     set number
 
     nnoremap <buffer> <F5> :RbSelect<cr>
-    nnoremap <buffer> <Leader>d :RbGetColumn<cr>
 
     let b:rainbow_csv_delim = a:delim
     let b:rainbow_csv_policy = a:policy
