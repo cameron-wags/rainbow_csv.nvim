@@ -133,8 +133,6 @@ endfunc
 
 
 func! s:guess_if_header(potential_header, sampled_records)
-    "FIXME unit tests
-
     " single line - not header
     if len(a:sampled_records) < 1
         return 0
@@ -142,8 +140,8 @@ func! s:guess_if_header(potential_header, sampled_records)
 
     " different number of columns - not header
     let num_fields = len(a:potential_header)
-    for sri in range(len(sampled_records))
-        if len(sampled_records[sri]) != num_fields
+    for sri in range(len(a:sampled_records))
+        if len(a:sampled_records[sri]) != num_fields
             return 0
         endif
     endfor
@@ -151,13 +149,13 @@ func! s:guess_if_header(potential_header, sampled_records)
     " all sampled lines has a number in a column and potential header doesn't - header
     let number_re = '^-\?[0-9]\+\([.,][0-9]\+\)\?$'
     for coli in range(num_fields)
-        if match(potential_header[coli], number_re) != -1
+        if match(a:potential_header[coli], number_re) != -1
             continue
         endif
         let all_numbers = 1
-        for rowi in range(len(sampled_records))
+        for rowi in range(len(a:sampled_records))
             " sampled record doesn't have a number at position
-            if (match(sampled_records[rowi], number_re) == -1)
+            if (match(a:sampled_records[rowi], number_re) == -1)
                 let all_numbers = 0
                 break
             endif
@@ -167,14 +165,35 @@ func! s:guess_if_header(potential_header, sampled_records)
         endif
     endfor
 
-    " FIXME add last heuristic:
     " at least N columns 2 times longer than MAX or 2 times smaller than MIN - header
+    let required_extremes_count = num_fields <= 3 ? 1 : ceil(num_fields * 0.333)
+    let found_extremes = 0
+    for col_num in range(num_fields)
+        let minl = len(a:sampled_records[0][col_num])
+        let maxl = len(a:sampled_records[0][col_num])
+        for rec_num in range(1, len(a:sampled_records) - 1)
+            let minl = min([minl, len(a:sampled_records[rec_num][col_num])])
+            let maxl = max([maxl, len(a:sampled_records[rec_num][col_num])])
+        endfor
+        if len(a:potential_header[col_num]) > maxl * 2
+            let found_extremes += 1
+        endif
+        if len(a:potential_header[col_num]) * 2 < minl
+            let found_extremes += 1
+        endif
+    endfor
+    if found_extremes >= required_extremes_count
+        return 1
+    endif
     
     return 0
 endfunc
 
 
-func! s:guess_document_header()
+func! s:guess_document_header(invalidate_cache)
+    if !a:invalidate_cache && exists("b:guessed_header")
+        return b:guessed_header
+    endif
     let sampled_records = []
     let num_lines = line("$")
     let head_count = 10
@@ -197,12 +216,14 @@ func! s:guess_document_header()
         endfor
     endif
     if len(sampled_records) < 10
-        return []
+        let b:guessed_header = []
+        return b:guessed_header
     endif
     let line1 = getline(1)
     let potential_header = s:smart_split(line1, b:rainbow_csv_delim, b:rainbow_csv_policy)
     let has_header = s:guess_if_header(potential_header, sampled_records)
-    return has_header ? potential_header : []
+    let b:guessed_header = has_header ? potential_header : []
+    return b:guessed_header
 endfunc
 
 
@@ -223,14 +244,23 @@ func! rainbow_csv#provide_column_info()
         let cpos = cpos + 1 + len(fields[col_num])
     endwhile
 
+    let ui_message = printf('col# %s', col_num + 1)
     let col_name = s:try_read_column_name_from_header(col_num, num_cols)
     if col_name == ""
-        let header = s:guess_document_header()
+        let header = s:guess_document_header(0)
         if len(header) && len(header) == num_cols
             let col_name = header[col_num]
         endif
     endif
-    echo printf('Col: [%s], Name: [%s]', col_num + 1, col_name)
+    if col_name != ""
+        let ui_message = ui_message . printf(', "%s"', col_name)
+    endif
+    if exists("b:root_table_name")
+        let ui_message = ui_message . printf(';  F5: Recursive query; F7: Copy to %s', b:root_table_name)
+    else
+        let ui_message = ui_message . ';  Press F5 for query mode'
+    endif
+    echo ui_message
 endfunc
 
 
@@ -333,7 +363,7 @@ endfunction
 
 
 func! rainbow_csv#find_python_interpreter()
-    "checking `python3` first, because `python` could be theorethically linked to python 2.6
+    " Checking `python3` first, because `python` could be theorethically linked to python 2.6
     let py3_version = tolower(system('python3 --version'))
     if (v:shell_error == 0 && match(py3_version, 'python 3\.') == 0)
         let s:system_python_interpreter = 'python3'
@@ -350,7 +380,7 @@ endfunc
 
 
 function! s:py_source_escape(src)
-    "strings in 'substitute' must follow esoteric rules, see `:help substitute()`
+    " Strings in 'substitute' must follow esoteric rules, see `:help substitute()`
     let dst = substitute(a:src, '\\', '\\\\', "g")
     let dst = substitute(dst, '\t', '\\t', "g")
     let dst = substitute(dst, '"', '\\"', "g")
@@ -445,7 +475,7 @@ endfunc
 func! rainbow_csv#preserving_quoted_split(line, dlm)
     let src = a:line
     if stridx(src, '"') == -1
-        "Optimization for majority of lines
+        " Optimization for majority of lines
         let regex_delim = escape(a:dlm, s:magic_chars)
         return split(src, regex_delim, 1)
     endif
@@ -625,7 +655,7 @@ endfunc
 
 
 func! s:status_escape_string(src)
-    "strings in 'substitute' must follow esoteric rules, see `:help substitute()`
+    " strings in 'substitute' must follow esoteric rules, see `:help substitute()`
     let result = substitute(a:src, ' ', '\\ ', 'g')
     let result = substitute(result, '"', '\\"', 'g')
     return result
@@ -655,7 +685,7 @@ func! rainbow_csv#set_statusline_columns()
     let delim = b:rainbow_csv_delim
     let policy = b:rainbow_csv_policy
     let has_number_column = &number
-    "TODO take "sign" column into account too. You can use :sign place buffer={nr}
+    " TODO take "sign" column into account too. You can use :sign place buffer={nr}
     let indent = ''
     if has_number_column
         let indent_len = max([len(string(line('$'))) + 1, 4])
@@ -687,7 +717,7 @@ func! rainbow_csv#set_statusline_columns()
     execute "setlocal statusline=" . rb_statusline
     redraw!
     augroup StatusDisableGrp
-        autocmd CursorHold * call rainbow_csv#restore_statusline()
+        autocmd CursorMoved * call rainbow_csv#restore_statusline()
         autocmd CursorMoved * call rainbow_csv#restore_statusline()
     augroup END
 endfunc
@@ -888,7 +918,7 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
 
     let table_path = expand("#" . a:table_buf_number . ":p")
     if table_path == ""
-        "For unnamed buffers. E.g. can happen for stdin-read buffer: `cat data.tsv | vim -`
+        " For unnamed buffers. E.g. can happen for stdin-read buffer: `cat data.tsv | vim -`
         let tmp_file_name = "tmp_table_" .  strftime("%Y_%m_%d_%H_%M_%S") . ".txt"
         let table_path = s:rb_storage_dir . "/" . tmp_file_name
         execute "w " . table_path
@@ -936,6 +966,7 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
 
     let b:self_path = psv_dst_table_path
     let b:root_table_buf_number = a:table_buf_number
+    let b:root_table_name = fnamemodify(table_path, ":t")
     let b:self_buf_number = bufnr("%")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
 
@@ -951,9 +982,6 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
         endfor
         call s:ShowImportantMessage("Completed with WARNINGS!", warnings)
     endif
-
-    let table_name = fnamemodify(table_path, ":t")
-    call s:create_recurrent_tip("F4: Close; F5: Recursive query; F6: Save...; F7: Copy to " . table_name)
     return 1
 endfunc
 
@@ -1013,7 +1041,7 @@ func! rainbow_csv#load_from_settings_or_autodetect()
     endif
     let buffer_path = expand("%:p")
     let record = s:get_table_record(buffer_path)
-    "reading record doesn't move it to the first position, can potentially be a problem
+    " Reading record doesn't move it to the first position, can potentially be a problem
     if !len(record)
         let record = s:guess_table_record()
         if len(record) && len(buffer_path)
@@ -1101,6 +1129,9 @@ endfunc
 
 
 func! rainbow_csv#regenerate_syntax(delim, policy)
+    " Invalidating header cache:
+    call s:guess_document_header(1)
+    " Generating syntax:
     if a:policy == 'quoted'
         call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
     elseif a:policy == 'simple'
@@ -1125,6 +1156,12 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
     nnoremap <buffer> <F5> :RbSelect<cr>
     nnoremap <buffer> <Leader>d :RbGetColumn<cr>
 
+    let b:rainbow_csv_delim = a:delim
+    let b:rainbow_csv_policy = a:policy
+    if len(a:header_name)
+        let b:rainbow_csv_header = a:header_name
+    endif
+
     call rainbow_csv#regenerate_syntax(a:delim, a:policy)
     call s:generate_status_highlighting()
     highlight status_line_default_hl ctermbg=black guibg=black
@@ -1137,20 +1174,10 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
     cnoreabbrev <expr> <buffer> update rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
     cnoreabbrev <expr> <buffer> UPDATE rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
 
-    let b:rainbow_csv_delim = a:delim
-    let b:rainbow_csv_policy = a:policy
-    if len(a:header_name)
-        let b:rainbow_csv_header = a:header_name
-    endif
-
     augroup RainbowHintGrp
-        autocmd! CursorHold <buffer>
-        autocmd CursorHold <buffer> call rainbow_csv#provide_column_info()
+        autocmd! CursorMoved <buffer>
+        autocmd CursorMoved <buffer> call rainbow_csv#provide_column_info()
     augroup END
-
-    "if s:EnsurePythonInitialization()
-    "    call s:create_recurrent_tip("Press F5 to enter \"select\" query mode")
-    "endif
 endfunc
 
 
@@ -1164,7 +1191,7 @@ func! s:buffer_disable_rainbow()
         exe "syntax clear " . match
     endfor
     augroup RainbowHintGrp
-        autocmd! CursorHold <buffer>
+        autocmd! CursorMoved <buffer>
     augroup END
     unmap <buffer> <F5>
     unmap <buffer> <Leader>d
