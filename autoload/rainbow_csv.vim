@@ -147,15 +147,16 @@ func! s:guess_if_header(potential_header, sampled_records)
     endfor
 
     " all sampled lines has a number in a column and potential header doesn't - header
-    let number_re = '^-\?[0-9]\+\([.,][0-9]\+\)\?$'
+    let optimistic_name = '^[a-zA-Z]\{3,}'
+    let pessimistic_name = '[a-zA-Z]'
     for coli in range(num_fields)
-        if match(a:potential_header[coli], number_re) != -1
+        if match(a:potential_header[coli], optimistic_name) == -1
             continue
         endif
         let all_numbers = 1
         for rowi in range(len(a:sampled_records))
             " sampled record doesn't have a number at position
-            if (match(a:sampled_records[rowi], number_re) == -1)
+            if (match(a:sampled_records[rowi][coli], pessimistic_name) != -1)
                 let all_numbers = 0
                 break
             endif
@@ -164,27 +165,6 @@ func! s:guess_if_header(potential_header, sampled_records)
             return 1
         endif
     endfor
-
-    " at least N columns 2 times longer than MAX or 2 times smaller than MIN - header
-    let required_extremes_count = num_fields <= 3 ? 1 : ceil(num_fields * 0.333)
-    let found_extremes = 0
-    for col_num in range(num_fields)
-        let minl = len(a:sampled_records[0][col_num])
-        let maxl = len(a:sampled_records[0][col_num])
-        for rec_num in range(1, len(a:sampled_records) - 1)
-            let minl = min([minl, len(a:sampled_records[rec_num][col_num])])
-            let maxl = max([maxl, len(a:sampled_records[rec_num][col_num])])
-        endfor
-        if len(a:potential_header[col_num]) > maxl * 2
-            let found_extremes += 1
-        endif
-        if len(a:potential_header[col_num]) * 2 < minl
-            let found_extremes += 1
-        endif
-    endfor
-    if found_extremes >= required_extremes_count
-        return 1
-    endif
     
     return 0
 endfunc
