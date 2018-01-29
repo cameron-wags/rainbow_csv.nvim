@@ -220,8 +220,8 @@ Explanation of simplified Python version of RBQL algorithm by example.
 
 3. RBQL searches for "SELECT" and "WHERE" keywords in the query string _Q_, throws the keywords away, and puts everything after these keywords into two variables _S_ - select part and _W_ - where part, so we will get:
 ```
-    S = fields[2], int(fields[3]) + 100, len(fields[1])
-    W = fields[0] != 'SELL'
+    S = "fields[2], int(fields[3]) + 100, len(fields[1])"
+    W = "fields[0] != 'SELL'"
 ```
 
 4. RBQL has static template script which looks like this:
