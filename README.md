@@ -209,47 +209,45 @@ If you want to use RBQL with JavaScript expressions, make sure you have Node.js 
 Python module rbql.py parses RBQL query, creates a new python worker module, then imports and executes it.
 
 Explanation of simplified Python version of RBQL algorithm by example.
-1. User has Entered the following query:
+1. User enters the following query, which is stored as a string _Q_:
 ```
-SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'
+    SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'
 ```
-RBQL stores the input query as a string _Q_
-
-2. RBQL replaces all 'a{i}' substrings in the query string _Q_ with 'fields[{i - 1}]' substrings. We will get the following string:
+2. RBQL replaces all `a{i}` substrings in the query string _Q_ with `fields[{i - 1}]` substrings. The result is the following string:
 ```
-SELECT fields[2], int(fields[3]) + 100, len(fields[1]) WHERE fields[0] != 'SELL'
+    SELECT fields[2], int(fields[3]) + 100, len(fields[1]) WHERE fields[0] != 'SELL'
 ```
 
 3. RBQL searches for "SELECT" and "WHERE" keywords in the query string _Q_, throws the keywords away, and puts everything after these keywords into two variables _S_ - select part and _W_ - where part, so we will get:
 ```
-S = fields[2], int(fields[3]) + 100, len(fields[1])
-W = fields[0] != 'SELL'
+    S = fields[2], int(fields[3]) + 100, len(fields[1])
+    W = fields[0] != 'SELL'
 ```
 
 4. RBQL has static template script which looks like this:
 ```
-for line in sys.stdin:
-    fields = line.rstrip('\n').split('\t')
-    if %%%W_Expression%%%:
-        out_fields = [%%%S_Expression%%%]
-        print '\t'.join([str(v) for v in out_fields])
+    for line in sys.stdin:
+        fields = line.rstrip('\n').split('\t')
+        if %%%W_Expression%%%:
+            out_fields = [%%%S_Expression%%%]
+            print '\t'.join([str(v) for v in out_fields])
 ```
 
 5. RBQL replaces `%%%W_Expression%%%` with _W_ and `%%%S_Expression%%%` with _S_ so we get the following script:
 ```
-for line in sys.stdin:
-    fields = line.rstrip('\n').split('\t')
-    if fields[0] != 'SELL':
-        out_fields = [fields[2], int(fields[3]) + 100, len(fields[1])]
-        print '\t'.join([str(v) for v in out_fields])
+    for line in sys.stdin:
+        fields = line.rstrip('\n').split('\t')
+        if fields[0] != 'SELL':
+            out_fields = [fields[2], int(fields[3]) + 100, len(fields[1])]
+            print '\t'.join([str(v) for v in out_fields])
 ```
 
 6. RBQL runs the patched script against user's data file: 
 ```
-./tmp_script.py < data.tsv > result.tsv
+    ./tmp_script.py < data.tsv > result.tsv
 ```
-Result set of the original query  (`SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'`) will be in result.tsv file
-It is clear that this simplified version can only work with tab-separated files.
+    Result set of the original query (`SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'`) is in the "result.tsv" file.
+    It is clear that this simplified version can only work with tab-separated files.
 
 
 #### Is this technology reliable?
