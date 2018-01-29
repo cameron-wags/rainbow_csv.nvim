@@ -215,7 +215,7 @@ Explanation of simplified Python version of RBQL algorithm by example.
 ```
 2. RBQL replaces all `a{i}` substrings in the query string _Q_ with `fields[{i - 1}]` substrings. The result is the following string:
 ```
-    SELECT fields[2], int(fields[3]) + 100, len(fields[1]) WHERE fields[0] != 'SELL'
+    Q = "SELECT fields[2], int(fields[3]) + 100, len(fields[1]) WHERE fields[0] != 'SELL'"
 ```
 
 3. RBQL searches for "SELECT" and "WHERE" keywords in the query string _Q_, throws the keywords away, and puts everything after these keywords into two variables _S_ - select part and _W_ - where part, so we will get:
