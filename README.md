@@ -246,8 +246,8 @@ Explanation of simplified Python version of RBQL algorithm by example.
 ```
     ./tmp_script.py < data.tsv > result.tsv
 ```
-    Result set of the original query (`SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'`) is in the "result.tsv" file.
-    It is clear that this simplified version can only work with tab-separated files.
+Result set of the original query (`SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'`) is in the "result.tsv" file.
+It is clear that this simplified version can only work with tab-separated files.
 
 
 #### Is this technology reliable?
