@@ -251,7 +251,7 @@ It is clear that this simplified version can only work with tab-separated files.
 
 
 #### Is this technology reliable?
-RBQL scripts have only 1000 - 2000 lines combined (depending on how you count them) and there are no external dependencies.
+It should be: RBQL scripts have only 1000 - 2000 lines combined (depending on how you count them) and there are no external dependencies.
 There is no complex logic, even query parsing functions are very simple.
 
 
