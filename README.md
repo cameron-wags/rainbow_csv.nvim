@@ -213,21 +213,21 @@ Explanation of simplified Python version of RBQL algorithm by example.
 ```
     SELECT a3, int(a4) + 100, len(a2) WHERE a1 != 'SELL'
 ```
-2. RBQL replaces all `a{i}` substrings in the query string _Q_ with `fields[{i - 1}]` substrings. The result is the following string:
+2. RBQL replaces all `a{i}` substrings in the query string _Q_ with `a[{i - 1}]` substrings. The result is the following string:
 ```
-    Q = "SELECT fields[2], int(fields[3]) + 100, len(fields[1]) WHERE fields[0] != 'SELL'"
+    Q = "SELECT a[2], int(a[3]) + 100, len(a[1]) WHERE a[0] != 'SELL'"
 ```
 
 3. RBQL searches for "SELECT" and "WHERE" keywords in the query string _Q_, throws the keywords away, and puts everything after these keywords into two variables _S_ - select part and _W_ - where part, so we will get:
 ```
-    S = "fields[2], int(fields[3]) + 100, len(fields[1])"
-    W = "fields[0] != 'SELL'"
+    S = "a[2], int(a[3]) + 100, len(a[1])"
+    W = "a[0] != 'SELL'"
 ```
 
 4. RBQL has static template script which looks like this:
 ```
     for line in sys.stdin:
-        fields = line.rstrip('\n').split('\t')
+        a = line.rstrip('\n').split('\t')
         if %%%W_Expression%%%:
             out_fields = [%%%S_Expression%%%]
             print '\t'.join([str(v) for v in out_fields])
@@ -236,9 +236,9 @@ Explanation of simplified Python version of RBQL algorithm by example.
 5. RBQL replaces `%%%W_Expression%%%` with _W_ and `%%%S_Expression%%%` with _S_ so we get the following script:
 ```
     for line in sys.stdin:
-        fields = line.rstrip('\n').split('\t')
-        if fields[0] != 'SELL':
-            out_fields = [fields[2], int(fields[3]) + 100, len(fields[1])]
+        a = line.rstrip('\n').split('\t')
+        if a[0] != 'SELL':
+            out_fields = [a[2], int(a[3]) + 100, len(a[1])]
             print '\t'.join([str(v) for v in out_fields])
 ```
 
