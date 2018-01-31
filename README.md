@@ -295,5 +295,29 @@ To find out more about cli_rbql.py and available options, execute:
 ./cli_rbql.py -h
 ```
 
+### References
+
+RBQL core on [github](https://github.com/mechatroner/RBQL)
 
 
+#### Rainbow csv in other editors:
+
+Rainbow CSV extension in [Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv)
+rainbow-csv package in [Atom](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv)
+rainbow_csv plugin in [Sublime Text](https://packagecontrol.io/packages/rainbow_csv)
+rainbow_csv plugin in [gedit](https://github.com/mechatroner/gtk_gedit_rainbow_csv) - doesn't support quoted commas in csv
+
+
+#### RBQL alternatives
+
+* [csvkit](https://csvkit.readthedocs.io/en/1.0.2/)
+* [sqawk](https://github.com/dbohdan/sqawk)
+* [q](https://github.com/harelba/q)
+
+
+#### Related vim plugins
+rainbow_csv name and original implementation was significantly influenced by rainbow_parentheses vim plugin:
+[rainbow_parentheses](https://github.com/kien/rainbow_parentheses.vim)
+
+The oldest vim plugin that uses csv column highlighting idea:
+[csv_color] (https://vim.sourceforge.io/scripts/script.php?script_id=518) - highlights only *.tsv files, apparently is not working in newer vim versions
