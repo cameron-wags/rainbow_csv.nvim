@@ -300,7 +300,7 @@ To find out more about cli_rbql.py and available options, execute:
 RBQL core on [github](https://github.com/mechatroner/RBQL)
 
 
-#### Rainbow csv in other editors:
+#### Rainbow CSV in other editors:
 
 * Rainbow CSV extension in [Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv)
 * rainbow-csv package in [Atom](https://atom.io/packages/rainbow-csv)
