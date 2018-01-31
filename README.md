@@ -303,7 +303,7 @@ RBQL core on [github](https://github.com/mechatroner/RBQL)
 #### Rainbow csv in other editors:
 
 * Rainbow CSV extension in [Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv)
-* rainbow-csv package in [Atom](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv)
+* rainbow-csv package in [Atom](https://atom.io/packages/rainbow-csv)
 * rainbow_csv plugin in [Sublime Text](https://packagecontrol.io/packages/rainbow_csv)
 * rainbow_csv plugin in [gedit](https://github.com/mechatroner/gtk_gedit_rainbow_csv) - doesn't support quoted commas in csv
 
