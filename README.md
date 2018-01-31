@@ -308,14 +308,13 @@ RBQL core on [github](https://github.com/mechatroner/RBQL)
 * rainbow_csv plugin in [gedit](https://github.com/mechatroner/gtk_gedit_rainbow_csv) - doesn't support quoted commas in csv
 
 
-#### RBQL alternatives
+#### RBQL alternatives:
 
 * [csvkit](https://csvkit.readthedocs.io/en/1.0.2/)
 * [sqawk](https://github.com/dbohdan/sqawk)
 * [q](https://github.com/harelba/q)
 
 
-#### Related vim plugins
+#### Related vim plugins:
 rainbow_csv name and original implementation was significantly influenced by [rainbow_parentheses](https://github.com/kien/rainbow_parentheses.vim) vim plugin.
-
 There also exist an old vim syntax file [csv_color](https://vim.sourceforge.io/scripts/script.php?script_id=518) which, despite it's name, can highlight only *.tsv files and probably doesn't even work in modern vim.
