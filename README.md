@@ -318,5 +318,4 @@ RBQL core on [github](https://github.com/mechatroner/RBQL)
 #### Related vim plugins
 rainbow_csv name and original implementation was significantly influenced by [rainbow_parentheses](https://github.com/kien/rainbow_parentheses.vim) vim plugin.
 
-The oldest vim plugin that uses csv column highlighting idea:
-* [csv_color] (https://vim.sourceforge.io/scripts/script.php?script_id=518) - highlights only *.tsv files, apparently is not working in newer vim versions
+There also exist an old vim syntax file [csv_color](https://vim.sourceforge.io/scripts/script.php?script_id=518) which, despite it's name, can highlight only *.tsv files and probably doesn't even work in modern vim.
