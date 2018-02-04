@@ -1171,7 +1171,6 @@ func! s:buffer_disable_rainbow()
         autocmd! CursorMoved <buffer>
     augroup END
     unmap <buffer> <F5>
-    unmap <buffer> <Leader>d
     if exists("b:rainbow_csv_delim")
         unlet b:rainbow_csv_delim
     endif
