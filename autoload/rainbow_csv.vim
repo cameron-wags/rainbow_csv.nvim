@@ -20,7 +20,7 @@ let s:magic_chars = '^*$.~/[]\'
 let s:pairs = [['darkred', 'darkred'], ['darkblue', 'darkblue'], ['darkgreen', 'darkgreen'], ['darkmagenta', 'darkmagenta'], ['darkcyan', 'darkcyan'], ['red', 'red'], ['blue', 'blue'], ['green', 'green'], ['magenta', 'magenta'], ['NONE', 'NONE']]
 let s:pairs = exists('g:rcsv_colorpairs') ? g:rcsv_colorpairs : s:pairs
 
-let s:delimiters = ["\t", ","]
+let s:delimiters = ["\t", ",", ";"]
 let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : s:delimiters
 
 
