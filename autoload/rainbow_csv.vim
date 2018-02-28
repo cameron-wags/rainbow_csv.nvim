@@ -232,7 +232,8 @@ func! rainbow_csv#provide_column_info()
             let col_name = header[col_num]
         endif
     endif
-    if col_name != ""
+    " we need this len < 60 check because otherwise vim will show 'Press enter to continue'
+    if col_name != "" && len(col_name) < 60
         let ui_message = ui_message . printf(', "%s"', col_name)
     endif
     if exists("b:root_table_name")
@@ -1209,12 +1210,8 @@ func! s:try_read_column_name_from_header(col_num, num_cols)
     if !len(names)
         return ''
     endif
-
-    if (a:col_num >= len(names))
-        return ''
-    endif
     if (a:num_cols != len(names))
-        return names[a:col_num] . ' (Warning: number of columns in header and csv file mismatch)'
+        return ''
     endif
     return names[a:col_num]
 endfunc
