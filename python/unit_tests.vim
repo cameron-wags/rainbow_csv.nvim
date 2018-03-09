@@ -34,6 +34,7 @@
 :w! ./movies.tsv.system_py.js.rs
 :bd!
 
+:let g:rbql_output_format='tsv'
 
 :let g:rbql_meta_language = 'python'
 :e test_datasets/university_ranking.csv

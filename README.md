@@ -152,13 +152,14 @@ JOIN /path/to/my/customers/table ON a1 == b1
 ### Configuration
 
 #### g:rbql_output_format
-Default: _tsv_
-Allowed values: _tsv_, _csv_
+Default: _input_
+Allowed values: _tsv_, _csv_, _input_
 
 Format of RBQL result set tables.
 
-* tsv format doesn't allow quoted tabs inside fields. 
-* csv is Excel-compatible and allows quoted commas.
+* input: same format as the input table
+* tsv: doesn't allow quoted tabs inside fields. 
+* csv: is Excel-compatible and allows quoted commas.
 
 Essentially format here is a pair: delimiter + quoting policy.
 This setting for example can be used to convert files between tsv and csv format:

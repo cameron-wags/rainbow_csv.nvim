@@ -877,12 +877,15 @@ func! rainbow_csv#parse_report(report_content)
 endfunc
 
 
-func! s:get_output_format_params()
-    let out_format = exists('g:rbql_output_format') ? g:rbql_output_format : 'tsv'
+func! s:get_output_format_params(root_delim, root_policy)
+    let out_format = exists('g:rbql_output_format') ? g:rbql_output_format : 'input'
     if out_format == 'csv'
         return [',', 'quoted']
     endif
-    return ["\t", 'simple']
+    if out_format == 'tsv'
+        return ["\t", 'simple']
+    endif
+    return [a:root_delim, a:root_policy]
 endfunc
 
 
@@ -915,7 +918,7 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let table_path_esc = s:py_source_escape(table_path)
     let rb_script_path_esc = s:py_source_escape(a:rb_script_path)
     let root_delim_esc = s:py_source_escape(root_delim)
-    let [out_delim, out_policy] = s:get_output_format_params()
+    let [out_delim, out_policy] = s:get_output_format_params(root_delim, root_policy)
     let out_delim_esc = s:py_source_escape(out_delim)
     let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path_esc . '", "' . rb_script_path_esc . '", "' . root_delim_esc . '", "' . root_policy . '", "' . out_delim_esc . '", "' . out_policy . '")'
     if s:system_python_interpreter != ""
