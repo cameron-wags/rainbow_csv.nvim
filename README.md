@@ -1,7 +1,7 @@
 ## Overview
 Rainbow CSV has 2 main features:
-* Highlights csv columns in different rainbow colors. 
-* Provides _SELECT_ and _UPDATE_ queries in RBQL: SQL-like transprogramming query language.
+* Highlight csv columns in different rainbow colors. 
+* Provide _SELECT_ and _UPDATE_ queries in RBQL: SQL-like transprogramming query language.
 
 There are 2 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
