@@ -21,17 +21,19 @@ import io
 # This module must be both python2 and python3 compatible
 
 
+__version__ = '0.1.0'
+
+
 GROUP_BY = 'GROUP BY'
 UPDATE = 'UPDATE'
 SELECT = 'SELECT'
-SELECT_TOP = 'SELECT TOP'
-SELECT_DISTINCT = 'SELECT DISTINCT'
 JOIN = 'JOIN'
 INNER_JOIN = 'INNER JOIN'
 LEFT_JOIN = 'LEFT JOIN'
 STRICT_LEFT_JOIN = 'STRICT LEFT JOIN'
 ORDER_BY = 'ORDER BY'
 WHERE = 'WHERE'
+LIMIT = 'LIMIT'
 
 
 default_csv_encoding = 'latin-1'
@@ -165,8 +167,9 @@ def parse_join_expression(src):
 
 
 def find_table_path(table_id):
-    if os.path.exists(table_id):
-        return table_id
+    candidate_path = os.path.expanduser(table_id)
+    if os.path.exists(candidate_path):
+        return candidate_path
     name_record = get_index_record(table_names_settings_path, table_id)
     if name_record is not None and len(name_record) > 1 and os.path.exists(name_record[1]):
         return name_record[1]
@@ -272,6 +275,7 @@ def locate_statements(rbql_expression):
     statement_groups.append([WHERE])
     statement_groups.append([UPDATE])
     statement_groups.append([GROUP_BY])
+    statement_groups.append([LIMIT])
 
     result = list()
     for st_group in statement_groups:
@@ -347,7 +351,16 @@ def separate_actions(rbql_expression):
     return result
 
 
-def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_policy, join_csv_encoding, import_modules):
+def find_top(rb_actions):
+    if LIMIT in rb_actions:
+        try:
+            return int(rb_actions[LIMIT]['text'])
+        except ValueError:
+            raise RBParsingError('LIMIT keyword must be followed by an integer')
+    return rb_actions[SELECT].get('top', None)
+
+
+def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_policy, csv_encoding, import_modules):
     if not py_dst.endswith('.py'):
         raise RBParsingError('python module file must have ".py" extension')
 
@@ -370,7 +383,7 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
     py_meta_params['import_expression'] = import_expression
     py_meta_params['input_delim'] = py_source_escape(input_delim)
     py_meta_params['input_policy'] = input_policy
-    py_meta_params['join_encoding'] = join_csv_encoding
+    py_meta_params['csv_encoding'] = csv_encoding
     py_meta_params['output_delim'] = py_source_escape(out_delim)
     py_meta_params['output_policy'] = out_policy
 
@@ -427,7 +440,7 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
         py_meta_params['top_count'] = 'None'
 
     if SELECT in rb_actions:
-        top_count = rb_actions[SELECT].get('top', None)
+        top_count = find_top(rb_actions)
         py_meta_params['top_count'] = str(top_count) if top_count is not None else 'None'
         if 'distinct_count' in rb_actions[SELECT]:
             py_meta_params['writer_type'] = 'UniqCountWriter'
@@ -525,7 +538,7 @@ def parse_to_js(src_table_path, dst_table_path, rbql_lines, js_dst, input_delim,
         js_meta_params['top_count'] = 'null'
 
     if SELECT in rb_actions:
-        top_count = rb_actions[SELECT].get('top', None)
+        top_count = find_top(rb_actions)
         js_meta_params['top_count'] = str(top_count) if top_count is not None else 'null'
         if 'distinct_count' in rb_actions[SELECT]:
             js_meta_params['writer_type'] = 'UniqCountWriter'
@@ -600,6 +613,8 @@ def make_warnings_human_readable(warnings):
     for warning_type, warning_value in warnings.items():
         if warning_type == 'null_value_in_output':
             result.append('None/null values in output were replaced by empty strings.')
+        elif warning_type == 'utf8_bom_removed':
+            result.append('UTF-8 Byte Order Mark BOM was found and removed.')
         elif warning_type == 'defective_csv_line_in_input':
             result.append('Defective double quote escaping in input table. E.g. at line {}.'.format(warning_value))
         elif warning_type == 'defective_csv_line_in_join':

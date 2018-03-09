@@ -121,6 +121,7 @@ var NR = 0;
 var join_fields_info = new Object();
 var input_fields_info = new Object();
 var null_value_in_output = false;
+var utf8_bom_removed = false;
 var defective_csv_line_in_input = 0
 var defective_csv_line_in_join = 0
 
@@ -328,7 +329,15 @@ function read_join_table(table_path) {
     var lines = content.split('\n');
     var result = new Map();
     for (var i = 0; i < lines.length; i++) {
-        var line = strip_cr(lines[i]);
+        var line = lines[i];
+        if (i === 0) {
+            var clean_line = remove_utf8_bom(line, csv_encoding);
+            if (clean_line != line) {
+                line = clean_line;
+                utf8_bom_removed = true;
+            }
+        }
+        line = strip_cr(line);
         if (i + 1 == lines.length && line.length == 0)
             break;
         var split_result = join_split(line);
@@ -364,6 +373,8 @@ function generate_warnings() {
 
     if (null_value_in_output)
         warnings['null_value_in_output'] = true;
+    if (utf8_bom_removed)
+        warnings['utf8_bom_removed'] = true;
     if (defective_csv_line_in_input)
         warnings['defective_csv_line_in_input'] = defective_csv_line_in_input;
     if (defective_csv_line_in_join)
@@ -518,7 +529,25 @@ function process_select(NF, afields, rhs_records) {
 }
 
 
+function remove_utf8_bom(line, assumed_source_encoding) {
+    if (assumed_source_encoding == 'binary' && line.length >= 3 && line.charCodeAt(0) === 0xEF && line.charCodeAt(1) === 0xBB && line.charCodeAt(2) === 0xBF) {
+        return line.substring(3);
+    }
+    if (assumed_source_encoding == 'utf-8' && line.length >= 1 && line.charCodeAt(0) === 0xFEFF) {
+        return line.substring(1);
+    }
+    return line;
+}
+
+
 function process_line(line) {
+    if (NR === 0) {
+        var clean_line = remove_utf8_bom(line, csv_encoding);
+        if (clean_line != line) {
+            line = clean_line;
+            utf8_bom_removed = true;
+        }
+    }
     NR += 1;
     // readline strips last '\r'
     var split_result = input_split(line);

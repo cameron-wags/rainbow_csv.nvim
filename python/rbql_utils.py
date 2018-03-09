@@ -1,31 +1,33 @@
 from collections import defaultdict
 
-def split_quoted_str(src, dlm):
+def split_quoted_str(src, dlm, preserve_quotes=False):
     assert dlm != '"'
     if src.find('"') == -1: #optimization for majority of lines
         return (src.split(dlm), False)
     result = list()
-    warning = False
     cidx = 0
+    warning = False
     while cidx < len(src):
         if src[cidx] == '"':
             uidx = cidx + 1
             while True:
                 uidx = src.find('"', uidx)
                 if uidx == -1:
-                    result.append(src[cidx+1:].replace('""', '"'))
+                    result.append(src[cidx:])
                     return (result, True)
-                elif uidx + 1 >= len(src) or src[uidx + 1] == dlm:
-                    result.append(src[cidx+1:uidx].replace('""', '"'))
+                elif uidx + 1 == len(src) or src[uidx + 1] == dlm:
+                    if preserve_quotes:
+                        result.append(src[cidx:uidx + 1])
+                    else:
+                        result.append(src[cidx + 1:uidx].replace('""', '"'))
                     cidx = uidx + 2
                     break
                 elif src[uidx + 1] == '"':
                     uidx += 2
                     continue
                 else:
-                    warning = True
-                    uidx += 1
-                    continue
+                    result.append(src[cidx:])
+                    return (result, True)
         else:
             uidx = src.find(dlm, cidx)
             if uidx == -1:
@@ -38,7 +40,21 @@ def split_quoted_str(src, dlm):
     if src[-1] == dlm:
         result.append('')
     return (result, warning)
-            
+
+
+def unquote_field(field):
+    if len(field) < 2:
+        return field
+    if field[0] == '"' and field[-1] == '"':
+        candidate = field[1:-1]
+        if candidate.count('"') == candidate.count('""') * 2:
+            return candidate.replace('""', '"')
+    return field
+
+
+def unquote_fields(fields):
+    return [unquote_field(f) for f in fields]
+
 
 def rows(f, chunksize=1024, sep='\n'):
     incomplete_row = None
