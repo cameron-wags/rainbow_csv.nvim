@@ -85,8 +85,8 @@ _COUNT()_, _MIN()_, _MAX()_, _SUM()_, _AVG()_, _VARIANCE()_, _MEDIAN()_
 # Plugin description
 
 ### Rainbow highlighting for non-table files
-You can use rainbow highlighting and RBQL even for non-csv/tsv files.
-E.g. you can highlight records in log files, one-line xmls and other delimited records.
+You can use rainbow highlighting and RBQL even for non-csv/tsv files.  
+E.g. you can highlight records in log files, one-line xmls and other delimited records.  
 You can even highlight function arguments in your programming language using comma as a delimiter for _:RainbowDelim_ command.
 And you can always turn off the rainbow highlighting using _:NoRainbowDelim_ command.
 
@@ -117,11 +117,9 @@ e.g. _:Update a1 = a1 + " " + a2_
 
 #### :RainbowDelim
 
-Mark current file as a table and highlight it's columns in rainbow colors. Character
-under the cursor will be used as a delimiter. The delimiter will be saved in a
-config file for future vim sessions.
+Mark current file as a table and highlight it's columns in rainbow colors. Character under the cursor will be used as a delimiter. The delimiter will be saved in a config file for future vim sessions.
 
-You can also use this command for non-csv files, e.g. to highlight function arguments
+You can also use this command for non-csv files, e.g. to highlight function arguments  
 in source code in different colors. To return back to original syntax highlighting run _:NoRainbowDelim_
 
 #### :RainbowDelimQuoted
@@ -152,7 +150,7 @@ JOIN /path/to/my/customers/table ON a1 == b1
 ### Configuration
 
 #### g:rbql_output_format
-Default: _input_
+Default: _input_  
 Allowed values: _tsv_, _csv_, _input_
 
 Format of RBQL result set tables.
@@ -174,13 +172,13 @@ Scripting language to use in RBQL expression. Either 'js' or 'python'
 To use JavaScript add _let g:rbql_meta_language = 'js'_ to .vimrc
 
 #### g:disable_rainbow_csv_autodetect
-csv autodetection mechanism can be disabled by setting this variable value to 1.
+csv autodetection mechanism can be disabled by setting this variable value to 1.  
 Manual delimiter selection would still be possible.
 
 #### g:rcsv_max_columns
 Default: _30_
 
-Autodetection will fail if buffer has more than _g:rcsv\_max\_columns_ columns.
+Autodetection will fail if buffer has more than _g:rcsv\_max\_columns_ columns.  
 You can increase or decrease this limit.
 
 
@@ -191,8 +189,7 @@ It is also possible to use `:RainbowSetHeader <file_name>` command to set a diff
 
 ### Installation
 
-Install with your favorite plugin manager.
-
+Install with your favorite plugin manager.  
 If you want to use RBQL with JavaScript expressions, make sure you have Node.js installed
 
 
@@ -311,5 +308,5 @@ RBQL core on [github](https://github.com/mechatroner/RBQL)
 
 
 #### Related vim plugins:
-rainbow_csv name and original implementation was significantly influenced by [rainbow_parentheses](https://github.com/kien/rainbow_parentheses.vim) vim plugin.
+rainbow_csv name and original implementation was significantly influenced by [rainbow_parentheses](https://github.com/kien/rainbow_parentheses.vim) vim plugin  .
 There also exist an old vim syntax file [csv_color](https://vim.sourceforge.io/scripts/script.php?script_id=518) which, despite it's name, can highlight only *.tsv files and probably doesn't even work in modern vim. And, of course, there is [csv.vim](https://github.com/chrisbra/csv.vim)
