@@ -41,7 +41,7 @@ RBQL is a technology which provides SQL-like language that supports _SELECT_ and
 * GROUP BY
 
 #### Keywords rules
-All keywords have the same meaning as in SQL queries. You can check them [online](https://www.w3schools.com/sql/default.asp)
+All keywords have the same meaning as in SQL queries. You can check them [online](https://www.w3schools.com/sql/default.asp)  
 But there are also two new keywords: _DISTINCT COUNT_ and _STRICT LEFT JOIN_:
 * _DISTINCT COUNT_ is like _DISTINCT_, but adds a new column to the "distinct" result set: number of occurences of the entry, similar to _uniq -c_ unix command.
 * _STRICT LEFT JOIN_ is like _LEFT JOIN_, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".
@@ -61,8 +61,7 @@ Some other rules:
 | _NF_                     |integer        | Number of fields in line             |
 
 ### Aggregate functions and queries
-RBQL supports the following aggregate functions, which can also be used with _GROUP BY_ keyword:
-
+RBQL supports the following aggregate functions, which can also be used with _GROUP BY_ keyword:  
 _COUNT()_, _MIN()_, _MAX()_, _SUM()_, _AVG()_, _VARIANCE()_, _MEDIAN()_
 
 **Limitations:**
@@ -184,7 +183,7 @@ You can increase or decrease this limit.
 
 ### Optional "Header" file feature
 
-Rainbow csv allows you to create a special "header" file for any of your spreadsheet table files. It must have the same name as the table file but with ".header" suffix (e.g. for "table.tsv" table the header file is "table.tsv.header"). The only purpose of header file is to provide csv column names for **\d** key.
+Rainbow csv allows you to create a special "header" file for any of your spreadsheet table files. It must have the same name as the table file but with ".header" suffix (e.g. for "table.tsv" table the header file is "table.tsv.header"). The only purpose of header file is to provide csv column names.
 It is also possible to use `:RainbowSetHeader <file_name>` command to set a differently named file as a header for the current table.
 
 ### Installation
@@ -308,5 +307,6 @@ RBQL core on [github](https://github.com/mechatroner/RBQL)
 
 
 #### Related vim plugins:
-rainbow_csv name and original implementation was significantly influenced by [rainbow_parentheses](https://github.com/kien/rainbow_parentheses.vim) vim plugin  .
-There also exist an old vim syntax file [csv_color](https://vim.sourceforge.io/scripts/script.php?script_id=518) which, despite it's name, can highlight only *.tsv files and probably doesn't even work in modern vim. And, of course, there is [csv.vim](https://github.com/chrisbra/csv.vim)
+rainbow_csv name and original implementation was significantly influenced by [rainbow_parentheses](https://github.com/kien/rainbow_parentheses.vim) vim plugin.  
+There also exist an old vim syntax file [csv_color](https://vim.sourceforge.io/scripts/script.php?script_id=518) which, despite it's name, can highlight only *.tsv files and probably doesn't even work in modern vim.  
+And, of course, there is [csv.vim](https://github.com/chrisbra/csv.vim)
