@@ -672,13 +672,13 @@ func! rainbow_csv#set_statusline_columns()
         let indent_len = max([len(string(line('$'))) + 1, 4])
         let indent = ' NR' . s:single_char_sring(indent_len - 3, ' ')
     endif
-    let bottom_line = getline(line('w$'))
-    let bottom_fields = s:preserving_smart_split(bottom_line, delim, policy)
+    let cur_line = getline(line('.'))
+    let cur_fields = s:preserving_smart_split(cur_line, delim, policy)
     let status_labels = []
     if delim == "\t"
-        let status_labels = rainbow_csv#generate_tab_statusline(&tabstop, bottom_fields)
+        let status_labels = rainbow_csv#generate_tab_statusline(&tabstop, cur_fields)
     else
-        let status_labels =  rainbow_csv#generate_tab_statusline(1, bottom_fields)
+        let status_labels = rainbow_csv#generate_tab_statusline(1, cur_fields)
     endif
     let max_len = winwidth(0)
     let cur_len = len(indent)
