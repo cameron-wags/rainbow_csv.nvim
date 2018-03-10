@@ -1,8 +1,7 @@
 "==============================================================================
 "
-" Description: rainbow csv
+" Description: Rainbow CSV
 " Authors: Dmitry Ignatovich, ...
-"
 "
 "==============================================================================
 
@@ -72,7 +71,7 @@ endfunc
 
 func! s:update_table_record(table_path, delim, policy, header_name)
     if !len(a:table_path)
-        " for tmp buffers e.g. `cat table.csv | vim -`
+        " For tmp buffers e.g. `cat table.csv | vim -`
         return
     endif
     let delim = a:delim == "\t" ? 'TAB' : a:delim
@@ -103,8 +102,8 @@ func! s:get_table_record(table_path)
 endfunc
 
 
-func! s:is_rainbow_table()
-    return exists("b:rainbow_csv_delim")
+func! rainbow_csv#is_rainbow_table()
+    return exists("b:rainbow_csv_delim") && exists("b:rainbow_csv_policy")
 endfunc
 
 
@@ -133,12 +132,12 @@ endfunc
 
 
 func! s:guess_if_header(potential_header, sampled_records)
-    " single line - not header
+    " Single line - not header
     if len(a:sampled_records) < 1
         return 0
     endif
 
-    " different number of columns - not header
+    " Different number of columns - not header
     let num_fields = len(a:potential_header)
     for sri in range(len(a:sampled_records))
         if len(a:sampled_records[sri]) != num_fields
@@ -146,7 +145,7 @@ func! s:guess_if_header(potential_header, sampled_records)
         endif
     endfor
 
-    " all sampled lines has a number in a column and potential header doesn't - header
+    " All sampled lines has a number in a column and potential header doesn't - header
     let optimistic_name = '^[a-zA-Z]\{3,}'
     let pessimistic_name = '[a-zA-Z]'
     for coli in range(num_fields)
@@ -155,7 +154,7 @@ func! s:guess_if_header(potential_header, sampled_records)
         endif
         let all_numbers = 1
         for rowi in range(len(a:sampled_records))
-            " sampled record doesn't have a number at position
+            " Sampled record doesn't have a number at position
             if (match(a:sampled_records[rowi][coli], pessimistic_name) != -1)
                 let all_numbers = 0
                 break
@@ -210,7 +209,7 @@ endfunc
 func! rainbow_csv#provide_column_info()
     let line = getline('.')
     let kb_pos = col('.')
-    if !s:is_rainbow_table()
+    if !rainbow_csv#is_rainbow_table()
         return
     endif
 
@@ -232,7 +231,7 @@ func! rainbow_csv#provide_column_info()
             let col_name = header[col_num]
         endif
     endif
-    " we need this len < 60 check because otherwise vim will show 'Press enter to continue'
+    " We need this len < 60 check because otherwise vim might show 'Press enter to continue'
     if col_name != "" && len(col_name) < 60
         let ui_message = ui_message . printf(', "%s"', col_name)
     endif
@@ -636,7 +635,7 @@ endfunc
 
 
 func! s:status_escape_string(src)
-    " strings in 'substitute' must follow esoteric rules, see `:help substitute()`
+    " Strings in 'substitute' must follow esoteric rules, see `:help substitute()`
     let result = substitute(a:src, ' ', '\\ ', 'g')
     let result = substitute(result, '"', '\\"', 'g')
     return result
@@ -657,7 +656,7 @@ endfunc
 
 
 func! rainbow_csv#set_statusline_columns()
-    if !s:is_rainbow_table()
+    if !rainbow_csv#is_rainbow_table()
         return
     endif
     if !exists("b:statusline_before")
@@ -780,7 +779,7 @@ endfunc
 
 
 func! rainbow_csv#select_from_file()
-    if !s:is_rainbow_table()
+    if !rainbow_csv#is_rainbow_table()
         echoerr "Error: rainbow_csv is disabled for this buffer"
         return
     endif
@@ -981,7 +980,7 @@ endfunction
 
 
 func! s:run_cmd_query(query)
-    if !s:is_rainbow_table()
+    if !rainbow_csv#is_rainbow_table()
         echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
@@ -1018,9 +1017,6 @@ endfunc
 
 
 func! rainbow_csv#load_from_settings_or_autodetect()
-    if exists("b:rainbow_csv_delim")
-        unlet b:rainbow_csv_delim
-    endif
     let buffer_path = expand("%:p")
     let record = s:get_table_record(buffer_path)
     " Reading record doesn't move it to the first position, can potentially be a problem
@@ -1055,9 +1051,9 @@ func! rainbow_csv#generate_rainbow_syntax(delim)
     let char_class_delim = s:char_class_escape(a:delim)
     for groupid in range(len(s:pairs))
         let match = 'column' . groupid
-        let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
+        let next_group_id = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
         let cmd = 'syntax match %s /%s[^%s]*/ nextgroup=column%d'
-        exe printf(cmd, match, regex_delim, char_class_delim, nextgroup)
+        exe printf(cmd, match, regex_delim, char_class_delim, next_group_id)
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
         exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
     endfor
@@ -1079,19 +1075,21 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
     let regex_delim = escape(a:delim, s:magic_chars)
     let char_class_delim = s:char_class_escape(a:delim)
     for groupid in range(len(s:pairs))
+        let next_group_id = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
+
         let match = 'column' . groupid
-        let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
-        let cmd = 'syntax match %s /%s[^%s]*/ nextgroup=escaped_column%d,column%d'
-        exe printf(cmd, match, regex_delim, char_class_delim, nextgroup, nextgroup)
+        let cmd = 'syntax match %s /%s[^%s]*$/'
+        exe printf(cmd, match, regex_delim, char_class_delim)
+        let cmd = 'syntax match %s /%s[^%s]*%s/me=e-1 nextgroup=escaped_column%d,column%d'
+        exe printf(cmd, match, regex_delim, char_class_delim, regex_delim, next_group_id, next_group_id)
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
         exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
 
         let match = 'escaped_column' . groupid
-        let nextgroup = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
         let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"$/'
         exe printf(cmd, match, regex_delim)
         let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column%d,column%d'
-        exe printf(cmd, match, regex_delim, regex_delim, nextgroup, nextgroup)
+        exe printf(cmd, match, regex_delim, regex_delim, next_group_id, next_group_id)
 
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
         exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
@@ -1127,7 +1125,7 @@ endfunc
 
 
 func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
-    if (len(s:pairs) < 2 || s:is_rainbow_table() || a:policy == 'disabled')
+    if (len(s:pairs) < 2 || rainbow_csv#is_rainbow_table() || a:policy == 'disabled')
         return
     endif
 
@@ -1163,21 +1161,35 @@ endfunc
 
 
 func! s:buffer_disable_rainbow()
-    if !s:is_rainbow_table()
+    if !rainbow_csv#is_rainbow_table()
         return
     endif
-    syntax clear startcolumn
-    for groupid in range(len(s:pairs))
-        let match = 'column' . groupid
-        exe "syntax clear " . match
-    endfor
+
+    if b:rainbow_csv_policy == "monocolumn"
+        syntax clear monocolumn
+    endif
+    
+    if b:rainbow_csv_policy == "quoted"
+        syntax clear startcolumn_escaped
+        for groupid in range(len(s:pairs))
+            exe 'syntax clear escaped_column' . groupid
+        endfor
+    endif
+
+    if b:rainbow_csv_policy == "quoted" || b:rainbow_csv_policy == "simple"
+        syntax clear startcolumn
+        for groupid in range(len(s:pairs))
+            exe 'syntax clear column' . groupid
+        endfor
+    endif
+
     augroup RainbowHintGrp
         autocmd! CursorMoved <buffer>
     augroup END
     unmap <buffer> <F5>
-    if exists("b:rainbow_csv_delim")
-        unlet b:rainbow_csv_delim
-    endif
+
+    unlet b:rainbow_csv_delim
+    unlet b:rainbow_csv_policy
 endfunc
 
 
@@ -1198,7 +1210,7 @@ endfunc
 
 
 func! rainbow_csv#set_header_manually(header_name)
-    if !s:is_rainbow_table()
+    if !rainbow_csv#is_rainbow_table()
         echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
