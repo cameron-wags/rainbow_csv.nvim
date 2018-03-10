@@ -1078,30 +1078,30 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
         let next_group_id = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
 
         let match = 'column' . groupid
-        let cmd = 'syntax match %s /%s[^%s]*$/'
+        let cmd = 'syntax match %s /%s[^%s"]*$/'
         exe printf(cmd, match, regex_delim, char_class_delim)
-        let cmd = 'syntax match %s /%s[^%s]*%s/me=e-1 nextgroup=escaped_column%d,column%d'
+        let cmd = 'syntax match %s /%s[^%s"]*%s/me=e-1 nextgroup=escaped_column%d,column%d'
         exe printf(cmd, match, regex_delim, char_class_delim, regex_delim, next_group_id, next_group_id)
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
         exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
 
         let match = 'escaped_column' . groupid
-        let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"$/'
+        let cmd = 'syntax match %s /%s"\(\([^"]\|\n\)*""\)*\([^"]\|\n\)*"$/'
         exe printf(cmd, match, regex_delim)
-        let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column%d,column%d'
+        let cmd = 'syntax match %s /%s"\(\([^"]\|\n\)*""\)*\([^"]\|\n\)*"%s/me=e-1 nextgroup=escaped_column%d,column%d'
         exe printf(cmd, match, regex_delim, regex_delim, next_group_id, next_group_id)
 
         let cmd = 'highlight %s ctermfg=%s guifg=%s'
         exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
     endfor
-    let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=escaped_column1,column1'
+    let cmd = 'syntax match startcolumn /^[^%s"]*/ nextgroup=escaped_column1,column1'
     exe printf(cmd, char_class_delim)
     let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 
-    let cmd = 'syntax match startcolumn_escaped /^"\([^"]*""\)*[^"]*"$/'
+    let cmd = 'syntax match startcolumn_escaped /^"\(\([^"]\|\n\)*""\)*\([^"]\|\n\)*"$/'
     exe cmd
-    let cmd = 'syntax match startcolumn_escaped /^"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column1,column1'
+    let cmd = 'syntax match startcolumn_escaped /^"\(\([^"]\|\n\)*""\)*\([^"]\|\n\)*"%s/me=e-1 nextgroup=escaped_column1,column1'
     exe printf(cmd, regex_delim)
     let cmd = 'highlight startcolumn_escaped ctermfg=%s guifg=%s'
     exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
