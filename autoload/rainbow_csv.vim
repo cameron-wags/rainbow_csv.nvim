@@ -884,6 +884,12 @@ func! s:get_output_format_params(root_delim, root_policy)
     if out_format == 'tsv'
         return ["\t", 'simple']
     endif
+    if a:root_policy == 'monocolumn'
+        " TODO this is a quickfix, we need to implement monocolumn output
+        " format (lazy csv) in RBQL: when output is a single column - do not
+        " quote it in monocolumn output mode, otherwise use csv
+        return [',', 'quoted']
+    endif
     return [a:root_delim, a:root_policy]
 endfunc
 
