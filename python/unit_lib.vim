@@ -19,6 +19,7 @@ endfunc
 
 func! RunUnitTests()
     call add(g:rbql_test_log_records, 'Starting Test: Statusline')
+
     "10,a,b,20000,5
     "a1 a2 a3 a4  a5
     let test_stln = rainbow_csv#generate_tab_statusline(1, ['10', 'a', 'b', '20000', '5'])
@@ -32,6 +33,7 @@ func! RunUnitTests()
     let test_stln_str = join(test_stln, '')
     let canonic_stln = 'a1  a2  a3  a4      a5'
     call AssertEqual(test_stln_str, canonic_stln)
+
     let test_cases = []
     call add(test_cases, ['abc', 'abc'])
     call add(test_cases, ['abc,', 'abc;'])
