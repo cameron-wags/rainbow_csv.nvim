@@ -82,14 +82,16 @@ def smart_join(fields, dlm, policy):
 
 
 def smart_split(src, dlm, policy):
+    if policy == 'monocolumn':
+        return [src]
     if policy == 'simple':
         return src.split(dlm)
-    else:
-        res = rbql_utils.split_quoted_str(src, dlm)[0]
-        res_preserved = rbql_utils.split_quoted_str(src, dlm, True)[0]
-        assert dlm.join(res_preserved) == src
-        assert res == rbql_utils.unquote_fields(res_preserved)
-        return res
+    assert policy == 'quoted'
+    res = rbql_utils.split_quoted_str(src, dlm)[0]
+    res_preserved = rbql_utils.split_quoted_str(src, dlm, True)[0]
+    assert dlm.join(res_preserved) == src
+    assert res == rbql_utils.unquote_fields(res_preserved)
+    return res
 
 
 
@@ -117,21 +119,19 @@ rainbow_ut_prefix = 'ut_rbconvert_'
 
 def run_file_query_test_py(query, input_path, testname, delim, policy, csv_encoding):
     tmp_dir = tempfile.gettempdir()
-    if not len(sys.path) or sys.path[0] != tmp_dir:
-        sys.path.insert(0, tmp_dir)
-    module_name = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
-    module_filename = '{}.py'.format(module_name)
-    tmp_path = os.path.join(tmp_dir, module_filename)
-    dst_table_filename = '{}.tsv'.format(module_name)
+    dst_table_filename = '{}.{}.{}.tsv'.format(testname, time.time(), random.randint(1, 1000000))
     output_path = os.path.join(tmp_dir, dst_table_filename)
-    rbql.parse_to_py([query], tmp_path, delim, policy, '\t', 'simple', csv_encoding, None)
-    rbconvert = rbql.dynamic_import(module_name)
-    warnings = None
-    with codecs.open(input_path, encoding=csv_encoding) as src, codecs.open(output_path, 'w', encoding=csv_encoding) as dst:
-        warnings = rbconvert.rb_transform(src, dst)
-    assert os.path.exists(tmp_path)
-    rbql.remove_if_possible(tmp_path)
-    assert not os.path.exists(tmp_path)
+    with rbql.RbqlPyEnv() as worker_env:
+        tmp_path = worker_env.module_path
+        rbql.parse_to_py([query], tmp_path, delim, policy, '\t', 'simple', csv_encoding, None)
+        rbconvert = worker_env.import_worker()
+        warnings = None
+        with codecs.open(input_path, encoding=csv_encoding) as src, codecs.open(output_path, 'w', encoding=csv_encoding) as dst:
+            warnings = rbconvert.rb_transform(src, dst)
+
+        assert os.path.exists(tmp_path)
+        worker_env.remove_env_dir()
+        assert not os.path.exists(tmp_path)
     return (output_path, warnings)
 
 
@@ -155,29 +155,24 @@ def table_has_delim(array2d, delim):
 
 
 def run_conversion_test_py(query, input_table, testname, input_delim, input_policy, output_delim, output_policy, import_modules=None, join_csv_encoding=default_csv_encoding):
-    tmp_dir = tempfile.gettempdir()
-    if not len(sys.path) or sys.path[0] != tmp_dir:
-        sys.path.insert(0, tmp_dir)
-    module_name = '{}{}_{}_{}'.format(rainbow_ut_prefix, time.time(), testname, random.randint(1, 100000000)).replace('.', '_')
-    module_filename = '{}.py'.format(module_name)
-    tmp_path = os.path.join(tmp_dir, module_filename)
-    #print( "tmp_path:", tmp_path) #FOR_DEBUG
-    src = table_to_stream(input_table, input_delim, input_policy)
-    dst = io.StringIO()
-    rbql.parse_to_py([query], tmp_path, input_delim, input_policy, output_delim, output_policy, join_csv_encoding, import_modules)
-    assert os.path.isfile(tmp_path) and os.access(tmp_path, os.R_OK)
-    rbconvert = rbql.dynamic_import(module_name)
-    warnings = rbconvert.rb_transform(src, dst)
-    out_data = dst.getvalue()
-    if len(out_data):
-        out_lines = out_data[:-1].split('\n')
-        out_table = [smart_split(ln, output_delim, output_policy) for ln in out_lines]
-    else:
-        out_table = []
-    assert os.path.exists(tmp_path)
-    rbql.remove_if_possible(tmp_path)
-    assert not os.path.exists(tmp_path)
-    return (out_table, warnings)
+    with rbql.RbqlPyEnv() as worker_env:
+        tmp_path = worker_env.module_path
+        src = table_to_stream(input_table, input_delim, input_policy)
+        dst = io.StringIO()
+        rbql.parse_to_py([query], tmp_path, input_delim, input_policy, output_delim, output_policy, join_csv_encoding, import_modules)
+        assert os.path.isfile(tmp_path) and os.access(tmp_path, os.R_OK)
+        rbconvert = worker_env.import_worker()
+        warnings = rbconvert.rb_transform(src, dst)
+        out_data = dst.getvalue()
+        if len(out_data):
+            out_lines = out_data[:-1].split('\n')
+            out_table = [smart_split(ln, output_delim, output_policy) for ln in out_lines]
+        else:
+            out_table = []
+        assert os.path.exists(tmp_path)
+        worker_env.remove_env_dir()
+        assert not os.path.exists(tmp_path)
+        return (out_table, warnings)
 
 
 def run_file_query_test_js(query, input_path, testname, delim, policy, csv_encoding):
@@ -1188,6 +1183,102 @@ class TestEverything(unittest.TestCase):
             compare_warnings(self, None, warnings)
 
 
+    def test_run26(self):
+        test_name = 'test26'
+
+        input_table = list()
+        input_table.append(['5', 'haha', 'hoho'])
+        input_table.append(['-20', 'haha', 'hioho'])
+        input_table.append(['50', 'haha', 'dfdf'])
+        input_table.append(['20', 'haha', ''])
+
+        canonic_table = list()
+        canonic_table.append(['haha;', '5'])
+        canonic_table.append(['haha', '', '-20'])
+        canonic_table.append(['haha;', '50'])
+        canonic_table.append(['haha', '', '20'])
+
+        input_delim = ','
+        input_policy = 'simple'
+        output_delim = ','
+        output_policy = 'simple'
+
+        query = 'select a2 + "," if NR % 2 == 0 else a2 + ";", a1'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, ['delim_in_simple_output'], warnings)
+
+        if TEST_JS:
+            query = 'select NR % 2 == 0 ? a2 + "," : a2 + ";", a1'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, ['delim_in_simple_output'], warnings)
+
+
+    def test_run27(self):
+        test_name = 'test27'
+
+        input_table = list()
+        input_table.append(['5', 'haha   asdf', 'hoho'])
+        input_table.append(['50', 'haha  asdf', 'dfdf'])
+        input_table.append(['20', 'haha    asdf', ''])
+        input_table.append(['-20', 'haha   asdf', 'hioho'])
+        input_table.append(['40', 'lol', 'hioho'])
+
+        canonic_table = list()
+        canonic_table.append(['5', 'haha   asdf', 'hoho'])
+        canonic_table.append(['100', 'haha  asdf 1', 'dfdf'])
+        canonic_table.append(['100', 'haha    asdf 2', ''])
+        canonic_table.append(['-20', 'haha   asdf', 'hioho'])
+        canonic_table.append(['100', 'lol 3', 'hioho'])
+
+        input_delim, input_policy, output_delim, output_policy = select_random_formats(input_table)
+
+        query = r'update a2 = "{} {}".format(a2, NU) , a1 = 100 where int(a1) > 10'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, None, warnings)
+
+        if TEST_JS:
+            query = r'update a2 = a2 + " " + NU, a1 = 100 where parseInt(a1) > 10'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, None, warnings)
+
+
+    def test_run28(self):
+        test_name = 'test28'
+
+        input_table = list()
+        input_table.append(['cde'])
+        input_table.append(['abc'])
+        input_table.append(['a,bc'])
+        input_table.append(['efg'])
+
+        canonic_table = list()
+        canonic_table.append(['cde,cde2'])
+        canonic_table.append(['abc,abc2'])
+        canonic_table.append(['"a,bc","a,bc2"'])
+        canonic_table.append(['efg,efg2'])
+
+        input_delim = ''
+        input_policy = 'monocolumn'
+        output_delim = ''
+        output_policy = 'monocolumn'
+
+        query = r'select a1, a1 + "2"'
+        test_table, warnings = run_conversion_test_py(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+        self.compare_tables(canonic_table, test_table)
+        compare_warnings(self, ['output_switch_to_csv'], warnings)
+
+        if TEST_JS:
+            query = r'select a1, a1 + "2"'
+            test_table, warnings = run_conversion_test_js(query, input_table, test_name, input_delim, input_policy, output_delim, output_policy)
+            self.compare_tables(canonic_table, test_table)
+            compare_warnings(self, ['output_switch_to_csv'], warnings)
+
+
+
 def calc_file_md5(fname):
     import hashlib
     hash_md5 = hashlib.md5()
@@ -1229,11 +1320,11 @@ class TestFiles(unittest.TestCase):
                     delim = '\t'
                 default_policy = 'quoted' if delim in [';', ','] else 'simple'
                 policy = config.get('policy', default_policy)
-                meta_language = config.get('meta_language', 'python')
+                host_language = config.get('host_language', 'python')
                 canonic_path = None if canonic_table is None else os.path.abspath(canonic_table)
                 canonic_md5 = calc_file_md5(canonic_table)
 
-                if meta_language == 'python':
+                if host_language == 'python':
                     warnings = None
                     try:
                         result_table, warnings = run_file_query_test_py(query, src_path, str(test_no), delim, policy, encoding)
@@ -1247,7 +1338,7 @@ class TestFiles(unittest.TestCase):
                     compare_warnings(self, canonic_warnings, warnings)
                 
                 elif TEST_JS:
-                    assert meta_language == 'js'
+                    assert host_language == 'js'
                     try:
                         result_table, warnings = run_file_query_test_js(query, src_path, str(test_no), delim, policy, encoding)
                     except Exception as e:

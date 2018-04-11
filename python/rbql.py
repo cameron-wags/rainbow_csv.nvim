@@ -9,6 +9,10 @@ import re
 import importlib
 import codecs
 import io
+import tempfile
+import random
+import shutil
+import time
 
 ##########################################################################
 #
@@ -78,14 +82,6 @@ def normalize_delim(delim):
     if delim == r'\t':
         return '\t'
     return delim
-
-
-def dynamic_import(module_name):
-    try:
-        importlib.invalidate_caches()
-    except AttributeError:
-        pass
-    return importlib.import_module(module_name)
 
 
 def get_encoded_stdin(encoding_name):
@@ -243,7 +239,7 @@ def separate_string_literals_js(rbql_expression):
 
 
 def do_separate_string_literals(rbql_expression, string_literals_regex):
-    # regex is improved expression from here: https://stackoverflow.com/a/14366904/2898283
+    # The regex is improved expression from here: https://stackoverflow.com/a/14366904/2898283
     matches = list(re.finditer(string_literals_regex, rbql_expression))
     string_literals = list()
     format_parts = list()
@@ -268,7 +264,6 @@ def combine_string_literals(host_expression, string_literals):
 
 def locate_statements(rbql_expression):
     statement_groups = list()
-    #'(?i)(?:^| )(?:(?:(?:STRICT *)?LEFT *)|(?:INNER *))?JOIN ' - you can use this regex for joins
     statement_groups.append([STRICT_LEFT_JOIN, LEFT_JOIN, INNER_JOIN, JOIN])
     statement_groups.append([SELECT])
     statement_groups.append([ORDER_BY])
@@ -290,7 +285,7 @@ def locate_statements(rbql_expression):
             assert len(matches) == 1
             match = matches[0]
             result.append((match.start(), match.end(), statement))
-            break #there must be only one statement maximum in each group
+            break # There must be only one statement maximum in each group
     return sorted(result)
 
 
@@ -379,7 +374,6 @@ def parse_to_py(rbql_lines, py_dst, input_delim, input_policy, out_delim, out_po
             import_expression += 'import {}\n'.format(mdl)
 
     py_meta_params = dict()
-    py_meta_params['rbql_home_dir'] = py_source_escape(rbql_home_dir)
     py_meta_params['import_expression'] = import_expression
     py_meta_params['input_delim'] = py_source_escape(input_delim)
     py_meta_params['input_policy'] = input_policy
@@ -613,6 +607,11 @@ def make_warnings_human_readable(warnings):
     for warning_type, warning_value in warnings.items():
         if warning_type == 'null_value_in_output':
             result.append('None/null values in output were replaced by empty strings.')
+        if warning_type == 'delim_in_simple_output':
+            result.append('Some result set fields contain output separator.')
+        if warning_type == 'output_switch_to_csv':
+            # ATTENTION: External tools depend on the exact wording of the following message:
+            result.append('Output has multiple fields: using "CSV" output format instead of "Monocolumn"')
         elif warning_type == 'utf8_bom_removed':
             result.append('UTF-8 Byte Order Mark BOM was found and removed.')
         elif warning_type == 'defective_csv_line_in_input':
@@ -629,4 +628,42 @@ def make_warnings_human_readable(warnings):
         assert w.find('\n') == -1
     return result
 
+
+class RbqlPyEnv:
+    def __init__(self):
+        self.env_dir_name = None
+        self.env_dir = None
+        self.module_path = None
+        self.module_name = None
+
+    def __enter__(self):
+        tmp_dir = tempfile.gettempdir()
+        self.env_dir_name = 'rbql_{}_{}'.format(time.time(), random.randint(1, 100000000)).replace('.', '_')
+        self.env_dir = os.path.join(tmp_dir, self.env_dir_name)
+        self.module_name = 'worker_{}'.format(self.env_dir_name)
+        module_filename = '{}.py'.format(self.module_name)
+        self.module_path = os.path.join(self.env_dir, module_filename)
+        os.mkdir(self.env_dir)
+        shutil.copy(os.path.join(rbql_home_dir, 'rbql_utils.py'), self.env_dir)
+        return self
+
+    def import_worker(self):
+        # We need to add env_dir to sys.path after worker module has been generated to avoid calling `importlib.invalidate_caches()`
+        # Description of the problem: http://ballingt.com/import-invalidate-caches/
+        assert os.path.exists(self.module_path), 'Unable to find generated module at {}'.format(sys.module_path)
+        sys.path.append(self.env_dir)
+        return importlib.import_module(self.module_name)
+
+    def remove_env_dir(self):
+        # Should be called on success only: do not put in __exit__. In case of error we may need to have the generated module
+        try:
+            shutil.rmtree(self.env_dir)
+        except Exception:
+            pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            sys.path.remove(self.env_dir)
+        except ValueError:
+            pass
 

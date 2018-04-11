@@ -884,12 +884,6 @@ func! s:get_output_format_params(root_delim, root_policy)
     if out_format == 'tsv'
         return ["\t", 'simple']
     endif
-    if a:root_policy == 'monocolumn'
-        " TODO this is a quickfix, we need to implement monocolumn output
-        " format (lazy csv) in RBQL: when output is a single column - do not
-        " quote it in monocolumn output mode, otherwise use csv
-        return [',', 'quoted']
-    endif
     return [a:root_delim, a:root_policy]
 endfunc
 
@@ -950,7 +944,11 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
         execute "bd! " . a:query_buf_nr
     endif
 
-    call s:update_table_record(psv_dst_table_path, out_delim, out_policy, '')
+    if index(split(psv_warning_report, "\n"), 'Output has multiple fields: using "CSV" output format instead of "Monocolumn"') == -1
+        call s:update_table_record(psv_dst_table_path, out_delim, out_policy, '')
+    else
+        call s:update_table_record(psv_dst_table_path, ',', 'quoted', '')
+    endif
     execute "e " . psv_dst_table_path
 
     let b:self_path = psv_dst_table_path

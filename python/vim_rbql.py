@@ -54,36 +54,31 @@ def get_random_suffix():
 
 def execute_python(src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy, dst_table_path):
     csv_encoding = rbql.default_csv_encoding
-    tmp_dir = tempfile.gettempdir()
-    module_name = 'vim_rb_convert_{}'.format(get_random_suffix())
-    meta_script_name = '{}.py'.format(module_name)
-    meta_script_path = os.path.join(tmp_dir, meta_script_name)
-    try:
-        rbql_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
-        rbql.parse_to_py(rbql_lines, meta_script_path, input_delim, input_policy, out_delim, out_policy, csv_encoding, None)
-    except rbql.RBParsingError as e:
-        rbql.remove_if_possible(meta_script_path)
-        vim_interface.report_error_to_vim('Parsing Error', str(e))
-        return
 
-    sys.path.insert(0, tmp_dir)
-    try:
-        rbconvert = rbql.dynamic_import(module_name)
-        warnings = None
-        with codecs.open(src_table_path, encoding=csv_encoding) as src, codecs.open(dst_table_path, 'w', encoding=csv_encoding) as dst:
-            warnings = rbconvert.rb_transform(src, dst)
-        if warnings is not None:
-            hr_warnings = rbql.make_warnings_human_readable(warnings)
-            warning_report = '\n'.join(hr_warnings)
-            vim_interface.set_vim_variable('psv_warning_report', warning_report)
-        rbql.remove_if_possible(meta_script_path)
-        vim_interface.set_vim_variable('psv_query_status', 'OK')
-    except Exception as e:
-        error_msg = 'Error: Unable to use generated python module.\n'
-        error_msg += 'Original python exception:\n{}\n'.format(str(e))
-        vim_interface.report_error_to_vim('Execution Error', error_msg)
-        with open(os.path.join(tmp_dir, 'last_rbql_exception'), 'w') as exc_dst:
-            traceback.print_exc(file=exc_dst)
+    with rbql.RbqlPyEnv() as worker_env:
+        try:
+            tmp_path = worker_env.module_path
+            rbql_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
+            rbql.parse_to_py(rbql_lines, tmp_path, input_delim, input_policy, out_delim, out_policy, csv_encoding, None)
+        except rbql.RBParsingError as e:
+            vim_interface.report_error_to_vim('Parsing Error', str(e))
+            return
+
+        try:
+            rbconvert = worker_env.import_worker()
+            warnings = None
+            with codecs.open(src_table_path, encoding=csv_encoding) as src, codecs.open(dst_table_path, 'w', encoding=csv_encoding) as dst:
+                warnings = rbconvert.rb_transform(src, dst)
+            if warnings is not None:
+                hr_warnings = rbql.make_warnings_human_readable(warnings)
+                warning_report = '\n'.join(hr_warnings)
+                vim_interface.set_vim_variable('psv_warning_report', warning_report)
+            worker_env.remove_env_dir()
+            vim_interface.set_vim_variable('psv_query_status', 'OK')
+        except Exception as e:
+            error_msg = 'Error: Unable to use generated python module.\n'
+            error_msg += 'Original python exception:\n{}\n'.format(str(e))
+            vim_interface.report_error_to_vim('Execution Error', error_msg)
 
 
 def execute_js(src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy, dst_table_path):

@@ -10,7 +10,6 @@ import re #for regexes
 import codecs
 from collections import OrderedDict, defaultdict
 
-sys.path.insert(0, '__RBQLMP__rbql_home_dir')
 import rbql_utils
 
 __RBQLMP__import_expression
@@ -64,6 +63,7 @@ def safe_set(record, idx, value):
     except IndexError as e:
         raise BadFieldError(idx - 1)
 
+enable_monocolumn_csv_ux_optimization_hack = True
 
 module_was_used_failsafe = False
 
@@ -71,6 +71,8 @@ module_was_used_failsafe = False
 join_fields_info = dict()
 input_fields_info = dict()
 null_value_in_output = False
+delim_in_simple_output = False # Need refactoring to detect line number
+output_switch_to_csv = None # Need this as warning because user could use TSV files and CSV would be unexpected. Also this is a marker for editor to use CSV syntax for output instead of  monocolumn.
 utf8_bom_removed = False
 defective_csv_line_in_input = 0
 defective_csv_line_in_join = 0
@@ -81,6 +83,8 @@ aggr_init_counter = 0
 functional_aggregators = list()
 
 writer = None
+
+NU = 0 # NU - Num Updated. Alternative variables: NW (Num Where) - Not Practical. NW (Num Written) - Impossible to implement.
 
 
 class Marker(object):
@@ -143,13 +147,27 @@ def quoted_join(fields, delim):
     return delim.join([quote_field(str6(f), delim) for f in fields])
 
 
+def mono_join(fields, delim):
+    if enable_monocolumn_csv_ux_optimization_hack and '__RBQLMP__input_policy' == 'monocolumn':
+        global output_switch_to_csv
+        if output_switch_to_csv is None:
+            output_switch_to_csv = (len(fields) > 1)
+        assert output_switch_to_csv == (len(fields) > 1), 'Monocolumn optimization logic failure'
+        if output_switch_to_csv:
+            return quoted_join(fields, ',')
+        else:
+            return fields[0]
+    if len(fields) > 1:
+        raise RbqlRuntimeError('Unable to use "Monocolumn" output format: some records have more than one field')
+    return fields[0]
+
+
 def simple_join(fields, delim):
     res = delim.join([str6(f) for f in fields])
     num_fields = res.count(delim)
     if num_fields + 1 != len(fields):
-        error_msg = 'Some result set fields already contain output delim. Use different output format e.g. "csv"\n'
-        error_msg += 'Example of defective output line: {}'.format(res)
-        raise RbqlRuntimeError(error_msg)
+        global delim_in_simple_output
+        delim_in_simple_output = True
     return res
 
 
@@ -157,6 +175,8 @@ if '__RBQLMP__output_policy' == 'simple':
     output_join = simple_join
 elif '__RBQLMP__output_policy' == 'quoted':
     output_join = quoted_join
+elif '__RBQLMP__output_policy' == 'monocolumn':
+    output_join = mono_join
 else:
     raise RuntimeError('unknown output csv policy')
 
@@ -375,6 +395,10 @@ def create_warnings_report():
         warnings['defective_csv_line_in_input'] = defective_csv_line_in_input
     if null_value_in_output:
         warnings['null_value_in_output'] = True
+    if delim_in_simple_output:
+        warnings['delim_in_simple_output'] = True
+    if output_switch_to_csv:
+        warnings['output_switch_to_csv'] = True
     if utf8_bom_removed:
         warnings['utf8_bom_removed'] = True
     if len(input_fields_info) > 1:
@@ -400,6 +424,8 @@ def process_update(NR, NF, afields, rhs_records):
     if rhs_records is not None and len(rhs_records) == 1:
         bfields = rhs_records[0]
     if (rhs_records is None or len(rhs_records) == 1) and (__RBQLMP__where_expression):
+        global NU
+        NU += 1
         __RBQLMP__update_statements
     out_fields = afields
     replace_none_values(out_fields)
