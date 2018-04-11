@@ -56,6 +56,20 @@
 :Select *
 :sleep 1
 :w! ./movies_small.tsv.csv.tsv
+:bd!
+
+:e unit_tests/universities.monocolumn
+:let g:rbql_output_format='input'
+:sleep 1
+:RainbowMonoColumn
+:sleep 1
+:Select *
+:sleep 1
+:Select a1, a1
+:fake_comand_just_to_press_enter
+:sleep 1
+:let log_msg = (b:rainbow_csv_policy == 'quoted' && b:rainbow_csv_delim == ',') ? 'OK: monocolumn -> CSV switch' : 'FAIL'
+:call add(g:rbql_test_log_records, log_msg)
 
 
 :call add(g:rbql_test_log_records, 'Finished full integration tests')

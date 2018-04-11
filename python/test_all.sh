@@ -89,7 +89,7 @@ total=$( cat vim_unit_tests.log | wc -l )
 started=$( cat vim_unit_tests.log | grep 'Starting' | wc -l )
 finished=$( cat vim_unit_tests.log | grep 'Finished' | wc -l )
 fails=$( cat vim_unit_tests.log | grep 'FAIL' | wc -l )
-if [ $total != 5 ] || [ $started != $finished ] || [ $fails != 0 ] ; then
+if [ $total != 6 ] || [ $started != $finished ] || [ $fails != 0 ] ; then
     echo "FAIL! Integration tests failed: see vim_unit_test.log"  1>&2
     exit 1
 fi
