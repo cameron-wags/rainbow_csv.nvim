@@ -134,81 +134,6 @@ func! s:has_python_27()
 endfunc
 
 
-func! s:guess_if_header(potential_header, sampled_records)
-    " Single line - not header
-    if len(a:sampled_records) < 1
-        return 0
-    endif
-
-    " Different number of columns - not header
-    let num_fields = len(a:potential_header)
-    for sri in range(len(a:sampled_records))
-        if len(a:sampled_records[sri]) != num_fields
-            return 0
-        endif
-    endfor
-
-    " All sampled lines has a number in a column and potential header doesn't - header
-    let optimistic_name = '^[a-zA-Z]\{3,}'
-    let pessimistic_name = '[a-zA-Z]'
-    for coli in range(num_fields)
-        if match(a:potential_header[coli], optimistic_name) == -1
-            continue
-        endif
-        let all_numbers = 1
-        for rowi in range(len(a:sampled_records))
-            " Sampled record doesn't have a number at position
-            if (match(a:sampled_records[rowi][coli], pessimistic_name) != -1)
-                let all_numbers = 0
-                break
-            endif
-        endfor
-        if all_numbers
-            return 1
-        endif
-    endfor
-    
-    return 0
-endfunc
-
-
-func! s:guess_document_header(invalidate_cache)
-    if !a:invalidate_cache && exists("b:guessed_header")
-        return b:guessed_header
-    endif
-    let sampled_records = []
-    let num_lines = line("$")
-    let head_count = 10
-    if num_lines <= head_count * 2
-        for lnum in range(2, num_lines)
-            let cline = getline(lnum)
-            let crecord = s:smart_split(cline, b:rainbow_csv_delim, b:rainbow_csv_policy)
-            call add(sampled_records, crecord)
-        endfor
-    else
-        for lnum in range(2, head_count)
-            let cline = getline(lnum)
-            let crecord = s:smart_split(cline, b:rainbow_csv_delim, b:rainbow_csv_policy)
-            call add(sampled_records, crecord)
-        endfor
-        for lnum in range(num_lines - head_count, num_lines)
-            let cline = getline(lnum)
-            let crecord = s:smart_split(cline, b:rainbow_csv_delim, b:rainbow_csv_policy)
-            call add(sampled_records, crecord)
-        endfor
-    endif
-    if len(sampled_records) < 10
-        let b:guessed_header = []
-        return b:guessed_header
-    endif
-    let line1 = getline(1)
-    let potential_header = s:smart_split(line1, b:rainbow_csv_delim, b:rainbow_csv_policy)
-    let has_header = s:guess_if_header(potential_header, sampled_records)
-    let b:guessed_header = has_header ? potential_header : []
-    return b:guessed_header
-endfunc
-
-
 func! rainbow_csv#provide_column_info()
     let line = getline('.')
     let kb_pos = col('.')
@@ -229,7 +154,8 @@ func! rainbow_csv#provide_column_info()
     let ui_message = printf('col# %s', col_num + 1)
     let col_name = s:try_read_column_name_from_header(col_num, num_cols)
     if col_name == ""
-        let header = s:guess_document_header(0)
+        let header = s:smart_split(getline(1), b:rainbow_csv_delim, b:rainbow_csv_policy)
+        " FIXME just show a warning if headers has different # of cols
         if len(header) && len(header) == num_cols
             let col_name = header[col_num]
         endif
@@ -1116,8 +1042,6 @@ endfunc
 
 
 func! rainbow_csv#regenerate_syntax(delim, policy)
-    " Invalidating header cache:
-    call s:guess_document_header(1)
     " Generating syntax:
     if a:policy == 'quoted'
         call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
