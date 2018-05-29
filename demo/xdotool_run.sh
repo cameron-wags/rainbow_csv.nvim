@@ -20,7 +20,7 @@ xdotool type --clearmodifiers --delay 100 ":Select * where re.search('[0-9]', a1
 sleep 3.0
 xdotool key --clearmodifiers --delay 100 Return
 sleep 1.0
-xdotool type --clearmodifiers --delay 100 ":let g:rbql_meta_language='JavaScript'"
+xdotool type --clearmodifiers --delay 100 ":let g:rbql_backend_language='JavaScript'"
 sleep 1.5
 xdotool key --clearmodifiers --delay 100 Return
 sleep 0.2

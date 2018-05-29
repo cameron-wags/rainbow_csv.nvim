@@ -38,6 +38,6 @@
 
 // =======================================================================================
 // Instructions for Python:
-// 1. Add "let g:rbql_meta_language = ''python''" to your .vimrc
-// 2. Execute ":let g:rbql_meta_language = ''python''"
+// 1. Add "let g:rbql_backend_language = ''python''" to your .vimrc
+// 2. Execute ":let g:rbql_backend_language = ''python''"
 // 3. Exit this buffer and run F5 again

@@ -104,11 +104,11 @@ This setting for example can be used to convert files between tsv and csv format
 * To convert _tsv_ to _csv_: **1.** open tsv file. **2.** `:let g:rbql_output_format='csv'` **3.** `:Select *`
 
 
-#### g:rbql_meta_language
+#### g:rbql_backend_language
 Default: _python_
 
 Scripting language to use in RBQL expression. Either 'js' or 'python'
-To use JavaScript add _let g:rbql_meta_language = 'js'_ to .vimrc
+To use JavaScript add _let g:rbql_backend_language = 'js'_ to .vimrc
 
 #### g:disable_rainbow_csv_autodetect
 csv autodetection mechanism can be disabled by setting this variable value to 1.  

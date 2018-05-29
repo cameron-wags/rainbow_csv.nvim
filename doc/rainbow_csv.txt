@@ -228,11 +228,11 @@ This setting for example can be used to convert files between tsv and csv format
    3.  execute ":Select *"
 
 
-*g:rbql_meta_language*
+*g:rbql_backend_language*
 Default: "python"
 
 Scripting language to use in RBQL expression. Either "js" or "python"
-To use JavaScript add "let g:rbql_meta_language = 'js'" to .vimrc
+To use JavaScript add "let g:rbql_backend_language = 'js'" to .vimrc
 
 
 *g:rcsv_delimiters*

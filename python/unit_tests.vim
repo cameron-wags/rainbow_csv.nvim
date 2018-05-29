@@ -6,13 +6,13 @@
 
 :e test_datasets/movies.tsv
 
-:let g:rbql_meta_language = 'python'
+:let g:rbql_backend_language = 'python'
 :Select top 20 a1, * where a7.find('Adventure') != -1 order by int(a4) desc
 :sleep 1
 :w! ./movies.tsv.py.rs
 :bd!
 
-:let g:rbql_meta_language = 'js'
+:let g:rbql_backend_language = 'js'
 :Select top 20 a1, * where a7.indexOf('Adventure') != -1 order by a4 * 1.0 desc
 :sleep 1
 :w! ./movies.tsv.js.rs
@@ -22,13 +22,13 @@
 :let log_msg = system_py_interpreter != '' ? system_py_interpreter : 'FAIL'
 :call add(g:rbql_test_log_records, log_msg)
 
-:let g:rbql_meta_language = 'python'
+:let g:rbql_backend_language = 'python'
 :Select top 20 a1, * where a7.find('Adventure') != -1 order by int(a4) desc
 :sleep 1
 :w! ./movies.tsv.system_py.py.rs
 :bd!
 
-:let g:rbql_meta_language = 'js'
+:let g:rbql_backend_language = 'js'
 :Select top 20 a1, * where a7.indexOf('Adventure') != -1 order by a4 * 1.0 desc
 :sleep 1
 :w! ./movies.tsv.system_py.js.rs
@@ -36,7 +36,7 @@
 
 :let g:rbql_output_format='tsv'
 
-:let g:rbql_meta_language = 'python'
+:let g:rbql_backend_language = 'python'
 :e test_datasets/university_ranking.csv
 :RbSelect
 :%delete

@@ -6,7 +6,7 @@
 
 :e test_datasets/movies.tsv
 
-:let g:rbql_meta_language = 'python'
+:let g:rbql_backend_language = 'python'
 :Select top 20 a1, * where a7.find('Adventure') != -1 order by int(a4) desc
 :sleep 1
 :w! ./movies.tsv.py.rs

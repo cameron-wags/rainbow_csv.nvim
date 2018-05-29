@@ -41,6 +41,6 @@
 # =======================================================================================
 # Instructions for JavaScript:
 # 1. Ensure you have Node.js installed
-# 2. Add "let g:rbql_meta_language = ''js''" to your .vimrc
-# 3. Execute ":let g:rbql_meta_language = ''js''"
+# 2. Add "let g:rbql_backend_language = ''js''" to your .vimrc
+# 3. Execute ":let g:rbql_backend_language = ''js''"
 # 4. Exit this buffer and run F5 again
