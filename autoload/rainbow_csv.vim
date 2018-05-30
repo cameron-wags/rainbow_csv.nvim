@@ -151,7 +151,7 @@ func! rainbow_csv#provide_column_info()
         let cpos = cpos + 1 + len(fields[col_num])
     endwhile
 
-    let ui_message = printf('col# %s', col_num + 1)
+    let ui_message = printf('Col# %s', col_num + 1)
     let col_name = s:try_read_column_name_from_header(col_num, num_cols)
     if col_name == ""
         let header = s:smart_split(getline(1), b:rainbow_csv_delim, b:rainbow_csv_policy)
@@ -160,114 +160,21 @@ func! rainbow_csv#provide_column_info()
             let col_name = header[col_num]
         endif
     endif
-    " We need this len < 60 check because otherwise vim might show 'Press enter to continue'
-    if col_name != "" && len(col_name) < 60
-        let ui_message = ui_message . printf(', "%s"', col_name)
+    if len(col_name) > 60
+        let col_name = strpart(col_name, 60) . '...'
+    endif
+    if col_name != ""
+        let ui_message = ui_message . printf(', Header: "%s"', col_name)
     endif
     if exists("b:root_table_name")
-        let ui_message = ui_message . printf(';  F5: Recursive query, F6: Save, F7: Copy to %s', b:root_table_name)
-    else
-        let ui_message = ui_message . ';  Press F5 for query mode'
+        let ui_message = ui_message . printf('; F7: Copy to %s', b:root_table_name)
     endif
     echo ui_message
 endfunc
 
 
-func! s:create_recurrent_tip(tip_text)
-    let b:rb_tip_text = a:tip_text
-    augroup RainbowHintGrp
-        autocmd! CursorHold <buffer>
-        autocmd CursorHold <buffer> echo b:rb_tip_text
-    augroup END
-    redraw!
-    echo a:tip_text
-endfunc
-
-
-function! s:InvertMap(pairs)
-    let i = 0
-    while i < len(a:pairs)
-        let tmpv = a:pairs[i][0]
-        let a:pairs[i][0] = a:pairs[i][1]
-        let a:pairs[i][1] = tmpv
-        let i += 1
-    endwhile
-    return a:pairs
-endfunction
-
-
-function! s:ListExistingBufDirs()
-    let buff_ids = filter(range(1, bufnr('$')), 'buflisted(v:val)')
-    let dirs_weights = {}
-    let dirs_weights[getcwd()] = 1000000
-    let home_dir = $HOME
-    let dirs_weights[home_dir] = 10000
-    for buff_id in buff_ids
-        let buff_dir = expand("#" . buff_id . ":p:h")
-        let weight = 1
-        if !has_key(dirs_weights, buff_dir)
-            let dirs_weights[buff_dir] = 0
-        endif
-        if len(getbufvar(buff_id, "selected_buf"))
-            let weight = 100
-        endif
-        let dirs_weights[buff_dir] += weight
-    endfor
-    let ranked = sort(s:InvertMap(items(dirs_weights)))
-    let ranked = reverse(ranked)
-    let result = []
-    for rr in ranked
-        call add(result, rr[1])
-    endfor
-    return result
-endfunction
-
-
-func! rainbow_csv#save_and_swap(dst_path)
-    execute "bd " . b:parent_buf_nr
-    call rename(b:parent_path, a:dst_path)
-    execute "e " . a:dst_path
-endfunction
-
-
 func! rainbow_csv#dbg_set_system_python_interpreter(interpreter)
     let s:system_python_interpreter = a:interpreter
-endfunction
-
-
-func! s:SelectDirectory()
-    let line = getline('.')
-    call feedkeys(":RbSaveAndSwap " . line . "/")
-endfunction
-
-
-func! rainbow_csv#create_save_dialog(table_buf_nr, table_path)
-    enew
-    setlocal buftype=nofile
-    setlocal modifiable
-    setlocal noswapfile
-    setlocal nowrap
-
-    setlocal nonumber
-    setlocal cursorline
-    setlocal nobuflisted
-
-    setlocal bufhidden=delete
-
-    let b:parent_buf_nr = a:table_buf_nr
-    let b:parent_path = a:table_path
-
-    let existing_dirs = s:ListExistingBufDirs()
-    call setline(1, "Select target directory, press Enter, and complete the command:")
-    call setline(2, "")
-    for nf in range(len(existing_dirs))
-        call setline(nf + 3, existing_dirs[nf])
-    endfor
-    call cursor(3, 1)
-    echo "Select target directory and press Enter"
-    redraw!
-    setlocal nomodifiable
-    nnoremap <buffer> <CR> :call <SID>SelectDirectory()<CR>
 endfunction
 
 
@@ -594,7 +501,6 @@ func! rainbow_csv#set_statusline_columns()
     let delim = b:rainbow_csv_delim
     let policy = b:rainbow_csv_policy
     let has_number_column = &number
-    " TODO take "sign" column into account too. You can use :sign place buffer={nr}
     let indent = ''
     if has_number_column
         let indent_len = max([len(string(line('$'))) + 1, 4])
@@ -763,7 +669,6 @@ func! rainbow_csv#select_from_file()
             call s:make_rbql_demo(num_fields, rbql_welcome_js_path)
         endif
     endif
-    call s:create_recurrent_tip("Press F5 to run the query")
 endfunc
 
 
@@ -886,7 +791,6 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let b:self_buf_number = bufnr("%")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
 
-    nnoremap <buffer> <F6> :call rainbow_csv#create_save_dialog(b:self_buf_number, b:self_path)<cr>
     nnoremap <buffer> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
 
     if len(psv_warning_report)
