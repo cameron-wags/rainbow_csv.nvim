@@ -134,6 +134,32 @@ func! s:has_python_27()
 endfunc
 
 
+func! s:read_virtual_header()
+    " FIXME cache the result
+    let fname = expand("%:p")
+    let headerName = fname . '.header'
+    if exists("b:rainbow_csv_header")
+        let headerName = b:rainbow_csv_header
+    endif
+    if (!filereadable(headerName))
+        return []
+    endif
+    let lines = readfile(headerName, '', 1)
+    if (!len(lines))
+        return []
+    endif
+    let line = lines[0]
+    let names = []
+    if b:rainbow_csv_policy == 'monocolumn'
+        let names = [line]
+    else
+        let regex_delim = escape(b:rainbow_csv_delim, s:magic_chars)
+        let names = split(line, regex_delim)
+    endif
+    return names
+endfunc
+
+
 func! rainbow_csv#provide_column_info()
     let line = getline('.')
     let kb_pos = col('.')
@@ -152,19 +178,24 @@ func! rainbow_csv#provide_column_info()
     endwhile
 
     let ui_message = printf('Col# %s', col_num + 1)
-    let col_name = s:try_read_column_name_from_header(col_num, num_cols)
-    if col_name == ""
+    let header = s:read_virtual_header()
+    if !len(header)
         let header = s:smart_split(getline(1), b:rainbow_csv_delim, b:rainbow_csv_policy)
-        " FIXME just show a warning if headers has different # of cols
-        if len(header) && len(header) == num_cols
-            let col_name = header[col_num]
-        endif
     endif
-    if len(col_name) > 60
-        let col_name = strpart(col_name, 60) . '...'
+    let col_name = ''
+    if col_num < len(header)
+        let col_name = header[col_num]
+    endif
+
+    let max_col_name = 50
+    if len(col_name) > max_col_name
+        let col_name = strpart(col_name, max_col_name) . '...'
     endif
     if col_name != ""
         let ui_message = ui_message . printf(', Header: "%s"', col_name)
+    endif
+    if len(header) != num_cols
+        let ui_message = ui_message . '; WARN: num of fields in Header and this line differs'
     endif
     if exists("b:root_table_name")
         let ui_message = ui_message . printf('; F7: Copy to %s', b:root_table_name)
@@ -400,31 +431,6 @@ endfunc
 
 func! s:rstrip(src)
     return substitute(a:src, '\s*$', '', '')
-endfunc
-
-
-func! s:read_column_names()
-    let fname = expand("%:p")
-    let headerName = fname . '.header'
-    if exists("b:rainbow_csv_header")
-        let headerName = b:rainbow_csv_header
-    endif
-    if (!filereadable(headerName))
-        return []
-    endif
-    let lines = readfile(headerName, '', 1)
-    if (!len(lines))
-        return []
-    endif
-    let line = lines[0]
-    let names = []
-    if b:rainbow_csv_policy == 'monocolumn'
-        let names = [line]
-    else
-        let regex_delim = escape(b:rainbow_csv_delim, s:magic_chars)
-        let names = split(line, regex_delim)
-    endif
-    return names
 endfunc
 
 
@@ -1052,18 +1058,6 @@ func! rainbow_csv#set_header_manually(header_name)
     let b:rainbow_csv_header = a:header_name
     let table_path = expand("%:p")
     call s:update_table_record(table_path, b:rainbow_csv_delim, b:rainbow_csv_policy, b:rainbow_csv_header)
-endfunc
-
-
-func! s:try_read_column_name_from_header(col_num, num_cols)
-    let names = s:read_column_names()
-    if !len(names)
-        return ''
-    endif
-    if (a:num_cols != len(names))
-        return ''
-    endif
-    return names[a:col_num]
 endfunc
 
 
