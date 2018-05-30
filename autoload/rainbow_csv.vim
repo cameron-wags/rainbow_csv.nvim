@@ -135,11 +135,10 @@ endfunc
 
 
 func! s:read_virtual_header()
-    " FIXME cache the result
     let fname = expand("%:p")
     let headerName = fname . '.header'
-    if exists("b:rainbow_csv_header")
-        let headerName = b:rainbow_csv_header
+    if exists("b:virtual_header_file")
+        let headerName = b:virtual_header_file
     endif
     if (!filereadable(headerName))
         return []
@@ -157,6 +156,24 @@ func! s:read_virtual_header()
         let names = split(line, regex_delim)
     endif
     return names
+endfunc
+
+
+func! s:read_virtual_header_cached(cache_mode)
+    if a:cache_mode != 'invalidate_cache' && exists("b:cached_virtual_header")
+        return b:cached_virtual_header
+    endif
+    let b:cached_virtual_header = s:read_virtual_header()
+    return s:read_virtual_header_cached('normal')
+endfunc
+
+
+func! s:read_header_smart()
+    let header = s:read_virtual_header_cached('normal')
+    if !len(header)
+        let header = s:smart_split(getline(1), b:rainbow_csv_delim, b:rainbow_csv_policy)
+    endif
+    return header
 endfunc
 
 
@@ -178,10 +195,7 @@ func! rainbow_csv#provide_column_info()
     endwhile
 
     let ui_message = printf('Col# %s', col_num + 1)
-    let header = s:read_virtual_header()
-    if !len(header)
-        let header = s:smart_split(getline(1), b:rainbow_csv_delim, b:rainbow_csv_policy)
-    endif
+    let header = s:read_header_smart()
     let col_name = ''
     if col_num < len(header)
         let col_name = header[col_num]
@@ -952,6 +966,7 @@ endfunc
 
 
 func! rainbow_csv#regenerate_syntax(delim, policy)
+    call s:read_virtual_header_cached('invalidate_cache')
     " Generating syntax:
     if a:policy == 'quoted'
         call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
@@ -979,7 +994,7 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
     let b:rainbow_csv_delim = a:delim
     let b:rainbow_csv_policy = a:policy
     if len(a:header_name)
-        let b:rainbow_csv_header = a:header_name
+        let b:virtual_header_file = a:header_name
     endif
 
     call rainbow_csv#regenerate_syntax(a:delim, a:policy)
@@ -1055,9 +1070,10 @@ func! rainbow_csv#set_header_manually(header_name)
         echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
-    let b:rainbow_csv_header = a:header_name
+    let b:virtual_header_file = a:header_name
+    call s:read_virtual_header_cached('invalidate_cache')
     let table_path = expand("%:p")
-    call s:update_table_record(table_path, b:rainbow_csv_delim, b:rainbow_csv_policy, b:rainbow_csv_header)
+    call s:update_table_record(table_path, b:rainbow_csv_delim, b:rainbow_csv_policy, b:virtual_header_file)
 endfunc
 
 
