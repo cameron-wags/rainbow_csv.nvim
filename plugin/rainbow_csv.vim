@@ -6,10 +6,10 @@
 "==============================================================================
 
 func! s:TryLoadHighlighting()
-    if !exists("b:current_syntax") && !exists("g:disable_rainbow_csv_autodetect") && !rainbow_csv#is_rainbow_table()
-        call rainbow_csv#load_from_settings_or_autodetect()
-    elseif rainbow_csv#is_rainbow_table()
+    if rainbow_csv#is_rainbow_table()
         call rainbow_csv#regenerate_syntax(b:rainbow_csv_delim, b:rainbow_csv_policy)
+    else
+        call rainbow_csv#try_initialize_table()
     endif
 endfunc
 

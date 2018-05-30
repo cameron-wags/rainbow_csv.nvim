@@ -424,7 +424,7 @@ func! s:lines_are_delimited(lines, delim, policy)
 endfunc
 
 
-func! s:guess_table_record()
+func! s:guess_table_params_from_content()
     let lastLineNo = min([line("$"), 10])
     if (lastLineNo < 5)
         return []
@@ -439,6 +439,20 @@ func! s:guess_table_record()
             return [delim, policy, '']
         endif
     endfor
+    return []
+endfunc
+
+
+func! s:guess_table_params_from_extension(buffer_path)
+    let fragments = split(a:buffer_path, '\.', 1)
+    if len(fragments)
+        if tolower(fragments[-1]) == 'csv'
+            return [',', 'quoted', '']
+        endif
+        if tolower(fragments[-1]) == 'tsv'
+            return ["\t", 'simple', '']
+        endif
+    endif
     return []
 endfunc
 
@@ -873,24 +887,27 @@ func! rainbow_csv#finish_query_editing()
 endfunc
 
 
-func! rainbow_csv#load_from_settings_or_autodetect()
+func! rainbow_csv#try_initialize_table()
+    if exists("b:not_a_rainbow_table") || exists("b:current_syntax")
+        return
+    endif
+
     let buffer_path = expand("%:p")
-    let record = s:get_table_record(buffer_path)
-    " Reading record doesn't move it to the first position, can potentially be a problem
-    if !len(record)
-        let record = s:guess_table_record()
-        if len(record) && len(buffer_path)
-            call s:update_table_record(buffer_path, record[0], record[1], record[2])
-            let record = s:get_table_record(buffer_path)
-            if !len(record)
-                echoerr "Error: table params save/load mechanism is not working"
-                return
-            endif
-        endif
+    let table_params = s:get_table_record(buffer_path)
+    if !len(table_params) && !exists("g:disable_rainbow_csv_autodetect")
+        let table_params = s:guess_table_params_from_content()
     endif
-    if len(record)
-        call rainbow_csv#buffer_enable_rainbow(record[0], record[1], record[2])
+    if !len(table_params)
+        let table_params = s:guess_table_params_from_extension(buffer_path)
     endif
+
+    if len(table_params)
+        call s:update_table_record(buffer_path, table_params[0], table_params[1], table_params[2])
+        call rainbow_csv#buffer_enable_rainbow(table_params[0], table_params[1], table_params[2])
+    else
+        let b:not_a_rainbow_table = 1
+    endif
+
 endfunc
 
 
