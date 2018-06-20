@@ -203,7 +203,7 @@ func! rainbow_csv#provide_column_info()
 
     let max_col_name = 50
     if len(col_name) > max_col_name
-        let col_name = strpart(col_name, max_col_name) . '...'
+        let col_name = strpart(col_name, 0, max_col_name) . '...'
     endif
     if col_name != ""
         let ui_message = ui_message . printf(', Header: "%s"', col_name)
