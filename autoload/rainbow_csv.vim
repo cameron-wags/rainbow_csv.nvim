@@ -18,7 +18,11 @@ let s:magic_chars = '^*$.~/[]\'
 
 
 func! s:init_groups_from_links()
-    let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
+    if exists("g:syntax_on")
+        let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
+    else
+        let link_groups = ['WarningMsg', 'Question', 'NONE', 'SpecialKey', 'ModeMsg', 'NonText', 'Title', 'CursorLineNr', 'DiffText', 'WildMenu']
+    endif
     for gi in range(len(link_groups))
         let cmd = 'highlight link status_color%d %s'
         exe printf(cmd, gi, link_groups[gi])
