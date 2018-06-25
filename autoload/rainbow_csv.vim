@@ -16,8 +16,55 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
-let s:pairs = [['darkred', 'darkred'], ['darkblue', 'darkblue'], ['darkgreen', 'darkgreen'], ['darkmagenta', 'darkmagenta'], ['darkcyan', 'darkcyan'], ['red', 'red'], ['blue', 'blue'], ['green', 'green'], ['magenta', 'magenta'], ['NONE', 'NONE']]
-let s:pairs = exists('g:rcsv_colorpairs') ? g:rcsv_colorpairs : s:pairs
+
+func! s:init_groups_from_links()
+    let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
+    for gi in range(len(link_groups))
+        let cmd = 'highlight link status_color%d %s'
+        exe printf(cmd, gi, link_groups[gi])
+        let cmd = 'highlight link rbql_color%d %s'
+        exe printf(cmd, gi, link_groups[gi])
+        let cmd = 'highlight link column%d %s'
+        exe printf(cmd, gi, link_groups[gi])
+        let cmd = 'highlight link escaped_column%d %s'
+        exe printf(cmd, gi, link_groups[gi])
+    endfor
+    let s:num_groups = len(link_groups)
+endfunc
+
+
+func! s:init_groups_from_colors()
+    let pairs = g:rcsv_colorpairs
+    for gi in range(len(pairs))
+        let cmd = 'highlight status_color%d ctermfg=%s guifg=%s ctermbg=black guibg=black'
+        exe printf(cmd, gi, pairs[gi][0], pairs[gi][1])
+        let cmd = 'highlight rbql_color%d ctermfg=%s guifg=%s'
+        exe printf(cmd, gi, pairs[gi][0], pairs[gi][1])
+        let cmd = 'highlight column%d ctermfg=%s guifg=%s'
+        exe printf(cmd, gi, pairs[gi][0], pairs[gi][1])
+        let cmd = 'highlight escaped_column%d ctermfg=%s guifg=%s'
+        exe printf(cmd, gi, pairs[gi][0], pairs[gi][1])
+    endfor
+    let s:num_groups = len(pairs)
+endfunc
+
+
+func! s:init_rb_color_groups()
+    if !exists('g:rcsv_colorpairs') || len(g:rcsv_colorpairs) <= 2
+        call s:init_groups_from_links()
+    else
+        call s:init_groups_from_colors()
+    endif
+    highlight link startcolumn column0
+    highlight link escaped_startcolumn column0
+    highlight link monocolumn column0
+
+    highlight RbCmd ctermbg=blue guibg=blue
+endfunc
+
+
+call s:init_rb_color_groups()
+
 
 let s:delimiters = ["\t", ",", ";"]
 let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : s:delimiters
@@ -553,7 +600,7 @@ func! rainbow_csv#set_statusline_columns()
     let rb_statusline = '%#status_line_default_hl#' . indent
     let num_columns = len(status_labels) / 2
     for nf in range(num_columns)
-        let color_id = nf % 10
+        let color_id = nf % s:num_groups
         let column_name = status_labels[nf * 2]
         let space_filling = status_labels[nf * 2 + 1]
         let cur_len += len(column_name) + len(space_filling)
@@ -581,32 +628,20 @@ endfunc
 
 
 func! s:generate_microlang_syntax(nfields)
-    let npairs = len(s:pairs)
-    if (npairs < 2)
-        return
-    endif
-
     if s:get_meta_language() == "python"
         set ft=python
     else
         set ft=javascript
     endif
 
-    for pn in range(npairs)
-        let cmd = 'highlight rbql_color%d ctermfg=%s guifg=%s'
-        exe printf(cmd, pn + 1, s:pairs[pn][0], s:pairs[pn][1])
-    endfor
-
     for lnum in range(1, a:nfields)
-        let color_num = ((lnum - 1) % npairs) + 1
+        let color_num = (lnum - 1) % s:num_groups
         let cmd = 'syntax keyword rbql_color%d a%d'
         exe printf(cmd, color_num, lnum)
         let cmd = 'syntax keyword rbql_color%d b%d'
         exe printf(cmd, color_num, lnum)
     endfor
 
-    highlight RbCmd ctermbg=blue guibg=blue
-    
     syntax match RbCmd "\c \@<=ORDER \+BY \@="
     syntax match RbCmd "\c\(^ *\)\@<=SELECT\( \+TOP \+[0-9]\+\)\?\( \+DISTINCT\( \+COUNT\)\?\)\? \@="
     syntax match RbCmd "\c\(^ *\)\@<=UPDATE\( \+SET\)\? \@="
@@ -911,80 +946,55 @@ func! rainbow_csv#try_initialize_table()
 endfunc
 
 
-func! s:generate_status_highlighting()
-    for groupid in range(len(s:pairs))
-        let statusline_hl_group = 'status_color' . groupid
-        let cmd = 'highlight %s ctermfg=%s guifg=%s ctermbg=black guibg=black'
-        exe printf(cmd, statusline_hl_group, s:pairs[groupid][0], s:pairs[groupid][1])
-    endfor
-endfunc
-
-
 func! rainbow_csv#generate_rainbow_syntax(delim)
     let regex_delim = escape(a:delim, s:magic_chars)
     let char_class_delim = s:char_class_escape(a:delim)
-    for groupid in range(len(s:pairs))
+    for groupid in range(s:num_groups)
         let match = 'column' . groupid
-        let next_group_id = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
+        let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
         let cmd = 'syntax match %s /%s[^%s]*/ nextgroup=column%d'
         exe printf(cmd, match, regex_delim, char_class_delim, next_group_id)
-        let cmd = 'highlight %s ctermfg=%s guifg=%s'
-        exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
     endfor
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=column1'
     exe printf(cmd, char_class_delim)
-    let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
-    exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 endfunc
 
 
 func! rainbow_csv#generate_monocolumn_syntax()
     syntax match monocolumn /^.*$/
-    let cmd = 'highlight monocolumn ctermfg=%s guifg=%s'
-    exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 endfunc
 
 
 func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
     let regex_delim = escape(a:delim, s:magic_chars)
     let char_class_delim = s:char_class_escape(a:delim)
-    for groupid in range(len(s:pairs))
-        let next_group_id = groupid + 1 < len(s:pairs) ? groupid + 1 : 0
+    for groupid in range(s:num_groups)
+        let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
 
         let match = 'column' . groupid
         let cmd = 'syntax match %s /%s[^%s]*$/'
         exe printf(cmd, match, regex_delim, char_class_delim)
         let cmd = 'syntax match %s /%s[^%s]*%s/me=e-1 nextgroup=escaped_column%d,column%d'
         exe printf(cmd, match, regex_delim, char_class_delim, regex_delim, next_group_id, next_group_id)
-        let cmd = 'highlight %s ctermfg=%s guifg=%s'
-        exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
 
         let match = 'escaped_column' . groupid
         let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"$/'
         exe printf(cmd, match, regex_delim)
         let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column%d,column%d'
         exe printf(cmd, match, regex_delim, regex_delim, next_group_id, next_group_id)
-
-        let cmd = 'highlight %s ctermfg=%s guifg=%s'
-        exe printf(cmd, match, s:pairs[groupid][0], s:pairs[groupid][1])
     endfor
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=escaped_column1,column1'
     exe printf(cmd, char_class_delim)
-    let cmd = 'highlight startcolumn ctermfg=%s guifg=%s'
-    exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 
-    let cmd = 'syntax match startcolumn_escaped /^"\([^"]*""\)*[^"]*"$/'
+    let cmd = 'syntax match escaped_startcolumn /^"\([^"]*""\)*[^"]*"$/'
     exe cmd
-    let cmd = 'syntax match startcolumn_escaped /^"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column1,column1'
+    let cmd = 'syntax match escaped_startcolumn /^"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column1,column1'
     exe printf(cmd, regex_delim)
-    let cmd = 'highlight startcolumn_escaped ctermfg=%s guifg=%s'
-    exe printf(cmd, s:pairs[0][0], s:pairs[0][1])
 endfunc
 
 
 func! rainbow_csv#regenerate_syntax(delim, policy)
     call s:read_virtual_header_cached('invalidate_cache')
-    " Generating syntax:
     if a:policy == 'quoted'
         call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
     elseif a:policy == 'simple'
@@ -998,7 +1008,7 @@ endfunc
 
 
 func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
-    if (len(s:pairs) < 2 || rainbow_csv#is_rainbow_table() || a:policy == 'disabled')
+    if (rainbow_csv#is_rainbow_table() || a:policy == 'disabled')
         return
     endif
 
@@ -1015,7 +1025,6 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
     endif
 
     call rainbow_csv#regenerate_syntax(a:delim, a:policy)
-    call s:generate_status_highlighting()
     highlight status_line_default_hl ctermbg=black guibg=black
 
     cnoreabbrev <expr> <buffer> Select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
@@ -1043,15 +1052,15 @@ func! s:buffer_disable_rainbow()
     endif
     
     if b:rainbow_csv_policy == "quoted"
-        syntax clear startcolumn_escaped
-        for groupid in range(len(s:pairs))
+        syntax clear escaped_startcolumn
+        for groupid in range(s:num_groups)
             exe 'syntax clear escaped_column' . groupid
         endfor
     endif
 
     if b:rainbow_csv_policy == "quoted" || b:rainbow_csv_policy == "simple"
         syntax clear startcolumn
-        for groupid in range(len(s:pairs))
+        for groupid in range(s:num_groups)
             exe 'syntax clear column' . groupid
         endfor
     endif
