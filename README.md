@@ -88,6 +88,14 @@ JOIN /path/to/my/customers/table ON a1 == b1
 
 ### Configuration
 
+#### g:rcsv_colorpairs
+List of color name pairs to customize rainbow highlighting.  
+Each entry in the list is a pair of two colors: the first color is for terminal mode, the second one is for GUI mode.  
+Example:
+```
+let g:rcsv_colorpairs = [['red', 'red'], ['blue', 'blue'], ['green', 'green'], ['magenta', 'magenta'], ['NONE', 'NONE'], ['darkred', 'darkred'], ['darkblue', 'darkblue'], ['darkgreen', 'darkgreen'], ['darkmagenta', 'darkmagenta'], ['darkcyan', 'darkcyan']]
+```
+
 #### g:rbql_output_format
 Default: _input_  
 Allowed values: _tsv_, _csv_, _input_
