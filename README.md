@@ -293,7 +293,26 @@ To find out more about cli_rbql.py and available options, execute:
 ./cli_rbql.py -h
 ```
 
-# References
+
+# Generic info
+
+## Comparison of Rainbow CSV technology with traditional graphical column alignment
+
+#### Advantages
+
+* WYSIWYG  
+* Familiar editing environment of your favorite text editor  
+* Zero-cost abstraction: Syntax highlighting is essentially free, while graphical column alignment can be computationally expensive  
+* High information density: Rainbow CSV shows more data per screen because it doesn't insert column-aligning whitespaces.
+* Works with non-table and semi-tabular files (text files that contain both table(s) and non-table data like text)
+* Ability to visually associate two same-colored columns from two different windows. This is not possible with graphical column alignment  
+
+#### Disadvantages
+
+* Rainbow CSV technology may be less effective for CSV files with many (> 10) columns
+* Current Rainbow CSV implementations do not support newlines inside double-quoted csv fields. Adding multiline fields support is technically possible under certain conditions but would impair other Rainbow CSV features and advantages.
+
+## References
 
 RBQL core on [github](https://github.com/mechatroner/RBQL)
 
