@@ -18,11 +18,7 @@ let s:magic_chars = '^*$.~/[]\'
 
 
 func! s:init_groups_from_links()
-    if exists("g:syntax_on")
-        let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
-    else
-        let link_groups = ['WarningMsg', 'Question', 'NONE', 'SpecialKey', 'ModeMsg', 'NonText', 'Title', 'CursorLineNr', 'DiffText', 'WildMenu']
-    endif
+    let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
     for gi in range(len(link_groups))
         let cmd = 'highlight link status_color%d %s'
         exe printf(cmd, gi, link_groups[gi])
@@ -37,8 +33,16 @@ func! s:init_groups_from_links()
 endfunc
 
 
+func! s:has_custom_colors()
+    return exists('g:rcsv_colorpairs') && len(g:rcsv_colorpairs) > 1
+endfunc
+
+
 func! s:init_groups_from_colors()
-    let pairs = g:rcsv_colorpairs
+    let pairs = [['red', 'red'], ['green', 'green'], ['blue', 'blue'], ['magenta', 'magenta'], ['NONE', 'NONE'], ['darkred', 'darkred'], ['darkblue', 'darkblue'], ['darkgreen', 'darkgreen'], ['darkmagenta', 'darkmagenta'], ['darkcyan', 'darkcyan']]
+    if s:has_custom_colors()
+        let pairs = g:rcsv_colorpairs
+    endif
     for gi in range(len(pairs))
         let cmd = 'highlight status_color%d ctermfg=%s guifg=%s ctermbg=black guibg=black'
         exe printf(cmd, gi, pairs[gi][0], pairs[gi][1])
@@ -54,10 +58,10 @@ endfunc
 
 
 func! s:init_rb_color_groups()
-    if !exists('g:rcsv_colorpairs') || len(g:rcsv_colorpairs) <= 2
-        call s:init_groups_from_links()
-    else
+    if !exists("g:syntax_on") || s:has_custom_colors()
         call s:init_groups_from_colors()
+    else
+        call s:init_groups_from_links()
     endif
     highlight link startcolumn column0
     highlight link escaped_startcolumn column0
