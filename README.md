@@ -314,8 +314,6 @@ To find out more about cli_rbql.py and available options, execute:
 
 ## References
 
-RBQL core on [github](https://github.com/mechatroner/RBQL)
-
 
 #### Rainbow CSV in other editors:
 
@@ -323,6 +321,12 @@ RBQL core on [github](https://github.com/mechatroner/RBQL)
 * rainbow-csv package in [Atom](https://atom.io/packages/rainbow-csv)
 * rainbow_csv plugin in [Sublime Text](https://packagecontrol.io/packages/rainbow_csv)
 * rainbow_csv plugin in [gedit](https://github.com/mechatroner/gtk_gedit_rainbow_csv) - doesn't support quoted commas in csv
+
+
+#### RBQL
+
+* rbql-js CLI App for Node.js - [npm](https://www.npmjs.com/package/rbql)  
+* rbql-py CLI App in [python](https://pypi.org/project/rbql/)  
 
 
 #### RBQL alternatives:
@@ -333,6 +337,7 @@ RBQL core on [github](https://github.com/mechatroner/RBQL)
 
 
 #### Related vim plugins:
-rainbow_csv name and original implementation was significantly influenced by [rainbow_parentheses](https://github.com/kien/rainbow_parentheses.vim) vim plugin.  
-There also exist an old vim syntax file [csv_color](https://vim.sourceforge.io/scripts/script.php?script_id=518) which, despite it's name, can highlight only *.tsv files and probably doesn't even work in modern vim.  
+Rainbow CSV name and original implementation was significantly influenced by [rainbow_parentheses](https://github.com/kien/rainbow_parentheses.vim) Vim plugin.  
+
+There also exists an old vim syntax file [csv_color](https://vim.sourceforge.io/scripts/script.php?script_id=518) which, despite it's name, can highlight only *.tsv files.  
 And, of course, there is [csv.vim](https://github.com/chrisbra/csv.vim)
