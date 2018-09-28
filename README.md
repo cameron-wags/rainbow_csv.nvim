@@ -278,20 +278,30 @@ It should be: RBQL scripts have only 1000 - 2000 lines combined (depending on ho
 There is no complex logic, even query parsing functions are very simple. If something goes wrong RBQL will show an error instead of producing incorrect output, also there are currently 5 different warning types.
 
 
-### cli_rbql.py script
+### Standalone CLI Apps
 
-RBQL comes with cli_rbql.py script.
-Use it as standalone program to execute RBQL queries from command line.
+You can also use two standalone RBQL Apps: with JavaScript and Python backends
 
-Usage example:
+#### rbql-js
+Installation:
+```
+$ npm i rbql
+```
+Usage:
+```
+$ rbql-js --query "select a1, a2 order by a1" < input.tsv
+```
 
+#### rbql-py
+Installation:
 ```
-./cli_rbql.py --query "select a1, a2 order by a1" < input.tsv
+$ pip install rbql
 ```
-To find out more about cli_rbql.py and available options, execute:
+Usage:
 ```
-./cli_rbql.py -h
+$ rbql-py --query "select a1, a2 order by a1" < input.tsv
 ```
+
 
 
 # Generic info
