@@ -16,6 +16,7 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
+" FIXME get rid of monocolumn everywhere
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -581,14 +582,11 @@ endfunc
 
 
 func! rainbow_csv#set_statusline_columns()
-    if !rainbow_csv#is_rainbow_table()
-        return
-    endif
     if !exists("b:statusline_before")
         let b:statusline_before = &statusline 
     endif
-    let delim = b:rainbow_csv_delim
-    let policy = b:rainbow_csv_policy
+    let delim = getbufvar(bufnr("%"), "rainbow_csv_delim", "")
+    let policy = getbufvar(bufnr("%"), "rainbow_csv_policy", "monocolumn")
     let has_number_column = &number
     let indent = ''
     if has_number_column
@@ -691,11 +689,6 @@ endfunc
 
 
 func! rainbow_csv#select_from_file()
-    if !rainbow_csv#is_rainbow_table()
-        echoerr "Error: rainbow_csv is disabled for this buffer"
-        return
-    endif
-
     if !s:EnsurePythonInitialization()
         echoerr "Python not found. Unable to run in this mode."
         return
@@ -705,8 +698,8 @@ func! rainbow_csv#select_from_file()
         execute "bd " . b:selected_buf
     endif
 
-    let delim = b:rainbow_csv_delim
-    let policy = b:rainbow_csv_policy
+    let delim = getbufvar(bufnr("%"), "rainbow_csv_delim", "")
+    let policy = getbufvar(bufnr("%"), "rainbow_csv_policy", "monocolumn")
     let buf_number = bufnr("%")
     let buf_path = expand("%:p")
 
@@ -807,8 +800,8 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
 
     let meta_language = s:get_meta_language()
 
-    let root_delim = getbufvar(a:table_buf_number, "rainbow_csv_delim")
-    let root_policy = getbufvar(a:table_buf_number, "rainbow_csv_policy")
+    let root_delim = getbufvar(a:table_buf_number, "rainbow_csv_delim", "")
+    let root_policy = getbufvar(a:table_buf_number, "rainbow_csv_policy", "monocolumn")
 
     let table_path = expand("#" . a:table_buf_number . ":p")
     if table_path == ""
@@ -855,6 +848,7 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
         execute "bd! " . a:query_buf_nr
     endif
 
+    " FIXME do not set for pseudo monocolumn
     if index(split(psv_warning_report, "\n"), 'Output has multiple fields: using "CSV" output format instead of "Monocolumn"') == -1
         call s:update_table_record(psv_dst_table_path, out_delim, out_policy, '')
     else
@@ -894,10 +888,10 @@ endfunction
 
 
 func! s:run_cmd_query(query)
-    if !rainbow_csv#is_rainbow_table()
-        echomsg "Error: rainbow_csv is disabled for this buffer"
-        return
-    endif
+    "if !rainbow_csv#is_rainbow_table()
+    "    echomsg "Error: rainbow_csv is disabled for this buffer"
+    "    return
+    "endif
     let rb_script_path = s:get_rb_script_path_for_this_table()
     call writefile([a:query], rb_script_path)
     let table_buf_number = bufnr("%")
