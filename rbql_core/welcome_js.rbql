@@ -1,0 +1,43 @@
+// Welcome to RBQL: SQL with JavaScript expressions.
+// To use RBQL with Python expressions see instructions at the bottom.
+
+// "a1", "a2", etc are column names.
+// You can use them in JavaScript expressions, e.g. "a1 * 20 + a2.length * Math.random()"
+// To run the query press F5.
+// For more info visit https://github.com/mechatroner/rainbow_csv
+
+
+// modify:
+###SELECT_PLACEHOLDER###
+
+// To join with another table, modify this:
+//join /path/to/another/table.tsv on a2 == b1
+
+// To filter result set, modify this:
+//where a1.length > 10
+
+// To sort result set, modify this:
+//order by a2 desc
+
+
+
+// Examples of RBQL queries:
+// select * where a1 == "SELL"
+// update set a3 = 'United States' where a3.indexOf('of America') != -1
+// select a4, a1
+// select * order by parseInt(a2) desc
+// select * order by Math.random()
+// select NR, * where NR <= 100
+// select distinct a1, *, 200, parseInt(a2) + 5, "hello world" where NR > 100 and a5 < -7 order by a3 ASC
+// select distinct count a1.length where a2 != 'US'
+// select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3
+
+// Next time you can run another query by entering it into vim command line starting with ":Select" command.
+
+
+
+// =======================================================================================
+// Instructions for Python:
+// 1. Add "let g:rbql_backend_language = ''python''" to your .vimrc
+// 2. Execute ":let g:rbql_backend_language = ''python''"
+// 3. Exit this buffer and run F5 again
