@@ -16,6 +16,9 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
+" FIXME move vim-specific tests into "test" directory. It should call test_all.sh from itself
+" FIXME do not call js code from vim explicitly. Leave it as it is for now.
+" From the other hand it could be easier to do...
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -327,7 +330,8 @@ function! s:EnsurePythonInitialization()
     if (s:python_env_initialized)
         return 1
     endif
-    let py_home_dir = s:script_folder_path . '/python'
+    " FIXME py_home_dir
+    let py_home_dir = s:script_folder_path . '/rbql_core'
     let py_home_dir = s:py_source_escape(py_home_dir)
     if has("python3") && !s:test_coverage()
         py3 import sys
@@ -739,10 +743,10 @@ func! rainbow_csv#select_from_file()
     call s:generate_microlang_syntax(num_fields)
     if !already_exists
         if s:get_meta_language() == "python"
-            let rbql_welcome_py_path = s:script_folder_path . '/python/welcome_py.rbql'
+            let rbql_welcome_py_path = s:script_folder_path . '/rbql_core/welcome_py.rbql'
             call s:make_rbql_demo(num_fields, rbql_welcome_py_path)
         else
-            let rbql_welcome_js_path = s:script_folder_path . '/python/welcome_js.rbql'
+            let rbql_welcome_js_path = s:script_folder_path . '/rbql_core/welcome_js.rbql'
             call s:make_rbql_demo(num_fields, rbql_welcome_js_path)
         endif
     endif
@@ -772,6 +776,7 @@ endfunc
 
 
 func! rainbow_csv#parse_report(report_content)
+    " FIXME generate same report in js version
     let lines = split(a:report_content, "\n")
     let psv_warning_report = ''
     let psv_error_report = ''
@@ -830,10 +835,10 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let root_delim_esc = s:py_source_escape(root_delim)
     let [out_delim, out_policy] = s:get_output_format_params(root_delim, root_policy)
     let out_delim_esc = s:py_source_escape(out_delim)
-    let py_call = 'vim_rbql.run_execute("' . meta_language . '", "' . table_path_esc . '", "' . rb_script_path_esc . '", "' . root_delim_esc . '", "' . root_policy . '", "' . out_delim_esc . '", "' . out_policy . '")'
+    let py_call = 'vim_rbql.run_execute("' . table_path_esc . '", "' . rb_script_path_esc . '", "' . root_delim_esc . '", "' . root_policy . '", "' . out_delim_esc . '", "' . out_policy . '")'
     if s:system_python_interpreter != ""
-        let rbql_executable_path = s:script_folder_path . '/python/vim_rbql.py'
-        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), meta_language, shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim), root_policy, shellescape(out_delim), out_policy]
+        let rbql_executable_path = s:script_folder_path . '/rbql_core/vim_rbql.py'
+        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim), root_policy, shellescape(out_delim), out_policy]
         let cmd = join(cmd_args, ' ')
         let report_content = system(cmd)
         let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)
