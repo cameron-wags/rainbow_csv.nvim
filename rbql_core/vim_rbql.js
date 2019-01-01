@@ -2,7 +2,7 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs');
 
-const rbql = require('./rbql.js');
+const rbql = require('./rbql-js/rbql.js');
 
 var tmp_worker_module_path = null;
 

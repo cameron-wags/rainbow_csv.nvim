@@ -12,13 +12,12 @@ let s:rainbow_table_index = $HOME . '/.rbql_table_index'
 
 let s:script_folder_path = expand('<sfile>:p:h:h')
 let s:python_env_initialized = 0
+let s:js_env_initialized = 0
 let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
 " FIXME move vim-specific tests into "test" directory. It should call test_all.sh from itself
-" FIXME do not call js code from vim explicitly. Leave it as it is for now.
-" From the other hand it could be easier to do...
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -326,11 +325,23 @@ function! s:test_coverage()
 endfunc
 
 
+function! s:EnsureJavaScriptInitialization()
+    if (s:js_env_initialized)
+        return 1
+    endif
+    let js_version = tolower(system('node --version'))
+    if (v:shell_error != 0)
+        return 0
+    endif
+    let s:js_env_initialized = 1
+    return 1
+endfunction
+
+
 function! s:EnsurePythonInitialization()
     if (s:python_env_initialized)
         return 1
     endif
-    " FIXME py_home_dir
     let py_home_dir = s:script_folder_path . '/rbql_core'
     let py_home_dir = s:py_source_escape(py_home_dir)
     if has("python3") && !s:test_coverage()
@@ -700,9 +711,16 @@ func! rainbow_csv#select_from_file()
         return
     endif
 
-    if !s:EnsurePythonInitialization()
-        echoerr "Python not found. Unable to run in this mode."
-        return
+    let meta_language = s:get_meta_language()
+
+    if meta_language == "python" && !s:EnsurePythonInitialization()
+        echoerr "Python interpreter not found. Unable to run in this mode."
+        return 0
+    endif
+
+    if meta_language == "js" && !s:EnsureJavaScriptInitialization()
+        echoerr "Node.js interpreter not found. Unable to run in this mode."
+        return 0
     endif
 
     if exists("b:selected_buf") && buflisted(b:selected_buf)
@@ -742,7 +760,7 @@ func! rainbow_csv#select_from_file()
 
     call s:generate_microlang_syntax(num_fields)
     if !already_exists
-        if s:get_meta_language() == "python"
+        if meta_language == "python"
             let rbql_welcome_py_path = s:script_folder_path . '/rbql_core/welcome_py.rbql'
             call s:make_rbql_demo(num_fields, rbql_welcome_py_path)
         else
@@ -776,7 +794,6 @@ endfunc
 
 
 func! rainbow_csv#parse_report(report_content)
-    " FIXME generate same report in js version
     let lines = split(a:report_content, "\n")
     let psv_warning_report = ''
     let psv_error_report = ''
@@ -805,12 +822,17 @@ endfunc
 
 
 func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
-    if !s:EnsurePythonInitialization()
-        echoerr "Python not found. Unable to run in this mode."
+    let meta_language = s:get_meta_language()
+
+    if meta_language == "python" && !s:EnsurePythonInitialization()
+        echoerr "Python interpreter not found. Unable to run in this mode."
         return 0
     endif
 
-    let meta_language = s:get_meta_language()
+    if meta_language == "js" && !s:EnsureJavaScriptInitialization()
+        echoerr "Node.js interpreter not found. Unable to run in this mode."
+        return 0
+    endif
 
     let root_delim = getbufvar(a:table_buf_number, "rainbow_csv_delim")
     let root_policy = getbufvar(a:table_buf_number, "rainbow_csv_policy")
@@ -836,7 +858,13 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let [out_delim, out_policy] = s:get_output_format_params(root_delim, root_policy)
     let out_delim_esc = s:py_source_escape(out_delim)
     let py_call = 'vim_rbql.run_execute("' . table_path_esc . '", "' . rb_script_path_esc . '", "' . root_delim_esc . '", "' . root_policy . '", "' . out_delim_esc . '", "' . out_policy . '")'
-    if s:system_python_interpreter != ""
+    if meta_language == "js"
+        let rbql_executable_path = s:script_folder_path . '/rbql_core/vim_rbql.js'
+        let cmd_args = ['node', shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim), root_policy, shellescape(out_delim), out_policy]
+        let cmd = join(cmd_args, ' ')
+        let report_content = system(cmd)
+        let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)
+    elseif s:system_python_interpreter != ""
         let rbql_executable_path = s:script_folder_path . '/rbql_core/vim_rbql.py'
         let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim), root_policy, shellescape(out_delim), out_policy]
         let cmd = join(cmd_args, ' ')
