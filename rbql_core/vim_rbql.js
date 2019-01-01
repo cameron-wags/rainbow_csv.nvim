@@ -28,7 +28,7 @@ function finish_query_with_error(error_type, error_msg) {
 }
 
 
-function handle_worker_success(warnings, output_path, delim, policy) {
+function handle_worker_success(warnings, output_path) {
     cleanup_tmp();
     console.log('OK');
     console.log(output_path);
@@ -49,7 +49,7 @@ function main() {
     let init_source_file = null;
     let rbql_lines = fs.readFileSync(query_file, 'utf-8').split('\n');
     var tmp_dir = os.tmpdir();
-    let output_path = path.join(tmp_dir, path.basename(src_table_path) + '.txt');
+    let output_path = path.join(tmp_dir, path.basename(input_path) + '.txt');
     var script_filename = 'rbconvert_' + String(Math.random()).replace('.', '_') + '.js';
     tmp_worker_module_path = path.join(tmp_dir, script_filename);
     try {
@@ -58,12 +58,8 @@ function main() {
         finish_query_with_error('Parsing Error', get_error_message(e));
         return;
     }
-    if (args.hasOwnProperty('parse-only')) {
-        console.log('Worker module location: ' + tmp_worker_module_path);
-        return;
-    }
     var worker_module = require(tmp_worker_module_path);
-    worker_module.run_on_node((warnings) => { handle_worker_success(warnings, output_path, delim, policy); }, error_msg => { finish_query_with_error('Execution Error', error_msg); });
+    worker_module.run_on_node((warnings) => { handle_worker_success(warnings, output_path); }, error_msg => { finish_query_with_error('Execution Error', error_msg); });
 }
 
 
