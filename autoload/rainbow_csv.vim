@@ -18,6 +18,8 @@ let s:system_python_interpreter = ''
 let s:magic_chars = '^*$.~/[]\'
 
 " FIXME move vim-specific tests into "test" directory. It should call test_all.sh from itself
+" FIXME immediately show F7 hint after query execution
+" FIXME in js only "Parsing error" / "Execution error" are reported without any details
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
