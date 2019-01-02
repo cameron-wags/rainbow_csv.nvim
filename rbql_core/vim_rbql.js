@@ -23,6 +23,8 @@ function cleanup_tmp() {
 
 function finish_query_with_error(error_type, error_msg) {
     console.log(error_type);
+    let result_file_path = '';
+    console.log(result_file_path); 
     console.log(error_msg);
     process.exit(0);
 }
