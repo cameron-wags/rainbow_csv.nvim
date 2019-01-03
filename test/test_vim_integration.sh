@@ -2,6 +2,7 @@
 
 
 cleanup_tmp_files() {
+    rm random_ut.csv 2> /dev/null
     rm movies.tsv.py.rs 2> /dev/null
     rm movies.tsv.js.rs 2> /dev/null
     rm movies.tsv.system_py.py.rs 2> /dev/null
@@ -47,6 +48,9 @@ fi
 
 
 echo "Starting vim integration tests"
+
+# We need random_ut.csv file in vim unit tests
+python ../rbql_core/test_rbql.py --create_random_csv_table random_ut.csv
 
 cleanup_tmp_files
 

@@ -4,7 +4,7 @@
 
 :call add(g:rbql_test_log_records, 'Starting full integration tests')
 
-:e test_datasets/movies.tsv
+:e ../rbql_core/test_datasets/movies.tsv
 
 :let g:rbql_backend_language = 'python'
 :Select top 20 a1, * where a7.find('Adventure') != -1 order by int(a4) desc
@@ -37,7 +37,7 @@
 :let g:rbql_output_format='tsv'
 
 :let g:rbql_backend_language = 'python'
-:e test_datasets/university_ranking.csv
+:e ../rbql_core/test_datasets/university_ranking.csv
 :RbSelect
 :%delete
 :call setline(1, "Update set a3 = 'United States' where a3.find('of America') != -1")
@@ -47,7 +47,7 @@
 :bd!
 
 
-:e unit_tests/movies_small.tsv
+:e ../rbql_core/unit_tests/movies_small.tsv
 :let g:rbql_output_format='csv'
 :Select *
 :sleep 1
@@ -58,7 +58,7 @@
 :w! ./movies_small.tsv.csv.tsv
 :bd!
 
-:e unit_tests/universities.monocolumn
+:e ../rbql_core/unit_tests/universities.monocolumn
 :let g:rbql_output_format='input'
 :sleep 1
 :RainbowMonoColumn
