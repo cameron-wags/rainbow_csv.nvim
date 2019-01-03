@@ -1,0 +1,8 @@
+" set default 'runtimepath' (without ~/.vim folders)
+let &runtimepath = printf('%s/vimfiles,%s,%s/vimfiles/after', $VIM, $VIMRUNTIME, $VIM)
+
+" what is the name of the directory containing this file?
+let plugin_package_dir = fnamemodify(expand('<sfile>:p:h') . '/..', ":p")
+
+" add the directory to 'runtimepath'
+let &runtimepath = printf('%s,%s,%s/after', plugin_package_dir, &runtimepath, plugin_package_dir)
