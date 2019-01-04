@@ -6,3 +6,6 @@ let plugin_package_dir = fnamemodify(expand('<sfile>:p:h') . '/..', ":p")
 
 " add the directory to 'runtimepath'
 let &runtimepath = printf('%s,%s,%s/after', plugin_package_dir, &runtimepath, plugin_package_dir)
+
+set visualbell "To stop WSL beeping, see https://stackoverflow.com/a/44124913/2898283 
+set t_vb= "To stop WSL beeping, see https://stackoverflow.com/a/44124913/2898283 

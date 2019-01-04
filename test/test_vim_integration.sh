@@ -51,6 +51,9 @@ echo "Starting vim integration tests"
 
 # We need random_ut.csv file in vim unit tests
 python ../rbql_core/test_rbql.py --create_random_csv_table random_ut.csv
+# TODO get rid of this hack below by teaching Vim to handle extra whitespaces
+cat random_ut.csv | tr -d ' ' > /tmp/random_ut.csv
+mv /tmp/random_ut.csv random_ut.csv
 
 cleanup_tmp_files
 
@@ -91,7 +94,7 @@ md5sum_update=($( md5sum university_ranking.rs.tsv ))
 md5sum_movies_csv_test=($( md5sum movies_small.tsv.csv ))
 md5sum_movies_tsv_test=($( md5sum movies_small.tsv.csv.tsv ))
 
-md5sum_canonic=($( md5sum unit_tests/canonic_integration_1.tsv ))
+md5sum_canonic=($( md5sum canonic_integration_1.tsv ))
 sanity_len=$( printf "$md5sum_canonic" | wc -c )
 
 if [ "$sanity_len" != 32 ] || [ "$md5sum_test_1" != $md5sum_canonic ] || [ "$md5sum_test_2" != $md5sum_canonic ] || [ "$md5sum_test_3" != $md5sum_canonic ] || [ "$md5sum_test_4" != $md5sum_canonic ] ; then
