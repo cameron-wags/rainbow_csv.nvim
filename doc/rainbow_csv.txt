@@ -92,15 +92,14 @@ Aggregate functions and queries ~
 RBQL supports the following aggregate functions, which can also be used with
 "GROUP BY" keyword:
 
-COUNT(), MIN(), MAX(), SUM(), AVG(), VARIANCE(), MEDIAN()
+COUNT(), MIN(), MAX(), SUM(), AVG(), VARIANCE(), MEDIAN(), FOLD()
 
 Limitations~
 *  Aggregate function are CASE SENSITIVE and must be CAPITALIZED.
-*  It is illegal to use aggregate functions inside Python (or JS) expressions. 
-*  Although you can use expressions inside aggregate functions.
-   E.g. this is legal: >
+*  Aggregate functions inside Python (or JS) expressions are not supported, but you can use expressions inside aggregate functions.
+   E.g. this is invalid: >
    MAX(float(a1) / 1000)
-<   But this is illegal: >
+<   But this is valid: >
    MAX(a1) / 1000
 < 
 
