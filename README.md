@@ -12,7 +12,7 @@ To run an RBQL query either press _F5_ or enter the query in vim command line e.
 Extension is written in pure vimscript/python, no additional libraries required.
 
 ### Installation
-Use your favorite package manager.  
+Use your favorite package manager. No additional steps required - Rainbow CSV will work out of the box.  
 Vundle: `Plugin 'mechatroner/rainbow_csv'`  
 VimPlug: `Plug 'mechatroner/rainbow_csv'`  
 dein: `call dein#add('mechatroner/rainbow_csv')`  
@@ -349,7 +349,7 @@ There is no complex logic, even query parsing functions are very simple. If some
 You can also use two standalone RBQL apps with JavaScript and Python backends:
 
 #### rbql-js
-Installation: `$ npm i rbql`  
+Installation: `$ npm install -g rbql`  
 Usage: `$ rbql-js --query "select a1, a2 order by a1" < input.tsv`  
 
 #### rbql-py
