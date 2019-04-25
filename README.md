@@ -11,6 +11,12 @@ To run an RBQL query either press _F5_ or enter the query in vim command line e.
 
 Extension is written in pure vimscript/python, no additional libraries required.
 
+### Installation
+Use your favorite package manager.  
+Vundle: `Plugin 'mechatroner/rainbow_csv'`  
+VimPlug: `Plug 'mechatroner/rainbow_csv'`  
+dein: `call dein#add('mechatroner/rainbow_csv')`  
+
 ### Demonstration of rainbow_csv highlighting and RBQL queries 
 
 
