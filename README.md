@@ -1,3 +1,11 @@
+#### Installation
+Use your favorite package manager:  
+Vundle: `Plugin 'mechatroner/rainbow_csv'`  
+VimPlug: `Plug 'mechatroner/rainbow_csv'`  
+dein: `call dein#add('mechatroner/rainbow_csv')`  
+
+No additional steps required - Rainbow CSV will work out of the box.  
+
 ## Overview
 Rainbow CSV has 2 main features:
 * Highlight csv columns in different rainbow colors. 
@@ -10,12 +18,6 @@ There are 2 ways to enable csv columns highlighting:
 To run an RBQL query either press _F5_ or enter the query in vim command line e.g. _:Select a1, a2_
 
 Extension is written in pure vimscript/python, no additional libraries required.
-
-### Installation
-Use your favorite package manager. No additional steps required - Rainbow CSV will work out of the box.  
-Vundle: `Plugin 'mechatroner/rainbow_csv'`  
-VimPlug: `Plug 'mechatroner/rainbow_csv'`  
-dein: `call dein#add('mechatroner/rainbow_csv')`  
 
 ### Demonstration of rainbow_csv highlighting and RBQL queries 
 
