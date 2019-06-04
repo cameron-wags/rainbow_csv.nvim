@@ -18,6 +18,11 @@ let s:system_python_interpreter = ''
 let s:magic_chars = '^*$.~/[]\'
 
 
+func! s:starts_with(data, prefix)
+    return strpart(a:data, 0, len(a:prefix)) == a:prefix
+endfunc
+
+
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
     for gi in range(len(link_groups))
@@ -159,7 +164,11 @@ endfunc
 
 
 func! rainbow_csv#is_rainbow_table()
-    return exists("b:rainbow_csv_delim") && exists("b:rainbow_csv_policy")
+    let current_ft = &ft
+    if current_ft == 'csv' || current_ft == 'tsv' || s:starts_with(current_ft, 'rcsv_')
+        return 1
+    endif
+    return 0
 endfunc
 
 

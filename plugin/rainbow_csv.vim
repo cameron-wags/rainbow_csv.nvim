@@ -14,8 +14,9 @@ func! s:TryLoadHighlighting()
 endfunc
 
 
-augroup RainbowAutodetectAuGrp
+augroup RainbowInitAuGrp
     autocmd!
+    autocmd FileType * call s:TryLoadHighlighting()
     autocmd BufEnter * call s:TryLoadHighlighting()
 augroup END
 
