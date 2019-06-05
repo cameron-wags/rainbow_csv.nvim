@@ -18,11 +18,6 @@ let s:system_python_interpreter = ''
 let s:magic_chars = '^*$.~/[]\'
 
 
-func! s:starts_with(data, prefix)
-    return strpart(a:data, 0, len(a:prefix)) == a:prefix
-endfunc
-
-
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
     for gi in range(len(link_groups))
@@ -163,12 +158,24 @@ func! s:get_table_record(table_path)
 endfunc
 
 
-func! rainbow_csv#is_rainbow_table()
+func! rainbow_csv#get_current_dialect()
     let current_ft = &ft
-    if current_ft == 'csv' || current_ft == 'tsv' || s:starts_with(current_ft, 'rcsv_')
-        return 1
+    if current_ft == 'csv'
+        return [',', 'quoted']
     endif
-    return 0
+    if current_ft == 'tsv'
+        return ["\t", 'simple']
+    endif
+    let ft_parts = split(current_ft, '_')
+    if len(ft_parts) != 3 || ft_parts[0] != 'rcsv'
+        return [nr2char(str2nr(ft_parts[1])), ft_parts[2]]
+    endif
+endfunc
+
+
+func! rainbow_csv#is_rainbow_table()
+    let cur_dialect = rainbow_csv#get_current_dialect()
+    return len(cur_dialect) == 2
 endfunc
 
 
@@ -199,7 +206,7 @@ func! s:has_python_27()
 endfunc
 
 
-func! s:read_virtual_header()
+func! s:read_virtual_header(delim, policy)
     let fname = expand("%:p")
     let headerName = fname . '.header'
     if exists("b:virtual_header_file")
@@ -214,42 +221,45 @@ func! s:read_virtual_header()
     endif
     let line = lines[0]
     let names = []
-    if b:rainbow_csv_policy == 'monocolumn'
+    if a:policy == 'monocolumn'
         let names = [line]
     else
-        let regex_delim = escape(b:rainbow_csv_delim, s:magic_chars)
+        let regex_delim = escape(a:delim, s:magic_chars)
         let names = split(line, regex_delim)
     endif
     return names
 endfunc
 
 
-func! s:read_virtual_header_cached(cache_mode)
+func! s:read_virtual_header_cached(delim, policy, cache_mode)
     if a:cache_mode != 'invalidate_cache' && exists("b:cached_virtual_header")
         return b:cached_virtual_header
     endif
-    let b:cached_virtual_header = s:read_virtual_header()
-    return s:read_virtual_header_cached('normal')
+    let b:cached_virtual_header = s:read_virtual_header(a:delim, a:policy)
+    return s:read_virtual_header_cached(a:delim, a:policy, 'normal')
 endfunc
 
 
-func! s:read_header_smart()
-    let header = s:read_virtual_header_cached('normal')
+func! s:read_header_smart(delim, policy)
+    let header = s:read_virtual_header_cached(a:delim, a:policy, 'normal')
     if !len(header)
-        let header = s:smart_split(getline(1), b:rainbow_csv_delim, b:rainbow_csv_policy)
+        let header = s:smart_split(getline(1), a:delim, a:policy)
     endif
     return header
 endfunc
 
 
 func! rainbow_csv#provide_column_info()
-    let line = getline('.')
-    let kb_pos = col('.')
-    if !rainbow_csv#is_rainbow_table()
+    let dialect = rainbow_csv#get_current_dialect()
+    if !len(dialect)
         return
     endif
+    let delim = dialect[0]
+    let policy = dialect[1]
+    let line = getline('.')
+    let kb_pos = col('.')
 
-    let fields = s:preserving_smart_split(line, b:rainbow_csv_delim, b:rainbow_csv_policy)
+    let fields = s:preserving_smart_split(line, delim, policy)
     let num_cols = len(fields)
 
     let col_num = 0
@@ -260,7 +270,7 @@ func! rainbow_csv#provide_column_info()
     endwhile
 
     let ui_message = printf('Col# %s', col_num + 1)
-    let header = s:read_header_smart()
+    let header = s:read_header_smart(delim, policy)
     let col_name = ''
     if col_num < len(header)
         let col_name = header[col_num]
@@ -604,14 +614,15 @@ endfunc
 
 
 func! rainbow_csv#set_statusline_columns()
-    if !rainbow_csv#is_rainbow_table()
+    let dialect = rainbow_csv#get_current_dialect()
+    if !len(dialect)
         return
     endif
+    let delim = dialect[0]
+    let policy = dialect[1]
     if !exists("b:statusline_before")
         let b:statusline_before = &statusline 
     endif
-    let delim = b:rainbow_csv_delim
-    let policy = b:rainbow_csv_policy
     let has_number_column = &number
     let indent = ''
     if has_number_column
@@ -714,10 +725,14 @@ endfunc
 
 
 func! rainbow_csv#select_from_file()
-    if !rainbow_csv#is_rainbow_table()
+    let dialect = rainbow_csv#get_current_dialect()
+    if !len(dialect)
+        " TODO use monocolumn in that case
         echoerr "Error: rainbow_csv is disabled for this buffer"
         return
     endif
+    let delim = dialect[0]
+    let policy = dialect[1]
 
     let meta_language = s:get_meta_language()
 
@@ -735,8 +750,6 @@ func! rainbow_csv#select_from_file()
         execute "bd " . b:selected_buf
     endif
 
-    let delim = b:rainbow_csv_delim
-    let policy = b:rainbow_csv_policy
     let buf_number = bufnr("%")
     let buf_path = expand("%:p")
 
@@ -842,6 +855,7 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
         return 0
     endif
 
+    " XXX FIXME to get &ft of the specific buffer use: getbufvar(a:table_buf_number, "&ft")
     let root_delim = getbufvar(a:table_buf_number, "rainbow_csv_delim")
     let root_policy = getbufvar(a:table_buf_number, "rainbow_csv_policy")
 
@@ -1043,7 +1057,7 @@ endfunc
 
 
 func! rainbow_csv#regenerate_syntax(delim, policy)
-    call s:read_virtual_header_cached('invalidate_cache')
+    call s:read_virtual_header_cached(a:delim, a:policy, 'invalidate_cache')
     if a:policy == 'quoted'
         call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
     elseif a:policy == 'simple'
@@ -1067,6 +1081,7 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
 
     nnoremap <buffer> <F5> :RbSelect<cr>
 
+    " FIXME convert delim and policy to ft and set it. remember originial ft
     let b:rainbow_csv_delim = a:delim
     let b:rainbow_csv_policy = a:policy
     if len(a:header_name)
@@ -1092,22 +1107,25 @@ endfunc
 
 
 func! s:buffer_disable_rainbow()
-    if !rainbow_csv#is_rainbow_table()
+    let dialect = rainbow_csv#get_current_dialect()
+    if !len(dialect)
         return
     endif
+    let delim = dialect[0]
+    let policy = dialect[1]
 
-    if b:rainbow_csv_policy == "monocolumn"
+    if policy == "monocolumn"
         syntax clear monocolumn
     endif
     
-    if b:rainbow_csv_policy == "quoted"
+    if policy == "quoted"
         syntax clear escaped_startcolumn
         for groupid in range(s:num_groups)
             exe 'syntax clear escaped_column' . groupid
         endfor
     endif
 
-    if b:rainbow_csv_policy == "quoted" || b:rainbow_csv_policy == "simple"
+    if policy == "quoted" || policy == "simple"
         syntax clear startcolumn
         for groupid in range(s:num_groups)
             exe 'syntax clear column' . groupid
@@ -1119,6 +1137,7 @@ func! s:buffer_disable_rainbow()
     augroup END
     unmap <buffer> <F5>
 
+    " FIXME restore original ft here
     unlet b:rainbow_csv_delim
     unlet b:rainbow_csv_policy
 endfunc
@@ -1141,14 +1160,17 @@ endfunc
 
 
 func! rainbow_csv#set_header_manually(header_name)
-    if !rainbow_csv#is_rainbow_table()
+    let dialect = rainbow_csv#get_current_dialect()
+    if !len(dialect)
         echomsg "Error: rainbow_csv is disabled for this buffer"
         return
     endif
+    let delim = dialect[0]
+    let policy = dialect[1]
     let b:virtual_header_file = a:header_name
-    call s:read_virtual_header_cached('invalidate_cache')
+    call s:read_virtual_header_cached(delim, policy, 'invalidate_cache')
     let table_path = expand("%:p")
-    call s:update_table_record(table_path, b:rainbow_csv_delim, b:rainbow_csv_policy, b:virtual_header_file)
+    call s:update_table_record(table_path, delim, policy, b:virtual_header_file)
 endfunc
 
 
