@@ -1205,3 +1205,15 @@ func! rainbow_csv#manual_disable()
     let table_path = expand("%:p")
     call s:update_table_record(table_path, '', 'disabled', '')
 endfunc
+
+
+func! rainbow_csv#try_enable_rainbow()
+    let dialect = rainbow_csv#get_current_dialect()
+    if !len(dialect)
+        call rainbow_csv#try_initialize_table()
+    else
+        let delim = dialect[0]
+        let policy = dialect[1]
+        call rainbow_csv#regenerate_syntax(delim, policy)
+    endif
+endfunc

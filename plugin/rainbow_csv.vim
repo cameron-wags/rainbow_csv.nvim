@@ -5,22 +5,13 @@
 "
 "==============================================================================
 
-func! s:TryLoadHighlighting()
-    if rainbow_csv#is_rainbow_table()
-        call rainbow_csv#regenerate_syntax(b:rainbow_csv_delim, b:rainbow_csv_policy)
-    else
-        call rainbow_csv#try_initialize_table()
-    endif
-endfunc
-
-
 augroup RainbowInitAuGrp
     autocmd!
-    autocmd FileType * call s:TryLoadHighlighting()
-    autocmd BufEnter * call s:TryLoadHighlighting()
+    autocmd FileType * call rainbow_csv#try_enable_rainbow()
+    autocmd BufEnter * call rainbow_csv#try_enable_rainbow()
 augroup END
 
-" FIXME treat all non-csv files as monocolumn
+
 command! RainbowMonoColumn call rainbow_csv#manual_set('monocolumn')
 command! RainbowDelim call rainbow_csv#manual_set('simple')
 command! RainbowDelimQuoted call rainbow_csv#manual_set('quoted')
