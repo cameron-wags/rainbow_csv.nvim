@@ -20,6 +20,7 @@ let s:magic_chars = '^*$.~/[]\'
 " FIXME proper monocolumn handling
 " FIXME add whitespace-separated dialect
 " FIXME switch to new RBQL
+" FIXME :RainbowDelim command should have "auto" not "simple" semantic
 
 
 func! s:init_groups_from_links()
@@ -1091,7 +1092,7 @@ func! rainbow_csv#regenerate_syntax(delim, policy)
     elseif a:policy == 'monocolumn'
         call rainbow_csv#generate_monocolumn_syntax()
     else
-        echoerr 'bad delim policy'
+        echoerr 'bad delim policy: ' . a:policy
     endif
 endfunc
 
@@ -1169,19 +1170,27 @@ func! s:buffer_disable_rainbow()
 endfunc
 
 
-func! rainbow_csv#manual_set(policy)
+func! rainbow_csv#manual_set(arg_policy)
     let delim = ''
-    if a:policy != 'monocolumn'
+    let policy = a:arg_policy
+    if policy != 'monocolumn'
         let delim = getline('.')[col('.') - 1]  
     endif
-    if delim == '"' && a:policy == 'quoted'
+    if policy == 'auto'
+        if delim == ',' || delim == ';'
+            let policy = 'quoted'
+        else
+            let policy = 'simple'
+        endif
+    endif
+    if delim == '"' && policy == 'quoted'
         echoerr 'Double quote delimiter is incompatible with "quoted" policy'
         return
     endif
     call s:buffer_disable_rainbow()
-    call rainbow_csv#buffer_enable_rainbow(delim, a:policy, '')
+    call rainbow_csv#buffer_enable_rainbow(delim, policy, '')
     let table_path = expand("%:p")
-    call s:update_table_record(table_path, delim, a:policy, '')
+    call s:update_table_record(table_path, delim, policy, '')
 endfunc
 
 

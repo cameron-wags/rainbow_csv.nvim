@@ -69,15 +69,6 @@ Mark current file as a table and highlight it's columns in rainbow colors. Chara
 You can also use this command for non-csv files, e.g. to highlight function arguments  
 in source code in different colors. To return back to original syntax highlighting run _:NoRainbowDelim_
 
-#### :RainbowDelimQuoted
-
-Same as _:RainbowDelim_ but allows delimiters inside fields if the field is double quoted by rules of Excel / [RFC 4180](https://tools.ietf.org/html/rfc4180)
-
-#### :RainbowMonoColumn
-
-Mark the current file as rainbow table with a single column without delimiters. 
-You will be able to run RBQL queries on it using _a1_ column variable.
-
 #### :NoRainbowDelim
 
 This command will disable rainbow columns highlighting for the current file.
