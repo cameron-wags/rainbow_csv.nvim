@@ -17,6 +17,10 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
+" FIXME proper monocolumn handling
+" FIXME add whitespace-separated dialect
+" FIXME switch to new RBQL
+
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -158,18 +162,35 @@ func! s:get_table_record(table_path)
 endfunc
 
 
-func! rainbow_csv#get_current_dialect()
-    let current_ft = &ft
-    if current_ft == 'csv'
+func! rainbow_csv#dialect_to_ft(delim, policy)
+    if a:delim == ',' && a:policy == 'quoted'
+        return 'csv'
+    endif
+    if a:delim == "\t" && a:policy == 'simple'
+        return 'tsv'
+    endif
+    return join(['rcsv', char2nr(a:delim), a:policy], '_')
+endfunc
+
+
+func! rainbow_csv#ft_to_dialect(ft_val)
+    if a:ft_val == 'csv'
         return [',', 'quoted']
     endif
-    if current_ft == 'tsv'
+    if a:ft_val == 'tsv'
         return ["\t", 'simple']
     endif
-    let ft_parts = split(current_ft, '_')
+    let ft_parts = split(a:ft_val, '_')
     if len(ft_parts) != 3 || ft_parts[0] != 'rcsv'
-        return [nr2char(str2nr(ft_parts[1])), ft_parts[2]]
+        return []
     endif
+    return [nr2char(str2nr(ft_parts[1])), ft_parts[2]]
+endfunc
+
+
+func! rainbow_csv#get_current_dialect()
+    let current_ft = &ft
+    return rainbow_csv#ft_to_dialect(current_ft)
 endfunc
 
 
@@ -830,7 +851,7 @@ func! rainbow_csv#parse_report(report_content)
 endfunc
 
 
-func! s:get_output_format_params(root_delim, root_policy)
+func! s:get_output_format_params(input_delim, input_policy)
     let out_format = exists('g:rbql_output_format') ? g:rbql_output_format : 'input'
     if out_format == 'csv'
         return [',', 'quoted']
@@ -838,7 +859,7 @@ func! s:get_output_format_params(root_delim, root_policy)
     if out_format == 'tsv'
         return ["\t", 'simple']
     endif
-    return [a:root_delim, a:root_policy]
+    return [a:input_delim, a:input_policy]
 endfunc
 
 
@@ -855,9 +876,14 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
         return 0
     endif
 
-    " XXX FIXME to get &ft of the specific buffer use: getbufvar(a:table_buf_number, "&ft")
-    let root_delim = getbufvar(a:table_buf_number, "rainbow_csv_delim")
-    let root_policy = getbufvar(a:table_buf_number, "rainbow_csv_policy")
+    let table_filetype = getbufvar(a:table_buf_number, "&ft")
+    let input_dialect = rainbow_csv#ft_to_dialect(table_filetype)
+    if !len(input_dialect)
+        echoerr "File is not a rainbow table"
+        return 0
+    endif
+    let input_delim = input_dialect[0]
+    let input_policy = input_dialect[1]
 
     let table_path = expand("#" . a:table_buf_number . ":p")
     if table_path == ""
@@ -876,19 +902,19 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     echo "executing..."
     let table_path_esc = s:py_source_escape(table_path)
     let rb_script_path_esc = s:py_source_escape(a:rb_script_path)
-    let root_delim_esc = s:py_source_escape(root_delim)
-    let [out_delim, out_policy] = s:get_output_format_params(root_delim, root_policy)
-    let out_delim_esc = s:py_source_escape(out_delim)
-    let py_call = 'vim_rbql.run_execute("' . table_path_esc . '", "' . rb_script_path_esc . '", "' . root_delim_esc . '", "' . root_policy . '", "' . out_delim_esc . '", "' . out_policy . '")'
+    let input_delim_escaped = s:py_source_escape(input_delim)
+    let [out_delim, out_policy] = s:get_output_format_params(input_delim, input_policy)
+    let out_delim_escaped = s:py_source_escape(out_delim)
+    let py_call = 'vim_rbql.run_execute("' . table_path_esc . '", "' . rb_script_path_esc . '", "' . input_delim_escaped . '", "' . input_policy . '", "' . out_delim_escaped . '", "' . out_policy . '")'
     if meta_language == "js"
         let rbql_executable_path = s:script_folder_path . '/rbql_core/vim_rbql.js'
-        let cmd_args = ['node', shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim), root_policy, shellescape(out_delim), out_policy]
+        let cmd_args = ['node', shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), shellescape(input_delim), input_policy, shellescape(out_delim), out_policy]
         let cmd = join(cmd_args, ' ')
         let report_content = system(cmd)
         let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)
     elseif s:system_python_interpreter != ""
         let rbql_executable_path = s:script_folder_path . '/rbql_core/vim_rbql.py'
-        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), shellescape(root_delim), root_policy, shellescape(out_delim), out_policy]
+        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), shellescape(input_delim), input_policy, shellescape(out_delim), out_policy]
         let cmd = join(cmd_args, ' ')
         let report_content = system(cmd)
         let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)
@@ -1081,9 +1107,9 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
 
     nnoremap <buffer> <F5> :RbSelect<cr>
 
-    " FIXME convert delim and policy to ft and set it. remember originial ft
-    let b:rainbow_csv_delim = a:delim
-    let b:rainbow_csv_policy = a:policy
+    let rainbow_ft = rainbow_csv#dialect_to_ft(a:delim, a:policy)
+    let b:originial_ft = &ft
+    execute "set ft=" . rainbow_ft
     if len(a:header_name)
         let b:virtual_header_file = a:header_name
     endif
@@ -1137,9 +1163,9 @@ func! s:buffer_disable_rainbow()
     augroup END
     unmap <buffer> <F5>
 
-    " FIXME restore original ft here
-    unlet b:rainbow_csv_delim
-    unlet b:rainbow_csv_policy
+    if exists("b:originial_ft")
+        execute "set ft=" . b:originial_ft
+    endif
 endfunc
 
 
