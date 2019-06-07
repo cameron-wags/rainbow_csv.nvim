@@ -71,8 +71,8 @@ in source code in different colors. To return back to original syntax highlighti
 
 #### :NoRainbowDelim
 
-This command will disable rainbow columns highlighting for the current file.
-Use it to cancel _:RainbowDelim_, _:RainbowDelimQuoted_ and _:RainbowMonoColumn_ effects or when autodection mechanism has failed and marked non-table file as a table
+Disable rainbow columns highlighting for the current file.
+
 
 #### :RainbowName \<name\>
 

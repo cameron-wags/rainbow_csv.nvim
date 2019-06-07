@@ -7,8 +7,8 @@
 
 augroup RainbowInitAuGrp
     autocmd!
-    autocmd FileType * call rainbow_csv#try_enable_rainbow()
-    autocmd BufEnter * call rainbow_csv#try_enable_rainbow()
+    autocmd FileType * call rainbow_csv#handle_filetype_change()
+    autocmd BufEnter * call rainbow_csv#handle_buffer_enter()
 augroup END
 
 " FIXME get rid of RainbowMonoColumn command
