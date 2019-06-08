@@ -17,8 +17,11 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
+" FIXME test in neovim and windows
+
 " FIXME use pre-generated syntax files just like in sublime,atom,vscode
 " FIXME for now just generate syntax files in runtime to avoid upfront syntax infrastructure costs
+" see `:set runtimepath?` to list available places
 
 
 " FIXME proper monocolumn handling
@@ -75,7 +78,6 @@ func! s:init_rb_color_groups()
     endif
     highlight link startcolumn column0
     highlight link escaped_startcolumn column0
-    highlight link monocolumn column0
 
     highlight RbCmd ctermbg=blue guibg=blue
 endfunc
@@ -1014,25 +1016,23 @@ endfunc
 
 
 func! rainbow_csv#generate_rainbow_syntax(delim)
+    let syntax_lines = []
     let regex_delim = escape(a:delim, s:magic_chars)
     let char_class_delim = s:char_class_escape(a:delim)
     for groupid in range(s:num_groups)
         let match = 'column' . groupid
         let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
         let cmd = 'syntax match %s /%s[^%s]*/ nextgroup=column%d'
-        exe printf(cmd, match, regex_delim, char_class_delim, next_group_id)
+        call add(syntax_lines, printf(cmd, match, regex_delim, char_class_delim, next_group_id))
     endfor
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=column1'
-    exe printf(cmd, char_class_delim)
-endfunc
-
-
-func! rainbow_csv#generate_monocolumn_syntax()
-    syntax match monocolumn /^.*$/
+    call add(syntax_lines, printf(cmd, char_class_delim))
+    return syntax_lines
 endfunc
 
 
 func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
+    let syntax_lines = []
     let regex_delim = escape(a:delim, s:magic_chars)
     let char_class_delim = s:char_class_escape(a:delim)
     for groupid in range(s:num_groups)
@@ -1040,37 +1040,38 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
 
         let match = 'column' . groupid
         let cmd = 'syntax match %s /%s[^%s]*$/'
-        exe printf(cmd, match, regex_delim, char_class_delim)
+        call add(syntax_lines, printf(cmd, match, regex_delim, char_class_delim))
         let cmd = 'syntax match %s /%s[^%s]*%s/me=e-1 nextgroup=escaped_column%d,column%d'
-        exe printf(cmd, match, regex_delim, char_class_delim, regex_delim, next_group_id, next_group_id)
+        call add(syntax_lines, printf(cmd, match, regex_delim, char_class_delim, regex_delim, next_group_id, next_group_id))
 
         let match = 'escaped_column' . groupid
         let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"$/'
-        exe printf(cmd, match, regex_delim)
+        call add(syntax_lines, printf(cmd, match, regex_delim))
         let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column%d,column%d'
-        exe printf(cmd, match, regex_delim, regex_delim, next_group_id, next_group_id)
+        call add(syntax_lines, printf(cmd, match, regex_delim, regex_delim, next_group_id, next_group_id))
     endfor
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=escaped_column1,column1'
-    exe printf(cmd, char_class_delim)
+    call add(syntax_lines, printf(cmd, char_class_delim))
 
     let cmd = 'syntax match escaped_startcolumn /^"\([^"]*""\)*[^"]*"$/'
-    exe cmd
+    call add(syntax_lines, cmd)
     let cmd = 'syntax match escaped_startcolumn /^"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column1,column1'
-    exe printf(cmd, regex_delim)
+    call add(syntax_lines, printf(cmd, regex_delim))
+    return syntax_lines
 endfunc
 
 
-func! rainbow_csv#regenerate_syntax(delim, policy)
-    call s:read_virtual_header_cached(a:delim, a:policy, 'invalidate_cache')
+func! rainbow_csv#ensure_syntax_exists(rainbow_ft, delim, policy)
+    let syntax_code = ""
     if a:policy == 'quoted'
-        call rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
+        let syntax_lines = rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
     elseif a:policy == 'simple'
-        call rainbow_csv#generate_rainbow_syntax(a:delim)
-    elseif a:policy == 'monocolumn'
-        call rainbow_csv#generate_monocolumn_syntax()
+        let syntax_lines = rainbow_csv#generate_rainbow_syntax(a:delim)
     else
         echoerr 'bad delim policy: ' . a:policy
     endif
+    let syntax_file_path = s:script_folder_path . '/syntax/' . a:rainbow_ft . '.vim'
+    call writefile(syntax_lines, syntax_file_path)
 endfunc
 
 
@@ -1088,13 +1089,16 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
     nnoremap <buffer> <F5> :RbSelect<cr>
 
     let rainbow_ft = rainbow_csv#dialect_to_ft(a:delim, a:policy)
+
+    call s:read_virtual_header_cached(a:delim, a:policy, 'invalidate_cache')
+    call rainbow_csv#ensure_syntax_exists(rainbow_ft, a:delim, a:policy)
+
     let b:originial_ft = &ft
     execute "set ft=" . rainbow_ft
     if len(a:header_name)
         let b:virtual_header_file = a:header_name
     endif
 
-    call rainbow_csv#regenerate_syntax(a:delim, a:policy)
     highlight status_line_default_hl ctermbg=black guibg=black
 
     cnoreabbrev <expr> <buffer> Select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
@@ -1113,8 +1117,7 @@ endfunc
 
 
 func! s:buffer_disable_rainbow()
-    syntax clear
-
+    "syntax clear
     let b:rainbow_table_flag = 0
 
     augroup RainbowHintGrp
@@ -1147,7 +1150,7 @@ func! rainbow_csv#manual_set(arg_policy)
     endif
     if rainbow_csv#is_rainbow_table()
         call s:buffer_disable_rainbow()
-    endfunc
+    endif
     " FIXME just set ft
     call rainbow_csv#buffer_enable_rainbow(delim, policy, '')
     let table_path = expand("%:p")
@@ -1206,23 +1209,21 @@ func! rainbow_csv#handle_buffer_enter()
     let dialect = rainbow_csv#get_current_dialect()
     if !len(dialect)
         call rainbow_csv#try_initialize_table()
-    else
-        let [delim, policy] = dialect
-        call rainbow_csv#regenerate_syntax(delim, policy)
     endif
 endfunc
 
 
 func! rainbow_csv#handle_filetype_change()
-    let dialect = rainbow_csv#get_current_dialect()
-    if !len(dialect)
-        " FIXME also handle change from ft=csv to set ft=txt, check
-        " b:rainbow_table_flag and disable rainbow if set to 1
-        return
-    endif
-    let [delim, policy] = dialect
-    call s:buffer_disable_rainbow()
-    call rainbow_csv#buffer_enable_rainbow(delim, policy, '')
-    let table_path = expand("%:p")
-    call s:update_table_record(table_path, delim, policy, '')
+    " FIXME implement
+    "let dialect = rainbow_csv#get_current_dialect()
+    "if !len(dialect)
+    "    " FIXME also handle change from ft=csv to set ft=txt, check
+    "    " b:rainbow_table_flag and disable rainbow if set to 1
+    "    return
+    "endif
+    "let [delim, policy] = dialect
+    "call s:buffer_disable_rainbow()
+    "call rainbow_csv#buffer_enable_rainbow(delim, policy, '')
+    "let table_path = expand("%:p")
+    "call s:update_table_record(table_path, delim, policy, '')
 endfunc
