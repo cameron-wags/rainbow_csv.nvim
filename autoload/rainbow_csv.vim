@@ -171,6 +171,7 @@ endfunc
 
 
 func! rainbow_csv#dialect_to_ft(delim, policy)
+    " TODO consider using hex codes instead
     if a:delim == ',' && a:policy == 'quoted'
         return 'csv'
     endif
@@ -284,7 +285,7 @@ func! rainbow_csv#provide_column_info()
         let cpos = cpos + 1 + len(fields[col_num])
     endwhile
 
-    let ui_message = printf('Col# %s', col_num + 1)
+    let ui_message = printf('Col #%s', col_num + 1)
     let header = rainbow_csv#get_csv_header(delim, policy)
     let col_name = ''
     if col_num < len(header)
@@ -296,7 +297,7 @@ func! rainbow_csv#provide_column_info()
         let col_name = strpart(col_name, 0, max_col_name) . '...'
     endif
     if col_name != ""
-        let ui_message = ui_message . printf(', Header: "%s"', col_name)
+        let ui_message = ui_message . printf(' "%s"', col_name)
     endif
     if len(header) != num_cols
         let ui_message = ui_message . '; WARN: num of fields in Header and this line differs'
@@ -557,11 +558,6 @@ func! s:guess_table_params_from_extension(buffer_path)
         endif
     endif
     return []
-endfunc
-
-
-func! s:rstrip(src)
-    return substitute(a:src, '\s*$', '', '')
 endfunc
 
 
@@ -1131,11 +1127,7 @@ func! rainbow_csv#manual_set(arg_policy)
         echoerr 'Double quote delimiter is incompatible with "quoted" policy'
         return
     endif
-    "if rainbow_csv#is_rainbow_table()
-    "    call s:buffer_disable_rainbow_features()
-    "endif
     call rainbow_csv#set_rainbow_filetype(delim, policy)
-    "call rainbow_csv#buffer_enable_rainbow_features(delim, policy)
     let table_path = expand("%:p")
     call s:update_table_record(table_path, delim, policy)
 endfunc
@@ -1143,10 +1135,8 @@ endfunc
 
 func! rainbow_csv#manual_disable()
     if rainbow_csv#is_rainbow_table()
-        if exists("b:originial_ft")
-            execute "set ft=" . b:originial_ft
-        endif
-        "call s:buffer_disable_rainbow_features()
+        let original_filetype = exists("b:originial_ft") ? b:originial_ft : ''
+        execute "set ft=" . original_filetype
         let table_path = expand("%:p")
         call s:update_table_record(table_path, '', 'disabled')
     endif
@@ -1154,10 +1144,9 @@ endfunc
 
 
 func! rainbow_csv#try_initialize_table()
-    if (exists("b:rainbow_features_enabled") && b:rainbow_features_enabled == 1) || exists("b:current_syntax")
+    if exists("b:rainbow_features_enabled") || exists("b:current_syntax")
         return
     endif
-
     let buffer_path = expand("%:p")
     let table_params = s:get_table_record(buffer_path)
     if !len(table_params) && !exists("g:disable_rainbow_csv_autodetect")
@@ -1166,13 +1155,11 @@ func! rainbow_csv#try_initialize_table()
     if !len(table_params)
         let table_params = s:guess_table_params_from_extension(buffer_path)
     endif
-
     if len(table_params) && table_params[1] != 'disabled'
-        call rainbow_csv#buffer_enable_rainbow_features(table_params[0], table_params[1])
+        call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1])
     else
         let b:rainbow_features_enabled = 0
     endif
-
 endfunc
 
 
