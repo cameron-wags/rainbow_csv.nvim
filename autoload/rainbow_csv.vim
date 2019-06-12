@@ -17,10 +17,12 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
+
+" FIXME fix update -> Update switch it also occures with this `:echo "update "` -> `:echo "Update "` scenario. but only with csv files!
+
 " FIXME test in neovim and windows
 
 " FIXME use pre-generated syntax files just like in sublime,atom,vscode
-" FIXME for now just generate syntax files in runtime to avoid upfront syntax infrastructure costs
 " see `:set runtimepath?` to list available places
 
 
@@ -136,13 +138,13 @@ func! s:update_records(records, key, new_record)
 endfunc
 
 
-func! s:update_table_record(table_path, delim, policy, header_name)
+func! s:update_table_record(table_path, delim, policy)
     if !len(a:table_path)
         " For tmp buffers e.g. `cat table.csv | vim -`
         return
     endif
     let delim = a:delim == "\t" ? 'TAB' : a:delim
-    let new_record = [a:table_path, delim, a:policy, a:header_name]
+    let new_record = [a:table_path, delim, a:policy]
     let records = s:try_read_index(s:rainbow_table_index)
     let records = s:update_records(records, a:table_path, new_record)
     if len(records) > 100
@@ -161,8 +163,7 @@ func! s:get_table_record(table_path)
         if len(record) == 4 && record[0] == a:table_path
             let delim = record[1] == 'TAB' ? "\t" : record[1]
             let policy = record[2]
-            let header_name = record[3]
-            return [delim, policy, header_name]
+            return [delim, policy]
         endif
     endfor
     return []
@@ -237,9 +238,6 @@ endfunc
 func! s:read_virtual_header(delim, policy)
     let fname = expand("%:p")
     let headerName = fname . '.header'
-    if exists("b:virtual_header_file")
-        let headerName = b:virtual_header_file
-    endif
     if (!filereadable(headerName))
         return []
     endif
@@ -259,21 +257,11 @@ func! s:read_virtual_header(delim, policy)
 endfunc
 
 
-func! s:read_virtual_header_cached(delim, policy, cache_mode)
-    if a:cache_mode != 'invalidate_cache' && exists("b:cached_virtual_header")
+func! rainbow_csv#get_csv_header(delim, policy)
+    if exists("b:cached_virtual_header") && len(b:cached_virtual_header)
         return b:cached_virtual_header
     endif
-    let b:cached_virtual_header = s:read_virtual_header(a:delim, a:policy)
-    return s:read_virtual_header_cached(a:delim, a:policy, 'normal')
-endfunc
-
-
-func! s:read_header_smart(delim, policy)
-    let header = s:read_virtual_header_cached(a:delim, a:policy, 'normal')
-    if !len(header)
-        let header = s:smart_split(getline(1), a:delim, a:policy)
-    endif
-    return header
+    return s:smart_split(getline(1), a:delim, a:policy)
 endfunc
 
 
@@ -297,7 +285,7 @@ func! rainbow_csv#provide_column_info()
     endwhile
 
     let ui_message = printf('Col# %s', col_num + 1)
-    let header = s:read_header_smart(delim, policy)
+    let header = rainbow_csv#get_csv_header(delim, policy)
     let col_name = ''
     if col_num < len(header)
         let col_name = header[col_num]
@@ -941,9 +929,9 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     endif
 
     if index(split(psv_warning_report, "\n"), 'Output has multiple fields: using "CSV" output format instead of "Monocolumn"') == -1
-        call s:update_table_record(psv_dst_table_path, out_delim, out_policy, '')
+        call s:update_table_record(psv_dst_table_path, out_delim, out_policy)
     else
-        call s:update_table_record(psv_dst_table_path, ',', 'quoted', '')
+        call s:update_table_record(psv_dst_table_path, ',', 'quoted')
     endif
     execute "e " . psv_dst_table_path
 
@@ -1075,12 +1063,31 @@ func! rainbow_csv#ensure_syntax_exists(rainbow_ft, delim, policy)
 endfunc
 
 
-func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
-    if (rainbow_csv#is_rainbow_table())
+func! rainbow_csv#set_rainbow_filetype(delim, policy)
+    let rainbow_ft = rainbow_csv#dialect_to_ft(a:delim, a:policy)
+    call rainbow_csv#ensure_syntax_exists(rainbow_ft, a:delim, a:policy)
+    let b:originial_ft = &ft
+    execute "set ft=" . rainbow_ft
+endfunc
+
+
+func! rainbow_csv#buffer_disable_rainbow_features()
+    if (!exists("b:rainbow_features_enabled") || b:rainbow_features_enabled == 0)
         return
     endif
+    let b:rainbow_features_enabled = 0
 
-    let b:rainbow_table_flag = 1
+    augroup RainbowHintGrp
+        autocmd! CursorMoved <buffer>
+    augroup END
+    unmap <buffer> <F5>
+endfunc
+
+
+func! rainbow_csv#buffer_enable_rainbow_features(delim, policy)
+    call rainbow_csv#buffer_disable_rainbow_features()
+
+    let b:rainbow_features_enabled = 1
 
     set laststatus=2
     set nocompatible
@@ -1088,16 +1095,7 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
 
     nnoremap <buffer> <F5> :RbSelect<cr>
 
-    let rainbow_ft = rainbow_csv#dialect_to_ft(a:delim, a:policy)
-
-    call s:read_virtual_header_cached(a:delim, a:policy, 'invalidate_cache')
-    call rainbow_csv#ensure_syntax_exists(rainbow_ft, a:delim, a:policy)
-
-    let b:originial_ft = &ft
-    execute "set ft=" . rainbow_ft
-    if len(a:header_name)
-        let b:virtual_header_file = a:header_name
-    endif
+    let b:cached_virtual_header = s:read_virtual_header(a:delim, a:policy)
 
     highlight status_line_default_hl ctermbg=black guibg=black
 
@@ -1113,21 +1111,6 @@ func! rainbow_csv#buffer_enable_rainbow(delim, policy, header_name)
         autocmd! CursorMoved <buffer>
         autocmd CursorMoved <buffer> call rainbow_csv#provide_column_info()
     augroup END
-endfunc
-
-
-func! s:buffer_disable_rainbow()
-    "syntax clear
-    let b:rainbow_table_flag = 0
-
-    augroup RainbowHintGrp
-        autocmd! CursorMoved <buffer>
-    augroup END
-    unmap <buffer> <F5>
-
-    if exists("b:originial_ft")
-        execute "set ft=" . b:originial_ft
-    endif
 endfunc
 
 
@@ -1148,41 +1131,30 @@ func! rainbow_csv#manual_set(arg_policy)
         echoerr 'Double quote delimiter is incompatible with "quoted" policy'
         return
     endif
-    if rainbow_csv#is_rainbow_table()
-        call s:buffer_disable_rainbow()
-    endif
-    " FIXME just set ft
-    call rainbow_csv#buffer_enable_rainbow(delim, policy, '')
+    "if rainbow_csv#is_rainbow_table()
+    "    call s:buffer_disable_rainbow_features()
+    "endif
+    call rainbow_csv#set_rainbow_filetype(delim, policy)
+    "call rainbow_csv#buffer_enable_rainbow_features(delim, policy)
     let table_path = expand("%:p")
-    call s:update_table_record(table_path, delim, policy, '')
-endfunc
-
-
-func! rainbow_csv#set_header_manually(header_name)
-    let dialect = rainbow_csv#get_current_dialect()
-    if !len(dialect)
-        echomsg "Error: rainbow_csv is disabled for this buffer"
-        return
-    endif
-    let [delim, policy] = dialect
-    let b:virtual_header_file = a:header_name
-    call s:read_virtual_header_cached(delim, policy, 'invalidate_cache')
-    let table_path = expand("%:p")
-    call s:update_table_record(table_path, delim, policy, b:virtual_header_file)
+    call s:update_table_record(table_path, delim, policy)
 endfunc
 
 
 func! rainbow_csv#manual_disable()
     if rainbow_csv#is_rainbow_table()
-        call s:buffer_disable_rainbow()
+        if exists("b:originial_ft")
+            execute "set ft=" . b:originial_ft
+        endif
+        "call s:buffer_disable_rainbow_features()
         let table_path = expand("%:p")
-        call s:update_table_record(table_path, '', 'disabled', '')
+        call s:update_table_record(table_path, '', 'disabled')
     endif
 endfunc
 
 
 func! rainbow_csv#try_initialize_table()
-    if (exists("b:rainbow_table_flag") && b:rainbow_table_flag == 1) || exists("b:current_syntax")
+    if (exists("b:rainbow_features_enabled") && b:rainbow_features_enabled == 1) || exists("b:current_syntax")
         return
     endif
 
@@ -1196,10 +1168,9 @@ func! rainbow_csv#try_initialize_table()
     endif
 
     if len(table_params) && table_params[1] != 'disabled'
-        call s:update_table_record(buffer_path, table_params[0], table_params[1], table_params[2])
-        call rainbow_csv#buffer_enable_rainbow(table_params[0], table_params[1], table_params[2])
+        call rainbow_csv#buffer_enable_rainbow_features(table_params[0], table_params[1])
     else
-        let b:rainbow_table_flag = 0
+        let b:rainbow_features_enabled = 0
     endif
 
 endfunc
@@ -1218,12 +1189,12 @@ func! rainbow_csv#handle_filetype_change()
     "let dialect = rainbow_csv#get_current_dialect()
     "if !len(dialect)
     "    " FIXME also handle change from ft=csv to set ft=txt, check
-    "    " b:rainbow_table_flag and disable rainbow if set to 1
+    "    " b:rainbow_features_enabled and disable rainbow if set to 1
     "    return
     "endif
     "let [delim, policy] = dialect
-    "call s:buffer_disable_rainbow()
-    "call rainbow_csv#buffer_enable_rainbow(delim, policy, '')
+    "call s:buffer_disable_rainbow_features()
+    "call rainbow_csv#buffer_enable_rainbow_features(delim, policy)
     "let table_path = expand("%:p")
-    "call s:update_table_record(table_path, delim, policy, '')
+    "call s:update_table_record(table_path, delim, policy)
 endfunc
