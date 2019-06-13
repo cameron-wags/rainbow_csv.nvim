@@ -19,6 +19,9 @@ let s:magic_chars = '^*$.~/[]\'
 
 
 " FIXME fix update -> Update switch it also occures with this `:echo "update "` -> `:echo "Update "` scenario. but only with csv files!
+" It might be possible  to modify set_statusline_columns() to read current
+" command line text and if it starts with "select" indeed, then replace
+" (return special flag) otherwise do not replace by ternary expression
 
 " FIXME test in neovim and windows
 
@@ -438,6 +441,7 @@ endfunc
 
 
 func! rainbow_csv#preserving_quoted_split(line, dlm)
+    " FIXME make sure this handles leading/trailing spaces
     let src = a:line
     if stridx(src, '"') == -1
         " Optimization for majority of lines
@@ -543,20 +547,6 @@ func! s:guess_table_params_from_content()
             return [delim, policy, '']
         endif
     endfor
-    return []
-endfunc
-
-
-func! s:guess_table_params_from_extension(buffer_path)
-    let fragments = split(a:buffer_path, '\.', 1)
-    if len(fragments)
-        if tolower(fragments[-1]) == 'csv'
-            return [',', 'quoted', '']
-        endif
-        if tolower(fragments[-1]) == 'tsv'
-            return ["\t", 'simple', '']
-        endif
-    endif
     return []
 endfunc
 
@@ -1143,17 +1133,15 @@ func! rainbow_csv#manual_disable()
 endfunc
 
 
-func! rainbow_csv#try_initialize_table()
+
+func! rainbow_csv#handle_buffer_enter()
     if exists("b:rainbow_features_enabled") || exists("b:current_syntax")
         return
     endif
     let buffer_path = expand("%:p")
     let table_params = s:get_table_record(buffer_path)
-    if !len(table_params) && !exists("g:disable_rainbow_csv_autodetect")
+    if !len(table_params) && (!exists("g:disable_rainbow_csv_autodetect") || g:disable_rainbow_csv_autodetect == 0)
         let table_params = s:guess_table_params_from_content()
-    endif
-    if !len(table_params)
-        let table_params = s:guess_table_params_from_extension(buffer_path)
     endif
     if len(table_params) && table_params[1] != 'disabled'
         call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1])
@@ -1163,25 +1151,12 @@ func! rainbow_csv#try_initialize_table()
 endfunc
 
 
-func! rainbow_csv#handle_buffer_enter()
+func! rainbow_csv#handle_filetype_change()
     let dialect = rainbow_csv#get_current_dialect()
     if !len(dialect)
-        call rainbow_csv#try_initialize_table()
+        call rainbow_csv#buffer_disable_rainbow_features()
+        return
     endif
-endfunc
-
-
-func! rainbow_csv#handle_filetype_change()
-    " FIXME implement
-    "let dialect = rainbow_csv#get_current_dialect()
-    "if !len(dialect)
-    "    " FIXME also handle change from ft=csv to set ft=txt, check
-    "    " b:rainbow_features_enabled and disable rainbow if set to 1
-    "    return
-    "endif
-    "let [delim, policy] = dialect
-    "call s:buffer_disable_rainbow_features()
-    "call rainbow_csv#buffer_enable_rainbow_features(delim, policy)
-    "let table_path = expand("%:p")
-    "call s:update_table_record(table_path, delim, policy)
+    let [delim, policy] = dialect
+    call rainbow_csv#buffer_enable_rainbow_features(delim, policy)
 endfunc
