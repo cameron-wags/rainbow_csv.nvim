@@ -23,16 +23,10 @@ let s:magic_chars = '^*$.~/[]\'
 " command line text and if it starts with "select" indeed, then replace
 " (return special flag) otherwise do not replace by ternary expression
 
-" FIXME test in neovim and windows
 
-" FIXME use pre-generated syntax files just like in sublime,atom,vscode
-" see `:set runtimepath?` to list available places
-
-
-" FIXME proper monocolumn handling
+" FIXME handle leading/trailing spaces outside quoted fields, on syntax level and in vimscript functions
 " FIXME add whitespace-separated dialect
 " FIXME switch to new RBQL
-" FIXME :RainbowDelim command should have "auto" not "simple" semantic
 
 
 func! s:init_groups_from_links()
@@ -194,7 +188,7 @@ func! rainbow_csv#ft_to_dialect(ft_val)
     endif
     let ft_parts = split(a:ft_val, '_')
     if len(ft_parts) != 3 || ft_parts[0] != 'rcsv'
-        return []
+        return ['', 'monocolumn']
     endif
     return [nr2char(str2nr(ft_parts[1])), ft_parts[2]]
 endfunc
@@ -207,8 +201,8 @@ endfunc
 
 
 func! rainbow_csv#is_rainbow_table()
-    let cur_dialect = rainbow_csv#get_current_dialect()
-    return len(cur_dialect) == 2
+    let [delim, policy] = rainbow_csv#get_current_dialect()
+    return policy != 'monocolumn'
 endfunc
 
 
@@ -270,11 +264,7 @@ endfunc
 
 
 func! rainbow_csv#provide_column_info()
-    let dialect = rainbow_csv#get_current_dialect()
-    if !len(dialect)
-        return
-    endif
-    let [delim, policy] = dialect
+    let [delim, policy] = rainbow_csv#get_current_dialect()
     let line = getline('.')
     let kb_pos = col('.')
 
@@ -615,11 +605,7 @@ endfunc
 
 
 func! rainbow_csv#set_statusline_columns()
-    let dialect = rainbow_csv#get_current_dialect()
-    if !len(dialect)
-        return
-    endif
-    let [delim, policy] = dialect
+    let [delim, policy] = rainbow_csv#get_current_dialect()
     if !exists("b:statusline_before")
         let b:statusline_before = &statusline 
     endif
@@ -725,13 +711,7 @@ endfunc
 
 
 func! rainbow_csv#select_from_file()
-    let dialect = rainbow_csv#get_current_dialect()
-    if !len(dialect)
-        " TODO use monocolumn in that case
-        echoerr "Error: rainbow_csv is disabled for this buffer"
-        return
-    endif
-    let [delim, policy] = dialect
+    let [delim, policy] = rainbow_csv#get_current_dialect()
 
     let meta_language = s:get_meta_language()
 
@@ -953,10 +933,6 @@ endfunction
 
 
 func! s:run_cmd_query(query)
-    if !rainbow_csv#is_rainbow_table()
-        echomsg "Error: rainbow_csv is disabled for this buffer"
-        return
-    endif
     let rb_script_path = s:get_rb_script_path_for_this_table()
     call writefile([a:query], rb_script_path)
     let table_buf_number = bufnr("%")
@@ -1101,11 +1077,8 @@ endfunc
 
 
 func! rainbow_csv#manual_set(arg_policy)
-    let delim = ''
+    let delim = getline('.')[col('.') - 1]  
     let policy = a:arg_policy
-    if policy != 'monocolumn'
-        let delim = getline('.')[col('.') - 1]  
-    endif
     if policy == 'auto'
         if delim == ',' || delim == ';'
             let policy = 'quoted'
@@ -1152,8 +1125,8 @@ endfunc
 
 
 func! rainbow_csv#handle_filetype_change()
-    let dialect = rainbow_csv#get_current_dialect()
-    if !len(dialect)
+    let [delim, policy] = rainbow_csv#get_current_dialect()
+    if policy == 'monocolumn'
         call rainbow_csv#buffer_disable_rainbow_features()
         return
     endif

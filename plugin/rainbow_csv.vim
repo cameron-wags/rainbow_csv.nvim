@@ -11,8 +11,6 @@ augroup RainbowInitAuGrp
     autocmd BufEnter * call rainbow_csv#handle_buffer_enter()
 augroup END
 
-" FIXME get rid of RainbowMonoColumn command
-command! RainbowMonoColumn call rainbow_csv#manual_set('monocolumn')
 command! RainbowDelim call rainbow_csv#manual_set('auto')
 command! RainbowDelimSimple call rainbow_csv#manual_set('simple')
 command! RainbowDelimQuoted call rainbow_csv#manual_set('quoted')
