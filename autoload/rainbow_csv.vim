@@ -412,6 +412,7 @@ endfunc
 
 
 func! rainbow_csv#unescape_quoted_fields(src)
+    " FIXME make sure this handles leading/trailing spaces
     let res = a:src
     for nt in range(len(res))
         if len(res[nt]) >= 2 && res[nt][0] == '"'
@@ -1130,6 +1131,5 @@ func! rainbow_csv#handle_filetype_change()
         call rainbow_csv#buffer_disable_rainbow_features()
         return
     endif
-    let [delim, policy] = dialect
     call rainbow_csv#buffer_enable_rainbow_features(delim, policy)
 endfunc
