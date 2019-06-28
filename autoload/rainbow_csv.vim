@@ -24,7 +24,7 @@ let s:magic_chars = '^*$.~/[]\'
 " (return special flag) otherwise do not replace by ternary expression
 
 
-" FIXME handle leading/trailing spaces outside quoted fields, on syntax level and in vimscript functions
+" FIXME improve handling of pre-generated syntaxes vs dynamic (rare) syntaxes
 " FIXME add whitespace-separated dialect
 " FIXME switch to new RBQL
 
@@ -1008,17 +1008,17 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
         call add(syntax_lines, printf(cmd, match, regex_delim, char_class_delim, regex_delim, next_group_id, next_group_id))
 
         let match = 'escaped_column' . groupid
-        let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"$/'
+        let cmd = 'syntax match %s /%s *"\([^"]*""\)*[^"]*" *$/'
         call add(syntax_lines, printf(cmd, match, regex_delim))
-        let cmd = 'syntax match %s /%s"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column%d,column%d'
+        let cmd = 'syntax match %s /%s *"\([^"]*""\)*[^"]*" *%s/me=e-1 nextgroup=escaped_column%d,column%d'
         call add(syntax_lines, printf(cmd, match, regex_delim, regex_delim, next_group_id, next_group_id))
     endfor
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=escaped_column1,column1'
     call add(syntax_lines, printf(cmd, char_class_delim))
 
-    let cmd = 'syntax match escaped_startcolumn /^"\([^"]*""\)*[^"]*"$/'
+    let cmd = 'syntax match escaped_startcolumn /^ *"\([^"]*""\)*[^"]*" *$/'
     call add(syntax_lines, cmd)
-    let cmd = 'syntax match escaped_startcolumn /^"\([^"]*""\)*[^"]*"%s/me=e-1 nextgroup=escaped_column1,column1'
+    let cmd = 'syntax match escaped_startcolumn /^ *"\([^"]*""\)*[^"]*" *%s/me=e-1 nextgroup=escaped_column1,column1'
     call add(syntax_lines, printf(cmd, regex_delim))
     return syntax_lines
 endfunc
