@@ -411,10 +411,15 @@ func! rainbow_csv#rstrip(line)
 endfunc
 
 
+function! rainbow_csv#strip_spaces(input_string)
+    return substitute(a:input_string, '^ *\(.\{-}\) *$', '\1', '')
+endfunction
+
+
 func! rainbow_csv#unescape_quoted_fields(src)
-    " FIXME make sure this handles leading/trailing spaces
     let res = a:src
     for nt in range(len(res))
+        let res[nt] = rainbow_csv#strip_spaces(res[nt])
         if len(res[nt]) >= 2 && res[nt][0] == '"'
             let res[nt] = strpart(res[nt], 1, len(res[nt]) - 2)
         endif
@@ -432,7 +437,7 @@ endfunc
 
 
 func! rainbow_csv#preserving_quoted_split(line, dlm)
-    " FIXME make sure this handles leading/trailing spaces
+    " FIXME add unit tests for this function
     let src = a:line
     if stridx(src, '"') == -1
         " Optimization for majority of lines
@@ -442,33 +447,40 @@ func! rainbow_csv#preserving_quoted_split(line, dlm)
     let result = []
     let cidx = 0
     while cidx < len(src)
-        if src[cidx] == '"'
-            let uidx = cidx + 1
+        let uidx = cidx
+        while uidx < len(src) && src[uidx] == ' '
+            let uidx += 1
+        endwhile
+        if src[uidx] == '"'
+            let uidx += 1
             while 1
                 let uidx = stridx(src, '"', uidx)
                 if uidx == -1
                     call add(result, strpart(src, cidx))
                     return result
-                elseif uidx + 1 >= len(src) || src[uidx + 1] == a:dlm
-                    call add(result, strpart(src, cidx, uidx + 1 - cidx))
-                    let cidx = uidx + 2
-                    break
-                elseif src[uidx + 1] == '"'
-                    let uidx += 2
-                    continue
-                else
+                endif
+                let uidx += 1
+                if uidx < len(src) && src[uidx] == '"'
                     let uidx += 1
                     continue
                 endif
+                while uidx < len(src) && src[uidx] == ' '
+                    let uidx += 1
+                endwhile
+                if uidx >= len(src) || src[uidx] == a:dlm
+                    call add(result, strpart(src, cidx, uidx - cidx))
+                    let cidx = uidx + 1
+                    break
+                endif
             endwhile
         else
-            let uidx = stridx(src, a:dlm, cidx)
+            let uidx = stridx(src, a:dlm, uidx)
             if uidx == -1
                 let uidx = len(src)
             endif
             let field = strpart(src, cidx, uidx - cidx)
-            call add(result, field)
             let cidx = uidx + 1
+            call add(result, field)
         endif
     endwhile
     if src[len(src) - 1] == a:dlm
