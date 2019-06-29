@@ -57,6 +57,7 @@ func! RunUnitTests()
 
     call AssertEqual(rainbow_csv#preserving_quoted_split('   ', ','), ['   '])
     call AssertEqual(rainbow_csv#quoted_split('   ', ','), [''])
+    call AssertEqual(rainbow_csv#quoted_split(' "  abc  " , abc , bbb ', ','), ['  abc  ', 'abc', 'bbb'])
 
     let test_cases = []
     call add(test_cases, ['abc', 'abc'])
@@ -72,6 +73,8 @@ func! RunUnitTests()
     call add(test_cases, ['"abc"', '"abc"'])
     call add(test_cases, [',"haha,hoho",', ';"haha,hoho";'])
     call add(test_cases, ['"a,bc","adf,asf","asdf,asdf,","as,df"', '"a,bc";"adf,asf";"asdf,asdf,";"as,df"'])
+
+    call add(test_cases, [' "  abc  " , abc , bbb ', ' "  abc  " ; abc ; bbb '])
 
     for nt in range(len(test_cases))
         let test_str = join(rainbow_csv#preserving_quoted_split(test_cases[nt][0], ','), ';')

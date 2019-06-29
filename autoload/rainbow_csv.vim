@@ -436,7 +436,6 @@ endfunc
 
 
 func! rainbow_csv#preserving_quoted_split(line, dlm)
-    " FIXME add unit tests for this function
     let src = a:line
     if stridx(src, '"') == -1
         " Optimization for majority of lines
