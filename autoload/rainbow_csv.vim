@@ -490,6 +490,37 @@ func! rainbow_csv#preserving_quoted_split(line, dlm)
 endfunc
 
 
+func! rainbow_csv#whitespace_split(line, preserve_whitespaces)
+    " FIXME unit test this
+    let result = []
+    let cidx = 0
+    while cidx < len(a:line)
+        let uidx = cidx
+        while uidx < len(a:line) && a:line[uidx] == ' '
+            let uidx += 1
+        endwhile
+        let startidx = uidx
+        while uidx < len(a:line) && a:line[uidx] != ' '
+            let uidx += 1
+        endwhile
+        if uidx == startidx
+            if a:preserve_whitespaces && len(result)
+                startidx = cidx
+                result[len(result) - 1] = result[len(result) - 1] . strpart(a:line, startidx, uidx - startidx)
+            endif
+            break
+        endif
+        if a:preserve_whitespaces
+            let startidx = cidx
+        endif
+        let field = strpart(a:line, startidx, uidx - startidx)
+        let cidx = uidx + 1
+        call add(result, field)
+    endwhile
+    return result
+endfunc
+
+
 func! s:smart_split(line, dlm, policy)
     let stripped = rainbow_csv#rstrip(a:line)
     if a:policy == 'monocolumn'
@@ -499,6 +530,8 @@ func! s:smart_split(line, dlm, policy)
     elseif a:policy == 'simple'
         let regex_delim = escape(a:dlm, s:magic_chars)
         return split(stripped, regex_delim, 1)
+    elseif a:policy == 'whitespace'
+        return rainbow_csv#whitespace_split(a:line, 0)
     else
         echoerr 'bad delim policy'
     endif
@@ -514,6 +547,8 @@ func! s:preserving_smart_split(line, dlm, policy)
     elseif a:policy == 'simple'
         let regex_delim = escape(a:dlm, s:magic_chars)
         return split(stripped, regex_delim, 1)
+    elseif a:policy == 'whitespace'
+        return rainbow_csv#whitespace_split(a:line, 1)
     else
         echoerr 'bad delim policy'
     endif
@@ -1024,12 +1059,28 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
 endfunc
 
 
+func! rainbow_csv#generate_whitespace_syntax()
+    let syntax_lines = []
+    for groupid in range(s:num_groups)
+        let match = 'column' . groupid
+        let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
+        let cmd = 'syntax match %s /  *[^ ]*/ nextgroup=column%d'
+        call add(syntax_lines, printf(cmd, match, next_group_id))
+    endfor
+    let cmd = 'syntax match startcolumn /^ *[^ ]*/ nextgroup=column1'
+    call add(syntax_lines, cmd)
+    return syntax_lines
+endfunc
+
+
 func! rainbow_csv#ensure_syntax_exists(rainbow_ft, delim, policy)
     let syntax_code = ""
     if a:policy == 'quoted'
         let syntax_lines = rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
     elseif a:policy == 'simple'
         let syntax_lines = rainbow_csv#generate_rainbow_syntax(a:delim)
+    elseif a:policy == 'whitespace'
+        let syntax_lines = rainbow_csv#generate_whitespace_syntax()
     else
         echoerr 'bad delim policy: ' . a:policy
     endif
@@ -1095,6 +1146,8 @@ func! rainbow_csv#manual_set(arg_policy)
     if policy == 'auto'
         if delim == ',' || delim == ';'
             let policy = 'quoted'
+        elseif delim == ' '
+            let policy = 'whitespace'
         else
             let policy = 'simple'
         endif
