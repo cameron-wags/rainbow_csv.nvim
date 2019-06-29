@@ -25,7 +25,6 @@ let s:magic_chars = '^*$.~/[]\'
 
 
 " FIXME improve handling of pre-generated syntaxes vs dynamic (rare) syntaxes
-" FIXME add whitespace-separated dialect
 " FIXME switch to new RBQL
 
 
@@ -491,7 +490,6 @@ endfunc
 
 
 func! rainbow_csv#whitespace_split(line, preserve_whitespaces)
-    " FIXME unit test this
     let result = []
     let cidx = 0
     while cidx < len(a:line)
@@ -505,8 +503,8 @@ func! rainbow_csv#whitespace_split(line, preserve_whitespaces)
         endwhile
         if uidx == startidx
             if a:preserve_whitespaces && len(result)
-                startidx = cidx
-                result[len(result) - 1] = result[len(result) - 1] . strpart(a:line, startidx, uidx - startidx)
+                let startidx = cidx
+                let result[len(result) - 1] = result[len(result) - 1] . strpart(a:line, startidx, uidx - startidx)
             endif
             break
         endif
@@ -514,9 +512,16 @@ func! rainbow_csv#whitespace_split(line, preserve_whitespaces)
             let startidx = cidx
         endif
         let field = strpart(a:line, startidx, uidx - startidx)
-        let cidx = uidx + 1
+        let cidx = uidx
         call add(result, field)
     endwhile
+    if len(result) == 0
+        if a:preserve_whitespaces
+            call add(result, a:line)
+        else
+            call add(result, '')
+        endif
+    endif
     return result
 endfunc
 

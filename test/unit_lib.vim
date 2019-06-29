@@ -19,6 +19,22 @@ endfunc
 
 func! TestWhitespaceSplit()
     call AssertEqual(rainbow_csv#whitespace_split('  hello   world ', 0), ['hello', 'world'])
+    call AssertEqual(rainbow_csv#whitespace_split('   ', 0), [''])
+    call AssertEqual(rainbow_csv#whitespace_split('   ', 1), ['   '])
+    call AssertEqual(rainbow_csv#whitespace_split('  hello   world ', 0), ['hello', 'world'])
+    call AssertEqual(rainbow_csv#whitespace_split('hello   world ', 0), ['hello', 'world'])
+    call AssertEqual(rainbow_csv#whitespace_split('   hello   world', 0), ['hello', 'world'])
+    call AssertEqual(rainbow_csv#whitespace_split(' hello  world ', 1), [' hello', '  world '])
+    call AssertEqual(rainbow_csv#whitespace_split(' hello  world', 1), [' hello', '  world'])
+    call AssertEqual(rainbow_csv#whitespace_split('hello  world ', 1), ['hello', '  world '])
+    call AssertEqual(rainbow_csv#whitespace_split(' a ', 1), [' a '])
+    call AssertEqual(rainbow_csv#whitespace_split('a ', 1), ['a '])
+    call AssertEqual(rainbow_csv#whitespace_split(' a', 1), [' a'])
+    call AssertEqual(rainbow_csv#whitespace_split(' a ', 0), ['a'])
+    call AssertEqual(rainbow_csv#whitespace_split('a ', 0), ['a'])
+    call AssertEqual(rainbow_csv#whitespace_split(' a', 0), ['a'])
+    call AssertEqual(rainbow_csv#whitespace_split(' aa hello  world   bb ', 1), [' aa', ' hello', '  world', '   bb '])
+    call AssertEqual(rainbow_csv#whitespace_split(' aa hello  world   bb ', 0), ['aa', 'hello', 'world', 'bb'])
 endfunc
 
 
@@ -38,6 +54,9 @@ func! RunUnitTests()
     let test_stln_str = join(test_stln, '')
     let canonic_stln = 'a1  a2  a3  a4      a5'
     call AssertEqual(test_stln_str, canonic_stln)
+
+    call AssertEqual(rainbow_csv#preserving_quoted_split('   ', ','), ['   '])
+    call AssertEqual(rainbow_csv#quoted_split('   ', ','), [''])
 
     let test_cases = []
     call add(test_cases, ['abc', 'abc'])
