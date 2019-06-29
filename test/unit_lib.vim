@@ -17,6 +17,11 @@ func! AssertTrue(expr, error_msg)
 endfunc
 
 
+func! TestWhitespaceSplit()
+    call AssertEqual(rainbow_csv#whitespace_split('  hello   world ', 0), ['hello', 'world'])
+endfunc
+
+
 func! RunUnitTests()
     call add(g:rbql_test_log_records, 'Starting Test: Statusline')
 
@@ -55,6 +60,8 @@ func! RunUnitTests()
         call AssertEqual(test_str, canonic_str)
     endfor
 
+    call TestWhitespaceSplit()
+    
     call add(g:rbql_test_log_records, 'Finished Test: Statusline')
 endfunc
 

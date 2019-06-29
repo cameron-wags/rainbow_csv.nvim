@@ -78,6 +78,13 @@ total=$( cat vim_unit_tests.log | wc -l )
 started=$( cat vim_unit_tests.log | grep 'Starting' | wc -l )
 finished=$( cat vim_unit_tests.log | grep 'Finished' | wc -l )
 fails=$( cat vim_unit_tests.log | grep 'FAIL' | wc -l )
+
+if [ $errors != 0 ] || [ ! -e vim_debug.log ] ; then
+    echo "Warning: some errors were detected during vim integration testing, see vim_debug.log:"  1>&2
+    cat vim_debug.log
+    exit 1
+fi
+
 if [ $total != 6 ] || [ $started != $finished ] || [ $fails != 0 ] ; then
     echo "FAIL! Integration tests failed: see vim_unit_test.log"  1>&2
     exit 1
@@ -112,10 +119,6 @@ if [ "$md5sum_update" != "fcc44cf2080ec88b56062472bbd89c3b" ] ; then
     exit 1
 fi
 
-if [ $errors != 0 ] || [ ! -e vim_debug.log ] ; then
-    echo "Warning: some errors were detected during vim integration testing, see vim_debug.log"  1>&2
-    exit 1
-fi
 
 cleanup_tmp_files
 
