@@ -171,8 +171,14 @@ func! rainbow_csv#dialect_to_ft(delim, policy)
     if a:delim == ',' && a:policy == 'quoted'
         return 'csv'
     endif
+    if a:delim == ';' && a:policy == 'quoted'
+        return 'csv_semicolon'
+    endif
     if a:delim == "\t" && a:policy == 'simple'
         return 'tsv'
+    endif
+    if a:delim == " " && a:policy == 'whitespace'
+        return 'csv_whitespace'
     endif
     return join(['rcsv', char2nr(a:delim), a:policy], '_')
 endfunc
@@ -182,8 +188,14 @@ func! rainbow_csv#ft_to_dialect(ft_val)
     if a:ft_val == 'csv'
         return [',', 'quoted']
     endif
+    if a:ft_val == 'csv_semicolon'
+        return [';', 'quoted']
+    endif
     if a:ft_val == 'tsv'
         return ["\t", 'simple']
+    endif
+    if a:ft_val == 'csv_whitespace'
+        return [' ', 'whitespace']
     endif
     let ft_parts = split(a:ft_val, '_')
     if len(ft_parts) != 3 || ft_parts[0] != 'rcsv'
