@@ -247,8 +247,8 @@ endfunc
 
 
 func! s:read_virtual_header(delim, policy)
-    let fname = expand("%:p")
-    let headerName = fname . '.header'
+    let table_path = resolve(expand("%:p"))
+    let headerName = table_path . '.header'
     if (!filereadable(headerName))
         return []
     endif
@@ -796,7 +796,7 @@ func! rainbow_csv#select_from_file()
     endif
 
     let buf_number = bufnr("%")
-    let buf_path = expand("%:p")
+    let buf_path = resolve(expand("%:p"))
 
     let rb_script_path = s:get_rb_script_path_for_this_table()
     let already_exists = filereadable(rb_script_path)
@@ -987,7 +987,7 @@ endfunc
 
 
 func! rainbow_csv#set_table_name_for_buffer(table_name)
-    let table_path = expand("%:p")
+    let table_path = resolve(expand("%:p"))
     let new_record = [a:table_name, table_path]
     let records = s:try_read_index(s:table_names_settings)
     let records = s:update_records(records, a:table_name, new_record)
@@ -1177,7 +1177,7 @@ func! rainbow_csv#manual_set(arg_policy)
         return
     endif
     call rainbow_csv#set_rainbow_filetype(delim, policy)
-    let table_path = expand("%:p")
+    let table_path = resolve(expand("%:p"))
     call s:update_table_record(table_path, delim, policy)
 endfunc
 
@@ -1186,7 +1186,7 @@ func! rainbow_csv#manual_disable()
     if rainbow_csv#is_rainbow_table()
         let original_filetype = exists("b:originial_ft") ? b:originial_ft : ''
         execute "set ft=" . original_filetype
-        let table_path = expand("%:p")
+        let table_path = resolve(expand("%:p"))
         call s:update_table_record(table_path, '', 'disabled')
     endif
 endfunc
@@ -1197,8 +1197,8 @@ func! rainbow_csv#handle_buffer_enter()
     if exists("b:rainbow_features_enabled") || exists("b:current_syntax")
         return
     endif
-    let buffer_path = expand("%:p")
-    let table_params = s:get_table_record(buffer_path)
+    let table_path = resolve(expand("%:p"))
+    let table_params = s:get_table_record(table_path)
     if !len(table_params) && (!exists("g:disable_rainbow_csv_autodetect") || g:disable_rainbow_csv_autodetect == 0)
         let table_params = s:guess_table_params_from_content()
     endif
