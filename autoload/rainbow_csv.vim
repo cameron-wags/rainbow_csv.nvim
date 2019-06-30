@@ -24,8 +24,10 @@ let s:magic_chars = '^*$.~/[]\'
 " (return special flag) otherwise do not replace by ternary expression
 
 
-" FIXME improve handling of pre-generated syntaxes vs dynamic (rare) syntaxes
 " FIXME switch to new RBQL
+
+" FIXME looks like "whitespace" setting is not getting saved for the whitespace-separated file. find out why
+" FIXME result set also doesn't get highlighted automatically with pipe separator
 
 
 func! s:init_groups_from_links()
@@ -156,7 +158,7 @@ func! s:get_table_record(table_path)
     endif
     let records = s:try_read_index(s:rainbow_table_index)
     for record in records
-        if len(record) == 4 && record[0] == a:table_path
+        if len(record) >= 3 && record[0] == a:table_path
             let delim = record[1] == 'TAB' ? "\t" : record[1]
             let policy = record[2]
             return [delim, policy]
@@ -263,53 +265,6 @@ func! s:read_virtual_header(delim, policy)
         let names = split(line, regex_delim)
     endif
     return names
-endfunc
-
-
-func! rainbow_csv#get_csv_header(delim, policy)
-    if exists("b:cached_virtual_header") && len(b:cached_virtual_header)
-        return b:cached_virtual_header
-    endif
-    return s:smart_split(getline(1), a:delim, a:policy)
-endfunc
-
-
-func! rainbow_csv#provide_column_info()
-    let [delim, policy] = rainbow_csv#get_current_dialect()
-    let line = getline('.')
-    let kb_pos = col('.')
-
-    let fields = s:preserving_smart_split(line, delim, policy)
-    let num_cols = len(fields)
-
-    let col_num = 0
-    let cpos = len(fields[col_num]) 
-    while kb_pos > cpos && col_num + 1 < len(fields)
-        let col_num = col_num + 1
-        let cpos = cpos + 1 + len(fields[col_num])
-    endwhile
-
-    let ui_message = printf('Col #%s', col_num + 1)
-    let header = rainbow_csv#get_csv_header(delim, policy)
-    let col_name = ''
-    if col_num < len(header)
-        let col_name = header[col_num]
-    endif
-
-    let max_col_name = 50
-    if len(col_name) > max_col_name
-        let col_name = strpart(col_name, 0, max_col_name) . '...'
-    endif
-    if col_name != ""
-        let ui_message = ui_message . printf(' "%s"', col_name)
-    endif
-    if len(header) != num_cols
-        let ui_message = ui_message . '; WARN: num of fields in Header and this line differs'
-    endif
-    if exists("b:root_table_name")
-        let ui_message = ui_message . printf('; F7: Copy to %s', b:root_table_name)
-    endif
-    echo ui_message
 endfunc
 
 
@@ -520,7 +475,7 @@ func! rainbow_csv#whitespace_split(line, preserve_whitespaces)
             break
         endif
         if a:preserve_whitespaces
-            let startidx = cidx
+            let startidx = len(result) ? cidx + 1 : cidx
         endif
         let field = strpart(a:line, startidx, uidx - startidx)
         let cidx = uidx
@@ -537,7 +492,7 @@ func! rainbow_csv#whitespace_split(line, preserve_whitespaces)
 endfunc
 
 
-func! s:smart_split(line, dlm, policy)
+func! rainbow_csv#smart_split(line, dlm, policy)
     let stripped = rainbow_csv#rstrip(a:line)
     if a:policy == 'monocolumn'
         return [stripped]
@@ -554,7 +509,7 @@ func! s:smart_split(line, dlm, policy)
 endfunc
 
 
-func! s:preserving_smart_split(line, dlm, policy)
+func! rainbow_csv#preserving_smart_split(line, dlm, policy)
     let stripped = rainbow_csv#rstrip(a:line)
     if a:policy == 'monocolumn'
         return [stripped]
@@ -571,13 +526,60 @@ func! s:preserving_smart_split(line, dlm, policy)
 endfunc
 
 
+func! rainbow_csv#get_csv_header(delim, policy)
+    if exists("b:cached_virtual_header") && len(b:cached_virtual_header)
+        return b:cached_virtual_header
+    endif
+    return rainbow_csv#smart_split(getline(1), a:delim, a:policy)
+endfunc
+
+
+func! rainbow_csv#provide_column_info_on_hover()
+    let [delim, policy] = rainbow_csv#get_current_dialect()
+    let line = getline('.')
+    let kb_pos = col('.')
+
+    let fields = rainbow_csv#preserving_smart_split(line, delim, policy)
+    let num_cols = len(fields)
+
+    let col_num = 0
+    let cpos = len(fields[col_num]) 
+    while kb_pos > cpos && col_num + 1 < len(fields)
+        let col_num = col_num + 1
+        let cpos = cpos + 1 + len(fields[col_num])
+    endwhile
+
+    let ui_message = printf('Col #%s', col_num + 1)
+    let header = rainbow_csv#get_csv_header(delim, policy)
+    let col_name = ''
+    if col_num < len(header)
+        let col_name = header[col_num]
+    endif
+
+    let max_col_name = 50
+    if len(col_name) > max_col_name
+        let col_name = strpart(col_name, 0, max_col_name) . '...'
+    endif
+    if col_name != ""
+        let ui_message = ui_message . printf(' "%s"', col_name)
+    endif
+    if len(header) != num_cols
+        let ui_message = ui_message . '; WARN: num of fields in Header and this line differs'
+    endif
+    if exists("b:root_table_name")
+        let ui_message = ui_message . printf('; F7: Copy to %s', b:root_table_name)
+    endif
+    echo ui_message
+endfunc
+
+
 func! s:lines_are_delimited(lines, delim, policy)
-    let num_fields = len(s:preserving_smart_split(a:lines[0], a:delim, a:policy))
+    let num_fields = len(rainbow_csv#preserving_smart_split(a:lines[0], a:delim, a:policy))
     if (num_fields < 2 || num_fields > s:max_columns)
         return 0
     endif
     for line in a:lines
-        let nfields = len(s:preserving_smart_split(line, a:delim, a:policy))
+        let nfields = len(rainbow_csv#preserving_smart_split(line, a:delim, a:policy))
         if (num_fields != nfields)
             return 0
         endif
@@ -680,7 +682,7 @@ func! rainbow_csv#set_statusline_columns()
         let indent = ' NR' . s:single_char_sring(indent_len - 3, ' ')
     endif
     let cur_line = getline(line('.'))
-    let cur_fields = s:preserving_smart_split(cur_line, delim, policy)
+    let cur_fields = rainbow_csv#preserving_smart_split(cur_line, delim, policy)
     let status_labels = []
     if delim == "\t"
         let status_labels = rainbow_csv#generate_tab_statusline(&tabstop, cur_fields)
@@ -805,7 +807,7 @@ func! rainbow_csv#select_from_file()
         return
     endif
 
-    let fields = s:preserving_smart_split(lines[0], delim, policy)
+    let fields = rainbow_csv#preserving_smart_split(lines[0], delim, policy)
     let num_fields = len(fields)
     call rainbow_csv#set_statusline_columns()
 
@@ -1107,7 +1109,9 @@ endfunc
 
 func! rainbow_csv#set_rainbow_filetype(delim, policy)
     let rainbow_ft = rainbow_csv#dialect_to_ft(a:delim, a:policy)
-    call rainbow_csv#ensure_syntax_exists(rainbow_ft, a:delim, a:policy)
+    if match(rainbow_ft, 'rcsv') == 0
+        call rainbow_csv#ensure_syntax_exists(rainbow_ft, a:delim, a:policy)
+    endif
     let b:originial_ft = &ft
     execute "set ft=" . rainbow_ft
 endfunc
@@ -1151,7 +1155,7 @@ func! rainbow_csv#buffer_enable_rainbow_features(delim, policy)
 
     augroup RainbowHintGrp
         autocmd! CursorMoved <buffer>
-        autocmd CursorMoved <buffer> call rainbow_csv#provide_column_info()
+        autocmd CursorMoved <buffer> call rainbow_csv#provide_column_info_on_hover()
     augroup END
 endfunc
 
