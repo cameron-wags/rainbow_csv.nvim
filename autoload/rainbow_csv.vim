@@ -26,8 +26,7 @@ let s:magic_chars = '^*$.~/[]\'
 
 " FIXME switch to new RBQL
 
-" FIXME looks like "whitespace" setting is not getting saved for the whitespace-separated file. find out why
-" FIXME result set also doesn't get highlighted automatically with pipe separator
+" FIXME fix vim integration tests
 
 
 func! s:init_groups_from_links()
@@ -1202,7 +1201,7 @@ func! rainbow_csv#handle_buffer_enter()
     if !len(table_params) && (!exists("g:disable_rainbow_csv_autodetect") || g:disable_rainbow_csv_autodetect == 0)
         let table_params = s:guess_table_params_from_content()
     endif
-    if len(table_params) && table_params[1] != 'disabled'
+    if len(table_params) && table_params[1] != 'disabled' && table_params[1] != 'monocolumn'
         call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1])
     else
         let b:rainbow_features_enabled = 0
