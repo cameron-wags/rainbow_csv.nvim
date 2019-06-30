@@ -26,7 +26,9 @@ let s:magic_chars = '^*$.~/[]\'
 
 " FIXME switch to new RBQL
 
-" FIXME fix vim integration tests
+" FIXME fix vim integration tests: result set file doesn't have b:rainbow_features_enabled set for some reason
+
+" FIXME update README
 
 
 func! s:init_groups_from_links()
@@ -1193,7 +1195,12 @@ endfunc
 
 
 func! rainbow_csv#handle_buffer_enter()
-    if exists("b:rainbow_features_enabled") || exists("b:current_syntax")
+    if exists("b:rainbow_features_enabled")
+        " This is a workaround against Vim glitches. sometimes it 'forgets' to highlight the file even when ft=csv, see https://stackoverflow.com/questions/14779299/syntax-highlighting-randomly-disappears-during-file-saving
+        syntax enable
+        return
+    endif
+    if exists("b:current_syntax")
         return
     endif
     let table_path = resolve(expand("%:p"))
