@@ -52,10 +52,7 @@ echo "Starting vim integration tests"
 cleanup_tmp_files
 
 # We need random_ut.csv file in vim unit tests
-python ../rbql_core/test_rbql.py --create_random_csv_table random_ut.csv
-# TODO get rid of this hack below by teaching Vim to handle extra whitespaces
-cat random_ut.csv | tr -d ' ' > /tmp/random_ut.csv
-mv /tmp/random_ut.csv random_ut.csv
+PYTHONPATH="../rbql_core:$PYTHONPATH" python ../rbql_core/test/test_csv_utils.py --create_random_csv_table random_ut.csv
 
 has_node="yes"
 
