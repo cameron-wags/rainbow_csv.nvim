@@ -4,7 +4,7 @@
 
 :call add(g:rbql_test_log_records, 'Starting full integration tests')
 
-:e ../rbql_core/test_datasets/movies.tsv
+:e ../rbql_core/test/csv_files/movies.tsv
 
 :let g:rbql_backend_language = 'python'
 :Select top 20 a1, * where a7.find('Adventure') != -1 order by int(a4) desc
@@ -47,7 +47,7 @@
 :bd!
 
 
-:e ../rbql_core/unit_tests/movies_small.tsv
+:e ../rbql_core/test/csv_files/movies_small.tsv
 :let g:rbql_output_format='csv'
 :Select *
 :sleep 1
@@ -58,7 +58,7 @@
 :w! ./movies_small.tsv.csv.tsv
 :bd!
 
-:e ../rbql_core/unit_tests/universities.monocolumn
+:e ../rbql_core/test/csv_files/universities.monocolumn
 :let g:rbql_output_format='input'
 :sleep 1
 :Select *
