@@ -11,13 +11,14 @@ Rainbow CSV has 2 main features:
 * Highlight csv columns in different rainbow colors. 
 * Provide _SELECT_ and _UPDATE_ queries in RBQL: SQL-like transprogramming query language.
 
-There are 2 ways to enable csv columns highlighting:
+There are 3 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
 2. Manual CSV delimiter selection with _:RainbowDelim_ command (So you can use rainbow_csv for non-table files, e.g. to highlight function arguments in different colors)
+3. Execute `:set ft=csv` or `:set ft=tsv` for CSV/TSV dialects. For other use _:RainbowDelim_
 
 To run an RBQL query either press _F5_ or enter the query in vim command line e.g. _:Select a1, a2_
 
-Extension is written in pure vimscript/python, no additional libraries required.
+Extension is written in pure vimscript, no additional libraries required.
 
 ### Demonstration of rainbow_csv highlighting and RBQL queries 
 

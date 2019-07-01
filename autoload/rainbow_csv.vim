@@ -17,18 +17,17 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
+" FIXME switch to new RBQL
 
-" FIXME fix update -> Update switch it also occures with this `:echo "update "` -> `:echo "Update "` scenario. but only with csv files!
+
+" TODO fix update -> Update switch it also occures with this `:echo "update "` -> `:echo "Update "` scenario. but only with csv files!
 " It might be possible  to modify set_statusline_columns() to read current
 " command line text and if it starts with "select" indeed, then replace
 " (return special flag) otherwise do not replace by ternary expression
 
+" TODO implement select -> Select switch for monocolumn files
 
-" FIXME switch to new RBQL
-
-" FIXME fix vim integration tests: result set file doesn't have b:rainbow_features_enabled set for some reason
-
-" FIXME update README
+" TODO investigate why in test run vim doesn't remember ft of the result set file?
 
 
 func! s:init_groups_from_links()
