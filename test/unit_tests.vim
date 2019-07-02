@@ -63,10 +63,10 @@
 :sleep 1
 :Select *
 :sleep 1
+:let g:rbql_output_format='csv'
 :Select a1, a1
-:fake_comand_just_to_press_enter
 :sleep 1
-:let log_msg = (&ft == 'csv') ? 'OK: monocolumn -> CSV switch' : 'FAIL'
+:let log_msg = (&ft == 'csv') ? 'OK' : 'FAIL'
 :call add(g:rbql_test_log_records, log_msg)
 
 
