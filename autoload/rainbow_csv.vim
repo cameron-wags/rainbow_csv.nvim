@@ -850,10 +850,10 @@ endfunc
 
 func! s:ShowImportantMessage(msg_header, msg_lines)
     echohl ErrorMsg
-    echo a:msg_header
+    echomsg a:msg_header
     echohl None
     for msg in a:msg_lines
-        echo msg
+        echomsg msg
     endfor
     call input("Press ENTER to continue...")
 endfunc
