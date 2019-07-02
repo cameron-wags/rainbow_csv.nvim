@@ -101,9 +101,9 @@ def main():
     parser.add_argument('input_table_path', metavar='FILE', help='Read csv table from FILE')
     parser.add_argument('query_file', metavar='FILE', help='Read rbql query from FILE')
     parser.add_argument('input_delim', metavar='DELIM', help='Input delimiter')
-    parser.add_argument('input_policy', metavar='POLICY', help='Input policy', choices=['simple', 'quoted', 'monocolumn'])
+    parser.add_argument('input_policy', metavar='POLICY', help='Input policy')
     parser.add_argument('out_delim', metavar='DELIM', help='Output delimiter')
-    parser.add_argument('out_policy', metavar='POLICY', help='Output policy', choices=['simple', 'quoted', 'monocolumn'])
+    parser.add_argument('out_policy', metavar='POLICY', help='Output policy')
     args = parser.parse_args()
     run_execute_cli(args.input_table_path, args.query_file, args.input_delim, args.input_policy, args.out_delim, args.out_policy)
 
