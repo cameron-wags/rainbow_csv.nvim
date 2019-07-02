@@ -7,6 +7,8 @@ import tempfile
 import time
 
 import rbql
+from rbql import rbql_csv
+from rbql import csv_utils
 
 vim_interface = None
 
@@ -53,38 +55,23 @@ def get_random_suffix():
 
 
 def execute_python(src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy, dst_table_path):
-    csv_encoding = rbql.default_csv_encoding
+    query = codecs.open(rb_script_path, encoding='utf-8').read()
+    csv_encoding = csv_utils.default_csv_encoding
+    error_info, warnings = rbql_csv.csv_run(query, src_table_path, input_delim, input_policy, dst_table_path, out_delim, out_policy, csv_encoding)
 
-    with rbql.RbqlPyEnv() as worker_env:
-        try:
-            tmp_path = worker_env.module_path
-            rbql_lines = codecs.open(rb_script_path, encoding='utf-8').readlines()
-            rbql.parse_to_py(rbql_lines, tmp_path, input_delim, input_policy, out_delim, out_policy, csv_encoding, None)
-        except rbql.RBParsingError as e:
-            vim_interface.report_error_to_vim('Parsing Error', str(e))
-            return
+    if error_info is None:
+        warning_report = '\n'.join(warnings)
+        vim_interface.set_vim_variable('psv_warning_report', warning_report)
+        vim_interface.set_vim_variable('psv_query_status', 'OK')
+    else:
+        vim_interface.report_error_to_vim(error_info['type'], error_info['message'])
 
-        try:
-            rbconvert = worker_env.import_worker()
-            warnings = None
-            with codecs.open(src_table_path, encoding=csv_encoding) as src, codecs.open(dst_table_path, 'w', encoding=csv_encoding) as dst:
-                warnings = rbconvert.rb_transform(src, dst)
-            if warnings is not None:
-                hr_warnings = rbql.make_warnings_human_readable(warnings)
-                warning_report = '\n'.join(hr_warnings)
-                vim_interface.set_vim_variable('psv_warning_report', warning_report)
-            worker_env.remove_env_dir()
-            vim_interface.set_vim_variable('psv_query_status', 'OK')
-        except Exception as e:
-            error_msg = 'Error: Unable to use generated python module.\n'
-            error_msg += 'Original python exception:\n{}\n'.format(str(e))
-            vim_interface.report_error_to_vim('Execution Error', error_msg)
 
 
 def converged_execute(src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy):
     try:
-        input_delim = rbql.normalize_delim(input_delim)
-        out_delim = rbql.normalize_delim(out_delim)
+        input_delim = csv_utils.normalize_delim(input_delim)
+        out_delim = csv_utils.normalize_delim(out_delim)
         tmp_dir = tempfile.gettempdir()
         table_name = os.path.basename(src_table_path)
         dst_table_name = '{}.txt'.format(table_name)
