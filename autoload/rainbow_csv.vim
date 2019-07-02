@@ -17,6 +17,12 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
+
+" XXX Use :syntax command to list all syntax groups
+
+
+
+
 " FIXME switch to new RBQL
 
 
@@ -811,11 +817,15 @@ func! rainbow_csv#select_from_file()
     let num_fields = len(fields)
     call rainbow_csv#set_statusline_columns()
 
+    let splitbelow_before = &splitbelow
     set splitbelow
     execute "split " . rb_script_path
     if bufnr("%") == buf_number
         echoerr "Something went wrong"
         return
+    endif
+    if !splitbelow_before
+        set nosplitbelow
     endif
 
     let b:table_path = buf_path
@@ -1137,6 +1147,7 @@ func! rainbow_csv#buffer_enable_rainbow_features(delim, policy)
 
     set laststatus=2
     set nocompatible
+    " maybe use setlocal number ?
     set number
 
     nnoremap <buffer> <F5> :RbSelect<cr>
@@ -1196,7 +1207,13 @@ endfunc
 func! rainbow_csv#handle_buffer_enter()
     if exists("b:rainbow_features_enabled")
         " This is a workaround against Vim glitches. sometimes it 'forgets' to highlight the file even when ft=csv, see https://stackoverflow.com/questions/14779299/syntax-highlighting-randomly-disappears-during-file-saving
-        syntax enable
+        " From the other hand it can discard highlight ":hi ... " rules from user config, so let's disable this for now
+        " syntax enable
+        
+        " another hack instead of `syntax enable` which is kind of global
+        " FIXME make sure tests are OK with this
+        let ft_hack = &ft
+        execute "set ft=" . ft_hack
         return
     endif
     if exists("b:current_syntax")

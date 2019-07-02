@@ -1,5 +1,6 @@
 ## Installation
-Use your favorite package manager:  
+Use your favorite package manager.  
+
 Vundle: `Plugin 'mechatroner/rainbow_csv'`  
 VimPlug: `Plug 'mechatroner/rainbow_csv'`  
 dein: `call dein#add('mechatroner/rainbow_csv')`  
