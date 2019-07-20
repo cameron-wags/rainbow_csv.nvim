@@ -28,6 +28,7 @@ let s:magic_chars = '^*$.~/[]\'
 
 " TODO implement select -> Select switch for monocolumn files
 
+" FIXME find out why vim doesn't set ft=csv for small files in the frequency_autodetection folder
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -1204,7 +1205,6 @@ func! rainbow_csv#handle_buffer_enter()
         " syntax enable
         
         " another hack instead of `syntax enable` which is kind of global
-        " FIXME make sure tests are OK with this
         let ft_hack = &ft
         execute "set ft=" . ft_hack
         return

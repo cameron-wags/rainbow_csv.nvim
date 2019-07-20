@@ -44,7 +44,8 @@ Here is an example of how to extract some fields from a bunch of uniform single-
 ![demo_xml_screencast](https://i.imgur.com/HlzBWOV.gif)
 
 
-### Mappings
+### Key Mappings
+Key mappings are only assigned for files with active rainbow highlighting
 
 |Key                       | Action                                             |
 |--------------------------|----------------------------------------------------|
@@ -53,16 +54,6 @@ Here is an example of how to extract some fields from a bunch of uniform single-
 
 
 ### Commands
-
-#### :Select ...
-
-Allows to enter RBQL select query as vim command.
-e.g. _:Select a1, a2 order by a1_
-
-#### :Update ...
-
-Allows to enter RBQL update query as vim command.
-e.g. _:Update a1 = a1 + " " + a2_
 
 #### :RainbowDelim
 
@@ -75,6 +66,15 @@ in source code in different colors. To return back to original syntax highlighti
 
 Disable rainbow columns highlighting for the current file.
 
+#### :Select ...
+
+Allows to enter RBQL select query as vim command.
+e.g. _:Select a1, a2 order by a1_
+
+#### :Update ...
+
+Allows to enter RBQL update query as vim command.
+e.g. _:Update a1 = a1 + " " + a2_
 
 #### :RainbowName \<name\>
 
