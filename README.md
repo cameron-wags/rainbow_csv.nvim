@@ -8,18 +8,19 @@ dein: `call dein#add('mechatroner/rainbow_csv')`
 No additional steps required - Rainbow CSV will work out of the box.  
 
 ## Overview
-Rainbow CSV has 2 main features:
+Rainbow CSV has 2 main features:  
 * Highlight csv columns in different rainbow colors. 
 * Provide _SELECT_ and _UPDATE_ queries in RBQL: SQL-like transprogramming query language.
 
 There are 3 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
-2. Manual CSV delimiter selection with _:RainbowDelim_ command (So you can use rainbow_csv for non-table files, e.g. to highlight function arguments in different colors)
-3. Execute `:set ft=csv` or `:set ft=tsv` for CSV/TSV dialects. For other use _:RainbowDelim_
+2. Manual CSV delimiter selection with _:RainbowDelim_ command with cursor over the delimiter  
+3. Execute `:set ft=csv` or `:set ft=tsv` for CSV/TSV dialects. For other separators use _:RainbowDelim_
 
-To run an RBQL query either press _F5_ or enter the query in vim command line e.g. _:Select a1, a2_
+To run an RBQL query either press _F5_ or enter the query in vim command line e.g. _:Select a1, a2_  
+As soon as you finish entering "select" (or update) and press whitespace, the plugin will show column names in the status line.  
 
-Extension is written in pure vimscript, no additional libraries required.
+The core functionality of the plugin is written in pure vimscript, no additional libraries required.  
 
 ### Demonstration of rainbow_csv highlighting and RBQL queries 
 
@@ -36,10 +37,10 @@ In this demo python expressions were used, but JavaScript is also available.
 ### Rainbow highlighting for non-table files
 You can use rainbow highlighting and RBQL even for non-csv/tsv files.  
 E.g. you can highlight records in log files, one-line xmls and other delimited records.  
-You can even highlight function arguments in your programming language using comma as a delimiter for _:RainbowDelim_ command.
-And you can always turn off the rainbow highlighting using _:NoRainbowDelim_ command.
+You can even highlight function arguments in your programming language using comma as a delimiter for _:RainbowDelim_ command.  
+And you can always turn off the rainbow highlighting using _:NoRainbowDelim_ command.  
 
-Here is an example of how to extract some fields from a bunch of uniform single-line xmls:
+Here is an example of how to extract some fields from a bunch of uniform single-line xmls:  
 
 ![demo_xml_screencast](https://i.imgur.com/HlzBWOV.gif)
 
@@ -107,7 +108,7 @@ Format of RBQL result set tables.
 * tsv: doesn't allow quoted tabs inside fields. 
 * csv: is Excel-compatible and allows quoted commas.
 
-Essentially format here is a pair: delimiter + quoting policy.
+Essentially format is a pair: delimiter + quoting policy.  
 This setting for example can be used to convert files between tsv and csv format:
 * To convert _csv_ to _tsv_: **1.** open csv file. **2.** `:let g:rbql_output_format='tsv'` **3.** `:Select *`
 * To convert _tsv_ to _csv_: **1.** open tsv file. **2.** `:let g:rbql_output_format='csv'` **3.** `:Select *`
@@ -116,8 +117,8 @@ This setting for example can be used to convert files between tsv and csv format
 #### g:rbql_backend_language
 Default: _python_
 
-Scripting language to use in RBQL expression. Either 'js' or 'python'
-To use JavaScript add _let g:rbql_backend_language = 'js'_ to .vimrc
+Scripting language to use in RBQL expression. Either 'js' or 'python'  
+To use JavaScript add _let g:rbql_backend_language = 'js'_ to .vimrc  
 
 #### g:disable_rainbow_csv_autodetect
 csv autodetection mechanism can be disabled by setting this variable value to 1.  
