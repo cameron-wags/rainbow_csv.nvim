@@ -28,8 +28,6 @@ let s:magic_chars = '^*$.~/[]\'
 
 " TODO implement select -> Select switch for monocolumn files
 
-" FIXME make hove text optional with config parameter
-
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
     for gi in range(len(link_groups))
@@ -741,7 +739,6 @@ func! rainbow_csv#set_statusline_columns()
     redraw!
     augroup StatusDisableGrp
         autocmd CursorMoved * call rainbow_csv#restore_statusline()
-        autocmd CursorMoved * call rainbow_csv#restore_statusline()
     augroup END
 endfunc
 
@@ -1198,7 +1195,9 @@ func! rainbow_csv#buffer_enable_rainbow_features(delim, policy)
 
     augroup RainbowHintGrp
         autocmd! CursorMoved <buffer>
-        autocmd CursorMoved <buffer> call rainbow_csv#provide_column_info_on_hover()
+        if !exists("g:disable_rainbow_hover") || g:disable_rainbow_hover == 0
+            autocmd CursorMoved <buffer> call rainbow_csv#provide_column_info_on_hover()
+        endif
     augroup END
 endfunc
 
@@ -1242,13 +1241,6 @@ func! rainbow_csv#handle_new_file()
         return
     endif
 
-    if exists("g:disable_rainbow_csv_autodetect") && g:disable_rainbow_csv_autodetect
-        if table_extension == 'csv'
-            call rainbow_csv#do_set_rainbow_filetype('csv')
-        endif
-        return
-    endif
-
     let table_params = s:guess_table_params_from_content()
     if !len(table_params) && table_extension == 'csv'
         let table_params = s:guess_table_params_from_content_frequency_based()
@@ -1286,6 +1278,10 @@ func! rainbow_csv#handle_buffer_enter()
         else
             call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1])
         endif
+        return
+    endif
+
+    if exists("g:disable_rainbow_csv_autodetect") && g:disable_rainbow_csv_autodetect
         return
     endif
 
