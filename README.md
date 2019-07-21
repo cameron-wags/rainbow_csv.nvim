@@ -35,6 +35,16 @@ In this demo python expressions were used, but JavaScript is also available.
 
 # Plugin description
 
+### Associating file extensions with CSV dialects
+In most cases the built-in autodetection algorithm should correctly detect correct CSV dialect for all CSV tables that you open in Vim, but if you have disabled the autodetection algorithm or don't want to rely on it for some reason, you can manually associate file extensions with available csv dialects.  
+Example: to associate ".dat" extension with "csv_pipe" dialect and ".csv" extension with "csv_semicolon" add the folowing lines to your .vimrc:  
+```
+autocmd BufNewFile,BufRead *.csv   set filetype=csv_semicolon
+autocmd BufNewFile,BufRead *.dat   set filetype=csv_pipe
+```
+The following named csv dialects are available for extension association: "csv", "tsv", "csv_semicolon", "csv_pipe", "csv_whitespace"
+
+
 ### Rainbow highlighting for non-table files
 You can use rainbow highlighting and RBQL even for non-csv/tsv files.  
 E.g. you can highlight records in log files, one-line xmls and other delimited records.  

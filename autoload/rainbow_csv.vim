@@ -29,7 +29,6 @@ let s:magic_chars = '^*$.~/[]\'
 " TODO implement select -> Select switch for monocolumn files
 
 
-" FIXME add example to readme how to associate extension with csv filetype
 " FIXME implement CSVLint command and document
 " FIXME implement Align/Shrink commands and document
 " FIXME sync vimdoc with readme file
