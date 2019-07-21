@@ -28,7 +28,6 @@ let s:magic_chars = '^*$.~/[]\'
 
 " TODO implement select -> Select switch for monocolumn files
 
-" FIXME find out why vim doesn't set ft=csv for small files in the frequency_autodetection folder
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -86,7 +85,7 @@ endfunc
 call s:init_rb_color_groups()
 
 
-let s:delimiters = ["\t", ",", ";"]
+let s:delimiters = ["\t", ",", ";", "|"]
 let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : s:delimiters
 
 
@@ -573,37 +572,70 @@ func! rainbow_csv#provide_column_info_on_hover()
 endfunc
 
 
-func! s:lines_are_delimited(lines, delim, policy)
-    let num_fields = len(rainbow_csv#preserving_smart_split(a:lines[0], a:delim, a:policy))
-    if (num_fields < 2 || num_fields > s:max_columns)
+func! s:get_num_columns_if_delimited(delim, policy)
+    let lastLineNo = min([line("$"), 100])
+    if (lastLineNo < 5)
         return 0
     endif
-    for line in a:lines
-        let nfields = len(rainbow_csv#preserving_smart_split(line, a:delim, a:policy))
-        if (num_fields != nfields)
+    let num_fields = 0
+    let num_lines_tested = 0
+    for linenum in range(1, lastLineNo)
+        let line = getline(linenum)
+        if len(line) && line[0] == '#'
+            continue
+        endif
+        let num_lines_tested += 1
+        let num_fields_cur = len(rainbow_csv#preserving_smart_split(line, a:delim, a:policy))
+        if !num_fields
+            let num_fields = num_fields_cur
+        endif
+        if (num_fields != num_fields_cur || num_fields < 2)
             return 0
         endif
     endfor
-    return 1
+    if num_lines_tested < 5
+        return 0
+    endif
+    return num_fields
 endfunc
 
 
 func! s:guess_table_params_from_content()
-    let lastLineNo = min([line("$"), 10])
-    if (lastLineNo < 5)
-        return []
-    endif
-    let sampled_lines = []
-    for linenum in range(1, lastLineNo)
-        call add(sampled_lines, getline(linenum))
-    endfor
+    let best_dialect = []
+    let best_score = 1
     for delim in s:delimiters
         let policy = (delim == ',' || delim == ';') ? 'quoted' : 'simple'
-        if (s:lines_are_delimited(sampled_lines, delim, policy))
-            return [delim, policy, '']
+        let score = get_num_columns_if_delimited(delim, policy)
+        if score > best_score
+            best_dialect = [delim, policy]
+            best_score = score
         endif
     endfor
-    return []
+    if best_score > s:max_columns
+        return []
+    endif
+    return best_dialect
+endfunc
+
+
+func! s:guess_table_params_from_content_frequency_based()
+    let best_delim = ','
+    let best_score = 0
+    let lastLineNo = min([line("$"), 50])
+    for delim in s:delimiters
+        let regex_delim = escape(delim, s:magic_chars)
+        let score = 0
+        for linenum in range(1, lastLineNo)
+            let line = getline(linenum)
+            let score += len(split(line, regex_delim, 1)) - 1
+        endfor
+        if score > best_score
+            let best_delim = delim
+            let best_score = score
+        endif
+    endfor
+    let best_policy = (best_delim == ',' || best_delim == ';') ? 'quoted' : 'simple'
+    return [best_delim, best_policy]
 endfunc
 
 
@@ -1111,13 +1143,18 @@ func! rainbow_csv#ensure_syntax_exists(rainbow_ft, delim, policy)
 endfunc
 
 
+func! rainbow_csv#do_set_rainbow_filetype(rainbow_ft)
+    let b:originial_ft = &ft
+    execute "set ft=" . a:rainbow_ft
+endfunc
+
+
 func! rainbow_csv#set_rainbow_filetype(delim, policy)
     let rainbow_ft = rainbow_csv#dialect_to_ft(a:delim, a:policy)
     if match(rainbow_ft, 'rcsv') == 0
         call rainbow_csv#ensure_syntax_exists(rainbow_ft, a:delim, a:policy)
     endif
-    let b:originial_ft = &ft
-    execute "set ft=" . rainbow_ft
+    call rainbow_csv#do_set_rainbow_filetype(rainbow_ft)
 endfunc
 
 
@@ -1197,31 +1234,62 @@ func! rainbow_csv#manual_disable()
 endfunc
 
 
+func! rainbow_csv#handle_new_file()
+    " FIXME test with new empty .csv and new empty .tsv files i.e. `:e non_existent.csv` should have csv syntax
+    let table_extension = expand('%:e')
+    if table_extension == 'tsv' || table_extension == 'tab'
+        call rainbow_csv#do_set_rainbow_filetype('tsv')
+        return
+    endif
+
+    if exists("g:disable_rainbow_csv_autodetect") && g:disable_rainbow_csv_autodetect
+        if table_extension == 'csv'
+            call rainbow_csv#do_set_rainbow_filetype('csv')
+        endif
+        return
+    endif
+
+    let table_params = s:guess_table_params_from_content()
+    if !len(table_params) && table_extension == 'csv'
+        let table_params = s:guess_table_params_from_content_frequency_based()
+    endif
+    if !len(table_params)
+        let b:rainbow_features_enabled = 0
+        return
+    endif
+    call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1])
+endfunc
+
 
 func! rainbow_csv#handle_buffer_enter()
     if exists("b:rainbow_features_enabled")
-        " This is a workaround against Vim glitches. sometimes it 'forgets' to highlight the file even when ft=csv, see https://stackoverflow.com/questions/14779299/syntax-highlighting-randomly-disappears-during-file-saving
-        " From the other hand it can discard highlight ":hi ... " rules from user config, so let's disable this for now
-        " syntax enable
-        
-        " another hack instead of `syntax enable` which is kind of global
-        let ft_hack = &ft
-        execute "set ft=" . ft_hack
+        if b:rainbow_features_enabled
+            " This is a workaround against Vim glitches. sometimes it 'forgets' to highlight the file even when ft=csv, see https://stackoverflow.com/questions/14779299/syntax-highlighting-randomly-disappears-during-file-saving
+            " From the other hand it can discard highlight ":hi ... " rules from user config, so let's disable this for now
+            " syntax enable
+            " another hack instead of `syntax enable` which is kind of global
+            let ft_power_cycle = &ft
+            execute "set ft=" . ft_power_cycle
+        endif
         return
     endif
+
     if exists("b:current_syntax")
         return
     endif
+
     let table_path = resolve(expand("%:p"))
     let table_params = s:get_table_record(table_path)
-    if !len(table_params) && (!exists("g:disable_rainbow_csv_autodetect") || g:disable_rainbow_csv_autodetect == 0)
-        let table_params = s:guess_table_params_from_content()
+    if len(table_params)
+        if table_params[1] == 'disabled' || table_params[1] == 'monocolumn'
+            let b:rainbow_features_enabled = 0
+        else
+            call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1])
+        endif
+        return
     endif
-    if len(table_params) && table_params[1] != 'disabled' && table_params[1] != 'monocolumn'
-        call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1])
-    else
-        let b:rainbow_features_enabled = 0
-    endif
+
+    call rainbow_csv#handle_new_file()
 endfunc
 
 
