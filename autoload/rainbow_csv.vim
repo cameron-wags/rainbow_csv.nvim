@@ -28,6 +28,13 @@ let s:magic_chars = '^*$.~/[]\'
 
 " TODO implement select -> Select switch for monocolumn files
 
+
+" FIXME add example to readme how to associate extension with csv filetype
+" FIXME implement CSVLint command and document
+" FIXME implement Align/Shrink commands and document
+" FIXME sync vimdoc with readme file
+
+
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
     for gi in range(len(link_groups))
@@ -177,6 +184,9 @@ func! rainbow_csv#dialect_to_ft(delim, policy)
     if a:delim == "\t" && a:policy == 'simple'
         return 'tsv'
     endif
+    if a:delim == "|" && a:policy == 'simple'
+        return 'csv_pipe'
+    endif
     if a:delim == " " && a:policy == 'whitespace'
         return 'csv_whitespace'
     endif
@@ -193,6 +203,9 @@ func! rainbow_csv#ft_to_dialect(ft_val)
     endif
     if a:ft_val == 'tsv'
         return ["\t", 'simple']
+    endif
+    if a:ft_val == 'csv_pipe'
+        return ['|', 'simple']
     endif
     if a:ft_val == 'csv_whitespace'
         return [' ', 'whitespace']
