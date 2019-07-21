@@ -28,6 +28,7 @@ let s:magic_chars = '^*$.~/[]\'
 
 " TODO implement select -> Select switch for monocolumn files
 
+" FIXME make hove text optional with config parameter
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -605,10 +606,10 @@ func! s:guess_table_params_from_content()
     let best_score = 1
     for delim in s:delimiters
         let policy = (delim == ',' || delim == ';') ? 'quoted' : 'simple'
-        let score = get_num_columns_if_delimited(delim, policy)
+        let score = s:get_num_columns_if_delimited(delim, policy)
         if score > best_score
-            best_dialect = [delim, policy]
-            best_score = score
+            let best_dialect = [delim, policy]
+            let best_score = score
         endif
     endfor
     if best_score > s:max_columns
@@ -1235,7 +1236,6 @@ endfunc
 
 
 func! rainbow_csv#handle_new_file()
-    " FIXME test with new empty .csv and new empty .tsv files i.e. `:e non_existent.csv` should have csv syntax
     let table_extension = expand('%:e')
     if table_extension == 'tsv' || table_extension == 'tab'
         call rainbow_csv#do_set_rainbow_filetype('tsv')
