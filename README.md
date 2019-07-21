@@ -14,7 +14,7 @@ Main features:
 * Provide _SELECT_ and _UPDATE_ queries in RBQL: SQL-like transprogramming query language.
 
 There are 3 ways to enable csv columns highlighting:
-1. CSV autodetection based on file content. File extension doesn't have to be .csv or .tsv
+1. CSV autodetection based on file content and/or extension  
 2. Manual CSV delimiter selection with _:RainbowDelim_ command with cursor over the delimiter  
 3. Execute `:set ft=csv` or `:set ft=tsv` for CSV/TSV dialects. For other separators use _:RainbowDelim_
 
