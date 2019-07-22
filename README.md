@@ -1,4 +1,4 @@
-![rainbow logo](rainbow_csv_logo.png)
+![rainbow logo](https://imgur.com/cJwEvyM)
 
 ## Installation
 Use your favorite package manager.  
