@@ -1,3 +1,5 @@
+![rainbow logo](rainbow_csv_logo.png)
+
 ## Installation
 Use your favorite package manager.  
 
