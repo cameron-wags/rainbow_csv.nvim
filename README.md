@@ -1,4 +1,4 @@
-![rainbow logo](https://imgur.com/cJwEvyM)
+![rainbow logo](https://i.imgur.com/cJwEvyM.png)
 
 ## Installation
 Use your favorite package manager.  
