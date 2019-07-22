@@ -28,6 +28,8 @@ let s:magic_chars = '^*$.~/[]\'
 
 " TODO implement select -> Select switch for monocolumn files
 
+" TODO support multi-character separators
+" TODO add separator properties table like in vscode version
 
 " FIXME implement CSVLint command and document
 " FIXME implement Align/Shrink commands and document
@@ -405,22 +407,16 @@ func! rainbow_csv#unescape_quoted_fields(src)
 endfunc
 
 
-func! rainbow_csv#quoted_split(line, dlm)
-    let quoted_fields = rainbow_csv#preserving_quoted_split(a:line, a:dlm)
-    let clean_fields = rainbow_csv#unescape_quoted_fields(quoted_fields)
-    return clean_fields
-endfunc
-
-
 func! rainbow_csv#preserving_quoted_split(line, dlm)
     let src = a:line
     if stridx(src, '"') == -1
         " Optimization for majority of lines
         let regex_delim = escape(a:dlm, s:magic_chars)
-        return split(src, regex_delim, 1)
+        return [split(src, regex_delim, 1), 0]
     endif
     let result = []
     let cidx = 0
+    let has_warning = 0
     while cidx < len(src)
         let uidx = cidx
         while uidx < len(src) && src[uidx] == ' '
@@ -432,7 +428,7 @@ func! rainbow_csv#preserving_quoted_split(line, dlm)
                 let uidx = stridx(src, '"', uidx)
                 if uidx == -1
                     call add(result, strpart(src, cidx))
-                    return result
+                    return [result, 1]
                 endif
                 let uidx += 1
                 if uidx < len(src) && src[uidx] == '"'
@@ -447,6 +443,7 @@ func! rainbow_csv#preserving_quoted_split(line, dlm)
                     let cidx = uidx + 1
                     break
                 endif
+                let has_warning = 1
             endwhile
         else
             let uidx = stridx(src, a:dlm, uidx)
@@ -456,12 +453,20 @@ func! rainbow_csv#preserving_quoted_split(line, dlm)
             let field = strpart(src, cidx, uidx - cidx)
             let cidx = uidx + 1
             call add(result, field)
+            let has_warning = has_warning || stridx(field, '"') != -1
         endif
     endwhile
     if src[len(src) - 1] == a:dlm
         call add(result, '')
     endif
-    return result 
+    return [result, has_warning]
+endfunc
+
+
+func! rainbow_csv#quoted_split(line, dlm)
+    let quoted_fields = rainbow_csv#preserving_quoted_split(a:line, a:dlm)[0]
+    let clean_fields = rainbow_csv#unescape_quoted_fields(quoted_fields)
+    return clean_fields
 endfunc
 
 
@@ -522,17 +527,45 @@ endfunc
 func! rainbow_csv#preserving_smart_split(line, dlm, policy)
     let stripped = rainbow_csv#rstrip(a:line)
     if a:policy == 'monocolumn'
-        return [stripped]
+        return [[stripped], 0]
     elseif a:policy == 'quoted'
         return rainbow_csv#preserving_quoted_split(stripped, a:dlm)
     elseif a:policy == 'simple'
         let regex_delim = escape(a:dlm, s:magic_chars)
-        return split(stripped, regex_delim, 1)
+        return [split(stripped, regex_delim, 1), 0]
     elseif a:policy == 'whitespace'
-        return rainbow_csv#whitespace_split(a:line, 1)
+        return [rainbow_csv#whitespace_split(a:line, 1), 0]
     else
         echoerr 'bad delim policy'
     endif
+endfunc
+
+
+func! rainbow_csv#csv_lint()
+    let [delim, policy] = rainbow_csv#get_current_dialect()
+    if policy == 'monocolumn'
+        echoerr "CSVLint is available only for highlighted CSV files"
+        return
+    endif
+    let lastLineNo = line("$")
+    let num_fields = 0
+    for linenum in range(1, lastLineNo)
+        let line = getline(linenum)
+        let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, delim, policy)
+        if has_warning
+            echoerr printf("Line %s has formatting error: double quote chars are not consistent", linenum)
+            return
+        endif
+        let num_fields_cur = len(fields)
+        if !num_fields
+            let num_fields = num_fields_cur
+        endif
+        if (num_fields != num_fields_cur)
+            echoerr printf("Number of fields is not consistent: e.g. line 1 has %s fields, and line %s has %s fields", num_fields, linenum, num_fields_cur)
+            return
+        endif
+    endfor
+    echomsg "CSVLint: OK"
 endfunc
 
 
@@ -546,10 +579,13 @@ endfunc
 
 func! rainbow_csv#provide_column_info_on_hover()
     let [delim, policy] = rainbow_csv#get_current_dialect()
+    if policy == 'monocolumn'
+        return
+    endif
     let line = getline('.')
     let kb_pos = col('.')
 
-    let fields = rainbow_csv#preserving_smart_split(line, delim, policy)
+    let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
     let num_cols = len(fields)
 
     let col_num = 0
@@ -596,7 +632,7 @@ func! s:get_num_columns_if_delimited(delim, policy)
             continue
         endif
         let num_lines_tested += 1
-        let num_fields_cur = len(rainbow_csv#preserving_smart_split(line, a:delim, a:policy))
+        let num_fields_cur = len(rainbow_csv#preserving_smart_split(line, a:delim, a:policy)[0])
         if !num_fields
             let num_fields = num_fields_cur
         endif
@@ -725,7 +761,7 @@ func! rainbow_csv#set_statusline_columns()
         let indent = ' NR' . s:single_char_sring(indent_len - 3, ' ')
     endif
     let cur_line = getline(line('.'))
-    let cur_fields = rainbow_csv#preserving_smart_split(cur_line, delim, policy)
+    let cur_fields = rainbow_csv#preserving_smart_split(cur_line, delim, policy)[0]
     let status_labels = []
     if delim == "\t"
         let status_labels = rainbow_csv#generate_tab_statusline(&tabstop, cur_fields)
@@ -849,7 +885,7 @@ func! rainbow_csv#select_from_file()
         return
     endif
 
-    let fields = rainbow_csv#preserving_smart_split(lines[0], delim, policy)
+    let fields = rainbow_csv#preserving_smart_split(lines[0], delim, policy)[0]
     let num_fields = len(fields)
     call rainbow_csv#set_statusline_columns()
 

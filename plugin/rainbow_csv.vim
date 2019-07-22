@@ -16,6 +16,10 @@ command! RainbowDelimSimple call rainbow_csv#manual_set('simple')
 command! RainbowDelimQuoted call rainbow_csv#manual_set('quoted')
 command! NoRainbowDelim call rainbow_csv#manual_disable()
 command! RainbowNoDelim call rainbow_csv#manual_disable()
+
+command! RainbowLint call rainbow_csv#csv_lint()
+command! CSVLint call rainbow_csv#csv_lint()
+
 command! RbSelect call rainbow_csv#select_from_file()
 command! RbRun call rainbow_csv#finish_query_editing()
 command! -nargs=+ Select call rainbow_csv#run_select_cmd_query(<q-args>)
