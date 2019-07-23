@@ -55,7 +55,7 @@ func! RunUnitTests()
     let canonic_stln = 'a1  a2  a3  a4      a5'
     call AssertEqual(test_stln_str, canonic_stln)
 
-    call AssertEqual(rainbow_csv#preserving_quoted_split('   ', ','), ['   '])
+    call AssertEqual(rainbow_csv#preserving_quoted_split('   ', ',')[0], ['   '])
     call AssertEqual(rainbow_csv#quoted_split('   ', ','), [''])
     call AssertEqual(rainbow_csv#quoted_split(' "  abc  " , abc , bbb ', ','), ['  abc  ', 'abc', 'bbb'])
 
@@ -77,7 +77,7 @@ func! RunUnitTests()
     call add(test_cases, [' "  abc  " , abc , bbb ', ' "  abc  " ; abc ; bbb '])
 
     for nt in range(len(test_cases))
-        let test_str = join(rainbow_csv#preserving_quoted_split(test_cases[nt][0], ','), ';')
+        let test_str = join(rainbow_csv#preserving_quoted_split(test_cases[nt][0], ',')[0], ';')
         let canonic_str = test_cases[nt][1]
         call AssertEqual(test_str, canonic_str)
     endfor
@@ -89,6 +89,7 @@ endfunc
 
 
 func! TestSplitRandomCsv()
+    "FIXME compare warnings equality too since vim function can now return them
     let lines = readfile('./random_ut.csv')
     for line in lines
         let records = split(line, "\t", 1)
@@ -97,7 +98,7 @@ func! TestSplitRandomCsv()
         let canonic_warning = str2nr(records[1])
         call AssertTrue(canonic_warning == 0 || canonic_warning == 1, 'warning must be either 0 or 1')
         let canonic_dst = split(records[2], ';', 1)
-        let test_dst = rainbow_csv#preserving_quoted_split(escaped_entry, ',')
+        let test_dst = rainbow_csv#preserving_quoted_split(escaped_entry, ',')[0]
         if !canonic_warning
             call AssertEqual(len(canonic_dst), len(test_dst))
             call AssertEqual(join(test_dst, ','), escaped_entry)
