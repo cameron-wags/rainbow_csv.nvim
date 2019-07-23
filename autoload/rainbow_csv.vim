@@ -27,12 +27,14 @@ let s:magic_chars = '^*$.~/[]\'
 " (return special flag) otherwise do not replace by ternary expression
 
 " TODO implement select -> Select switch for monocolumn files
+"
+" TODO support comment prefixes
 
 " TODO support multi-character separators
 " TODO add separator properties table like in vscode version
 
-" FIXME implement CSVLint command and document
-" FIXME implement Align/Shrink commands and document
+" TODO warning for trailing spaces in CSVLint
+
 " FIXME sync vimdoc with readme file
 
 
@@ -566,6 +568,94 @@ func! rainbow_csv#csv_lint()
         endif
     endfor
     echomsg "CSVLint: OK"
+endfunc
+
+
+func! s:calc_column_sizes(delim, policy)
+    let result = []
+    let lastLineNo = line("$")
+    for linenum in range(1, lastLineNo)
+        let line = getline(linenum)
+        let fields = rainbow_csv#preserving_smart_split(line, a:delim, a:policy)[0]
+        for fnum in range(len(fields))
+            let field = rainbow_csv#strip_spaces(fields[fnum])
+            if len(result) <= fnum
+                call add(result, 0)
+            endif
+            let result[fnum] = max([result[fnum], len(field)])
+        endfor
+    endfor
+    return result
+endfunc
+
+
+func! rainbow_csv#csv_align()
+    let [delim, policy] = rainbow_csv#get_current_dialect()
+    if policy == 'monocolumn'
+        echoerr "CSVLint is available only for highlighted CSV files"
+        return
+    endif
+    let column_sizes = s:calc_column_sizes(delim, policy)
+    let lastLineNo = line("$")
+    let has_edit = 0
+    for linenum in range(1, lastLineNo)
+        let has_line_edit = 0
+        let line = getline(linenum)
+        let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
+        for fnum in range(len(fields))
+            if fnum >= len(column_sizes)
+                break " Should never happen
+            endif
+            let field = rainbow_csv#strip_spaces(fields[fnum])
+            let delta_len = column_sizes[fnum] - len(field)
+            if delta_len >= 0
+                let field = field . repeat(' ', delta_len + 1)
+            endif
+            if fields[fnum] != field
+                let fields[fnum] = field
+                let has_line_edit = 1
+            endif
+        endfor
+        if has_line_edit
+            let updated_line = join(fields, delim)
+            call setline(linenum, updated_line)
+            let has_edit = 1
+        endif
+    endfor
+    if !has_edit
+        echoerr "File is already aligned"
+    endif
+endfunc
+
+
+func! rainbow_csv#csv_shrink()
+    let [delim, policy] = rainbow_csv#get_current_dialect()
+    if policy == 'monocolumn'
+        echoerr "CSVLint is available only for highlighted CSV files"
+        return
+    endif
+    let lastLineNo = line("$")
+    let has_edit = 0
+    for linenum in range(1, lastLineNo)
+        let has_line_edit = 0
+        let line = getline(linenum)
+        let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
+        for fnum in range(len(fields))
+            let field = rainbow_csv#strip_spaces(fields[fnum])
+            if fields[fnum] != field
+                let fields[fnum] = field
+                let has_line_edit = 1
+            endif
+        endfor
+        if has_line_edit
+            let updated_line = join(fields, delim)
+            call setline(linenum, updated_line)
+            let has_edit = 1
+        endif
+    endfor
+    if !has_edit
+        echoerr "File is already shrinked"
+    endif
 endfunc
 
 

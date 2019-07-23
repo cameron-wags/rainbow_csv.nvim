@@ -13,8 +13,9 @@ No additional steps required - Rainbow CSV will work out of the box.
 Main features:  
 * Highlight CSV columns in different rainbow colors. 
 * Provide info about column under the cursor
-* Consistency check for csv files (CSVLint)
 * Provide _SELECT_ and _UPDATE_ queries in RBQL: SQL-like transprogramming query language.
+* Consistency check for csv files (CSVLint)
+* Align and Shrink CSV fields (add/remove trailing spaces in fields)
 
 There are 3 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content and/or extension  
@@ -86,6 +87,15 @@ Disable rainbow columns highlighting for the current file.
 The linter checks the following:  
 * consistency of double quotes usage in CSV rows  
 * consistency of number of fields per CSV row  
+
+#### :RainbowAlign
+
+Align CSV columns with whitespaces.  
+Don't run this command if you treat leading and trailing whitespaces in fields as part of the data.  
+
+#### :RainbowShrink
+
+Remove leading and trailing whitespaces from all fields. Opposite to RainbowAlign
 
 #### :Select ...
 

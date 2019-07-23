@@ -19,6 +19,8 @@ command! RainbowNoDelim call rainbow_csv#manual_disable()
 
 command! RainbowLint call rainbow_csv#csv_lint()
 command! CSVLint call rainbow_csv#csv_lint()
+command! RainbowAlign call rainbow_csv#csv_align()
+command! RainbowShrink call rainbow_csv#csv_shrink()
 
 command! RbSelect call rainbow_csv#select_from_file()
 command! RbRun call rainbow_csv#finish_query_editing()
