@@ -13,6 +13,7 @@ No additional steps required - Rainbow CSV will work out of the box.
 Main features:  
 * Highlight CSV columns in different rainbow colors. 
 * Provide info about column under the cursor
+* Consistency check for csv files (CSVLint)
 * Provide _SELECT_ and _UPDATE_ queries in RBQL: SQL-like transprogramming query language.
 
 There are 3 ways to enable csv columns highlighting:
@@ -79,6 +80,12 @@ in source code in different colors. To return back to original syntax highlighti
 #### :NoRainbowDelim
 
 Disable rainbow columns highlighting for the current file.
+
+#### :CSVLint
+
+The linter checks the following:  
+* consistency of double quotes usage in CSV rows  
+* consistency of number of fields per CSV row  
 
 #### :Select ...
 
