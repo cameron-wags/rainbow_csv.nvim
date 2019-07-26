@@ -1210,10 +1210,10 @@ func! rainbow_csv#generate_rainbow_syntax(delim)
     let regex_delim = escape(a:delim, s:magic_chars)
     let char_class_delim = s:char_class_escape(a:delim)
     for groupid in range(s:num_groups)
-        let match = 'column' . groupid
+        let group_name = 'column' . groupid
         let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
         let cmd = 'syntax match %s /%s[^%s]*/ nextgroup=column%d'
-        call add(syntax_lines, printf(cmd, match, regex_delim, char_class_delim, next_group_id))
+        call add(syntax_lines, printf(cmd, group_name, regex_delim, char_class_delim, next_group_id))
     endfor
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=column1'
     call add(syntax_lines, printf(cmd, char_class_delim))
@@ -1228,17 +1228,17 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
     for groupid in range(s:num_groups)
         let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
 
-        let match = 'column' . groupid
+        let group_name = 'column' . groupid
         let cmd = 'syntax match %s /%s[^%s]*$/'
-        call add(syntax_lines, printf(cmd, match, regex_delim, char_class_delim))
+        call add(syntax_lines, printf(cmd, group_name, regex_delim, char_class_delim))
         let cmd = 'syntax match %s /%s[^%s]*%s/me=e-1 nextgroup=escaped_column%d,column%d'
-        call add(syntax_lines, printf(cmd, match, regex_delim, char_class_delim, regex_delim, next_group_id, next_group_id))
+        call add(syntax_lines, printf(cmd, group_name, regex_delim, char_class_delim, regex_delim, next_group_id, next_group_id))
 
-        let match = 'escaped_column' . groupid
+        let group_name = 'escaped_column' . groupid
         let cmd = 'syntax match %s /%s *"\([^"]*""\)*[^"]*" *$/'
-        call add(syntax_lines, printf(cmd, match, regex_delim))
+        call add(syntax_lines, printf(cmd, group_name, regex_delim))
         let cmd = 'syntax match %s /%s *"\([^"]*""\)*[^"]*" *%s/me=e-1 nextgroup=escaped_column%d,column%d'
-        call add(syntax_lines, printf(cmd, match, regex_delim, regex_delim, next_group_id, next_group_id))
+        call add(syntax_lines, printf(cmd, group_name, regex_delim, regex_delim, next_group_id, next_group_id))
     endfor
     let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=escaped_column1,column1'
     call add(syntax_lines, printf(cmd, char_class_delim))
@@ -1254,10 +1254,10 @@ endfunc
 func! rainbow_csv#generate_whitespace_syntax()
     let syntax_lines = []
     for groupid in range(s:num_groups)
-        let match = 'column' . groupid
+        let group_name = 'column' . groupid
         let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
         let cmd = 'syntax match %s /  *[^ ]*/ nextgroup=column%d'
-        call add(syntax_lines, printf(cmd, match, next_group_id))
+        call add(syntax_lines, printf(cmd, group_name, next_group_id))
     endfor
     let cmd = 'syntax match startcolumn /^ *[^ ]*/ nextgroup=column1'
     call add(syntax_lines, cmd)
