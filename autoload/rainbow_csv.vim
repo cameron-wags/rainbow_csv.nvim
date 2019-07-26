@@ -37,6 +37,8 @@ let s:magic_chars = '^*$.~/[]\'
 
 " FIXME sync vimdoc with readme file
 
+" FIXME test and descibe in readme column edit with Align
+
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -582,7 +584,7 @@ func! s:calc_column_sizes(delim, policy)
             if len(result) <= fnum
                 call add(result, 0)
             endif
-            let result[fnum] = max([result[fnum], strdisplaywidth(field)])
+            let result[fnum] = max([result[fnum], strwidth(field)])
         endfor
     endfor
     return result
@@ -607,7 +609,7 @@ func! rainbow_csv#csv_align()
                 break " Should never happen
             endif
             let field = rainbow_csv#strip_spaces(fields[fnum])
-            let delta_len = column_sizes[fnum] - strdisplaywidth(field)
+            let delta_len = column_sizes[fnum] - strwidth(field)
             if delta_len >= 0
                 let field = field . repeat(' ', delta_len + 1)
             endif
