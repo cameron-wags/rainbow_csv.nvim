@@ -18,6 +18,9 @@ let s:system_python_interpreter = ''
 let s:magic_chars = '^*$.~/[]\'
 
 
+let s:rainbow_dev_mode = 1 "FIXME set to 0!
+
+
 " XXX Use :syntax command to list all syntax groups
 
 
@@ -38,6 +41,7 @@ let s:magic_chars = '^*$.~/[]\'
 " FIXME sync vimdoc with readme file
 
 " FIXME test and descibe in readme column edit with Align
+
 
 
 func! s:init_groups_from_links()
@@ -1212,10 +1216,10 @@ func! rainbow_csv#generate_rainbow_syntax(delim)
     for groupid in range(s:num_groups)
         let group_name = 'column' . groupid
         let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
-        let cmd = 'syntax match %s /%s[^%s]*/ nextgroup=column%d'
-        call add(syntax_lines, printf(cmd, group_name, regex_delim, char_class_delim, next_group_id))
+        let cmd = 'syntax match %s /.\{-}\(%s\|$\)/ nextgroup=column%d'
+        call add(syntax_lines, printf(cmd, group_name, regex_delim, next_group_id))
     endfor
-    let cmd = 'syntax match startcolumn /^[^%s]*/ nextgroup=column1'
+    let cmd = 'syntax match startcolumn /^.\{-}\(%s\|$\)/ nextgroup=column1'
     call add(syntax_lines, printf(cmd, char_class_delim))
     return syntax_lines
 endfunc
@@ -1289,7 +1293,7 @@ endfunc
 
 func! rainbow_csv#set_rainbow_filetype(delim, policy)
     let rainbow_ft = rainbow_csv#dialect_to_ft(a:delim, a:policy)
-    if match(rainbow_ft, 'rcsv') == 0
+    if match(rainbow_ft, 'rcsv') == 0 || s:rainbow_dev_mode
         call rainbow_csv#ensure_syntax_exists(rainbow_ft, a:delim, a:policy)
     endif
     call rainbow_csv#do_set_rainbow_filetype(rainbow_ft)
