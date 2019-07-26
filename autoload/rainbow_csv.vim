@@ -1346,9 +1346,28 @@ func! rainbow_csv#buffer_enable_rainbow_features(delim, policy)
 endfunc
 
 
-func! rainbow_csv#manual_set(arg_policy)
-    let delim = getline('.')[col('.') - 1]  
-    let policy = a:arg_policy
+function! rainbow_csv#get_visual_selection()
+    " Taken from here: https://stackoverflow.com/a/6271254/2898283
+    let [line_start, column_start] = getpos("'<")[1:2]
+    let [line_end, column_end] = getpos("'>")[1:2]
+    let lines = getline(line_start, line_end)
+    if len(lines) == 0
+        return ''
+    endif
+    let lines[-1] = lines[-1][: column_end - (&selection == 'inclusive' ? 1 : 2)]
+    let lines[0] = lines[0][column_start - 1:]
+    return join(lines, "\n")
+endfunction
+
+
+func! rainbow_csv#manual_set(arg_policy, is_multidelim)
+    if a:is_multidelim
+        let delim = rainbow_csv#get_visual_selection()
+        let policy = 'simple'
+    else
+        let delim = getline('.')[col('.') - 1]  
+        let policy = a:arg_policy
+    endif
     if policy == 'auto'
         if delim == ',' || delim == ';'
             let policy = 'quoted'

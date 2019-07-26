@@ -11,9 +11,10 @@ augroup RainbowInitAuGrp
     autocmd BufEnter * call rainbow_csv#handle_buffer_enter()
 augroup END
 
-command! RainbowDelim call rainbow_csv#manual_set('auto')
-command! RainbowDelimSimple call rainbow_csv#manual_set('simple')
-command! RainbowDelimQuoted call rainbow_csv#manual_set('quoted')
+command! RainbowDelim call rainbow_csv#manual_set('auto', 0)
+command! RainbowDelimSimple call rainbow_csv#manual_set('simple', 0)
+command! RainbowDelimQuoted call rainbow_csv#manual_set('quoted', 0)
+command! RainbowMultiDelim call rainbow_csv#manual_set('simple', 1)
 command! NoRainbowDelim call rainbow_csv#manual_disable()
 command! RainbowNoDelim call rainbow_csv#manual_disable()
 
