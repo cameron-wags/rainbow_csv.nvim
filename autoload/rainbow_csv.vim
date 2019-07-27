@@ -42,7 +42,9 @@ let s:rainbow_dev_mode = 1 "FIXME set to 0!
 
 " FIXME test and descibe in readme column edit with Align
 
+" FIXME regenerate tab (and whitespace?) syntax files
 
+" FIXME consecutive opening of multidelim file doesn't autohighlight it
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -706,11 +708,12 @@ func! rainbow_csv#provide_column_info_on_hover()
     let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
     let num_cols = len(fields)
 
+    " FIXME field includes delim after
     let col_num = 0
     let cpos = len(fields[col_num]) 
     while kb_pos > cpos && col_num + 1 < len(fields)
         let col_num = col_num + 1
-        let cpos = cpos + 1 + len(fields[col_num])
+        let cpos = cpos + len(delim) + len(fields[col_num])
     endwhile
 
     let ui_message = printf('Col #%s', col_num + 1)
@@ -1242,7 +1245,7 @@ func! rainbow_csv#generate_rainbow_syntax(delim)
         call add(syntax_lines, printf(cmd, group_name, regex_delim, next_group_id))
     endfor
     let cmd = 'syntax match startcolumn /^.\{-}\(%s\|$\)/ nextgroup=column1'
-    call add(syntax_lines, printf(cmd, char_class_delim))
+    call add(syntax_lines, printf(cmd, regex_delim))
     return syntax_lines
 endfunc
 
