@@ -613,7 +613,7 @@ func! s:calc_column_sizes(delim, policy)
             if len(result) <= fnum
                 call add(result, 0)
             endif
-            let result[fnum] = max([result[fnum], strwidth(field)])
+            let result[fnum] = max([result[fnum], strdisplaywidth(field)])
         endfor
     endfor
     return result
@@ -638,7 +638,7 @@ func! rainbow_csv#csv_align()
                 break " Should never happen
             endif
             let field = rainbow_csv#strip_spaces(fields[fnum])
-            let delta_len = column_sizes[fnum] - strwidth(field)
+            let delta_len = column_sizes[fnum] - strdisplaywidth(field)
             if delta_len >= 0
                 let field = field . repeat(' ', delta_len + 1)
             endif
