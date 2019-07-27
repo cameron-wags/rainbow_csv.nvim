@@ -199,7 +199,7 @@ func! s:hex_to_string(src)
     let result = ''
     let nt = 0
     while nt < len(a:src)
-        let result .= nr2char(str2nr(strpart(a:src, 2), 16))
+        let result .= nr2char(str2nr(strpart(a:src, nt, 2), 16))
         let nt += 2
     endwhile
     return result
