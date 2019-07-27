@@ -815,20 +815,11 @@ func! rainbow_csv#clear_current_buf_content()
 endfunc
 
 
-func! s:single_char_sring(string_len, string_char)
-    let result = ''
-    for ii in range(a:string_len)
-        let result = result . a:string_char
-    endfor
-    return result
-endfunc
-
-
-func! rainbow_csv#generate_tab_statusline(tabstop_val, template_fields)
+func! rainbow_csv#generate_tab_statusline(tabstop_val, delim_len, template_fields)
     let result = []
     let space_deficit = 0
     for nf in range(len(a:template_fields))
-        let available_space = (1 + len(a:template_fields[nf]) / a:tabstop_val) * a:tabstop_val
+        let available_space = (a:delim_len + len(a:template_fields[nf]) / a:tabstop_val) * a:tabstop_val
         let column_name = 'a' . string(nf + 1)
         let extra_len = available_space - len(column_name) - 1
         if extra_len < 0
@@ -839,7 +830,7 @@ func! rainbow_csv#generate_tab_statusline(tabstop_val, template_fields)
             let space_deficit -= regained
             let extra_len -= regained
         endif
-        let space_filling = s:single_char_sring(1 + extra_len, ' ')
+        let space_filling = repeat(' ', extra_len + 1)
         if nf + 1 == len(a:template_fields)
             let space_filling = ''
         endif
@@ -880,15 +871,15 @@ func! rainbow_csv#set_statusline_columns()
     let indent = ''
     if has_number_column
         let indent_len = max([len(string(line('$'))) + 1, 4])
-        let indent = ' NR' . s:single_char_sring(indent_len - 3, ' ')
+        let indent = ' NR' . repeat(' ', indent_len - 3)
     endif
     let cur_line = getline(line('.'))
     let cur_fields = rainbow_csv#preserving_smart_split(cur_line, delim, policy)[0]
     let status_labels = []
     if delim == "\t"
-        let status_labels = rainbow_csv#generate_tab_statusline(&tabstop, cur_fields)
+        let status_labels = rainbow_csv#generate_tab_statusline(&tabstop, len(delim), cur_fields)
     else
-        let status_labels = rainbow_csv#generate_tab_statusline(1, cur_fields)
+        let status_labels = rainbow_csv#generate_tab_statusline(1, len(delim), cur_fields)
     endif
     let max_len = winwidth(0)
     let cur_len = len(indent)
