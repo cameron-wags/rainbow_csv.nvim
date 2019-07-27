@@ -42,9 +42,8 @@ let s:rainbow_dev_mode = 1 "FIXME set to 0!
 
 " FIXME test and descibe in readme column edit with Align
 
-" FIXME regenerate tab (and whitespace?) syntax files
+" FIXME regenerate all built-in syntax files
 
-" FIXME consecutive opening of multidelim file doesn't autohighlight it
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -1277,10 +1276,10 @@ func! rainbow_csv#generate_whitespace_syntax()
     for groupid in range(s:num_groups)
         let group_name = 'column' . groupid
         let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
-        let cmd = 'syntax match %s /  *[^ ]*/ nextgroup=column%d'
+        let cmd = 'syntax match %s /.\{-}\(  *\|$\)/ nextgroup=column%d'
         call add(syntax_lines, printf(cmd, group_name, next_group_id))
     endfor
-    let cmd = 'syntax match startcolumn /^ *[^ ]*/ nextgroup=column1'
+    let cmd = 'syntax match startcolumn /^ *.\{-}\(  *\|$\)/ nextgroup=column1'
     call add(syntax_lines, cmd)
     return syntax_lines
 endfunc
