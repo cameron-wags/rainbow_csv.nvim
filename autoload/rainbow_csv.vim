@@ -34,7 +34,7 @@ let s:rainbow_dev_mode = 1 "FIXME set to 0!
 " TODO support comment prefixes
 
 " TODO support multi-character separators
-" TODO add separator properties table like in vscode version
+" TODO add separator properties table to README like in vscode version
 
 " TODO warning for trailing spaces in CSVLint
 
@@ -44,7 +44,8 @@ let s:rainbow_dev_mode = 1 "FIXME set to 0!
 
 " FIXME regenerate all built-in syntax files
 
-" FIXME check when there are > 10 columns
+" FIXME write a dev function that will regenerate all named syntax files
+
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -92,7 +93,6 @@ func! s:init_rb_color_groups()
     else
         call s:init_groups_from_links()
     endif
-    highlight link startcolumn column0
     highlight link escaped_startcolumn column0
 
     highlight RbCmd ctermbg=blue guibg=blue
@@ -1229,14 +1229,13 @@ func! rainbow_csv#generate_rainbow_syntax(delim)
     let syntax_lines = []
     let regex_delim = escape(a:delim, s:magic_chars)
     let char_class_delim = s:char_class_escape(a:delim)
-    for groupid in range(s:num_groups)
+    let groupid = s:num_groups - 1
+    while groupid >= 0
         let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
         let cmd = 'syntax match column%d /.\{-}\(%s\|$\)/ nextgroup=column%d'
         call add(syntax_lines, printf(cmd, groupid, regex_delim, next_group_id))
-    endfor
-    " FIXME we don't need "startcolumn" rules, just define main rules in the reverse order
-    let cmd = 'syntax match startcolumn /^.\{-}\(%s\|$\)/ nextgroup=column1'
-    call add(syntax_lines, printf(cmd, regex_delim))
+        let groupid -= 1
+    endwhile
     return syntax_lines
 endfunc
 
@@ -1245,30 +1244,28 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
     let syntax_lines = []
     let regex_delim = escape(a:delim, s:magic_chars)
     let char_class_delim = s:char_class_escape(a:delim)
-    for groupid in range(s:num_groups)
+    let groupid = s:num_groups - 1
+    while groupid >= 0
         let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
         let cmd = 'syntax match column%d /.\{-}\(%s\|$\)/ nextgroup=escaped_column%d,column%d'
         call add(syntax_lines, printf(cmd, groupid, regex_delim, next_group_id, next_group_id))
         let cmd = 'syntax match escaped_column%d / *"\([^"]*""\)*[^"]*" *\(%s\|$\)/ nextgroup=escaped_column%d,column%d'
         call add(syntax_lines, printf(cmd, groupid, regex_delim, next_group_id, next_group_id))
-    endfor
-    let cmd = 'syntax match startcolumn /^.\{-}\(%s\|$\)/ nextgroup=escaped_column1,column1'
-    call add(syntax_lines, printf(cmd, char_class_delim))
-    let cmd = 'syntax match escaped_startcolumn /^ *"\([^"]*""\)*[^"]*" *\(%s\|$\)/ nextgroup=escaped_column1,column1'
-    call add(syntax_lines, cmd)
+        let groupid -= 1
+    endwhile
     return syntax_lines
 endfunc
 
 
 func! rainbow_csv#generate_whitespace_syntax()
     let syntax_lines = []
-    for groupid in range(s:num_groups)
+    let groupid = s:num_groups - 1
+    while groupid >= 0
         let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
         let cmd = 'syntax match column%d /.\{-}\(  *\|$\)/ nextgroup=column%d'
         call add(syntax_lines, printf(cmd, groupid, next_group_id))
-    endfor
-    let cmd = 'syntax match startcolumn /^ *.\{-}\(  *\|$\)/ nextgroup=column1'
-    call add(syntax_lines, cmd)
+        let groupid -= 1
+    endwhile
     return syntax_lines
 endfunc
 
