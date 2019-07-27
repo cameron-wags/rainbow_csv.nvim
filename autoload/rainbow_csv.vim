@@ -709,12 +709,11 @@ func! rainbow_csv#provide_column_info_on_hover()
     let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
     let num_cols = len(fields)
 
-    " FIXME field includes delim after
     let col_num = 0
-    let cpos = len(fields[col_num]) 
+    let cpos = len(fields[col_num]) + len(delim)
     while kb_pos > cpos && col_num + 1 < len(fields)
-        let col_num = col_num + 1
-        let cpos = cpos + len(delim) + len(fields[col_num])
+        let col_num += 1
+        let cpos += len(fields[col_num]) + len(delim)
     endwhile
 
     let ui_message = printf('Col #%s', col_num + 1)
