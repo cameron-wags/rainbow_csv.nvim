@@ -155,6 +155,7 @@ func! s:update_table_record(table_path, delim, policy)
         " For tmp buffers e.g. `cat table.csv | vim -`
         return
     endif
+    " FIXME handle multi char delims with tab
     let delim = a:delim == "\t" ? 'TAB' : a:delim
     let new_record = [a:table_path, delim, a:policy]
     let records = s:try_read_index(s:rainbow_table_index)
@@ -173,12 +174,32 @@ func! s:get_table_record(table_path)
     let records = s:try_read_index(s:rainbow_table_index)
     for record in records
         if len(record) >= 3 && record[0] == a:table_path
+            " FIXME handle multi char delims with tab
             let delim = record[1] == 'TAB' ? "\t" : record[1]
             let policy = record[2]
             return [delim, policy]
         endif
     endfor
     return []
+endfunc
+
+
+func! s:string_to_hex(src)
+    let result = ''
+    for nt in range(len(a:src))
+        let result .= printf("%x", char2nr(a:src[nt]))
+    endfor
+    return result
+endfunc
+
+
+func! s:hex_to_string(src)
+    let result = ''
+    let nt = 0
+    while nt < len(a:src)
+        let result .= nr2char(str2nr(strpart(a:src, 2), 16))
+    endwhile
+    return result
 endfunc
 
 
@@ -199,7 +220,8 @@ func! rainbow_csv#dialect_to_ft(delim, policy)
     if a:delim == " " && a:policy == 'whitespace'
         return 'csv_whitespace'
     endif
-    return join(['rcsv', char2nr(a:delim), a:policy], '_')
+    "return join(['rcsv', char2nr(a:delim), a:policy], '_')
+    return join(['rcsv', s:string_to_hex(a:delim), a:policy], '_')
 endfunc
 
 
@@ -223,7 +245,7 @@ func! rainbow_csv#ft_to_dialect(ft_val)
     if len(ft_parts) != 3 || ft_parts[0] != 'rcsv'
         return ['', 'monocolumn']
     endif
-    return [nr2char(str2nr(ft_parts[1])), ft_parts[2]]
+    return [s:hex_to_string(ft_parts[1]), ft_parts[2]]
 endfunc
 
 
@@ -415,11 +437,11 @@ func! rainbow_csv#unescape_quoted_fields(src)
 endfunc
 
 
-func! rainbow_csv#preserving_quoted_split(line, dlm)
+func! rainbow_csv#preserving_quoted_split(line, delim)
     let src = a:line
     if stridx(src, '"') == -1
         " Optimization for majority of lines
-        let regex_delim = escape(a:dlm, s:magic_chars)
+        let regex_delim = escape(a:delim, s:magic_chars)
         return [split(src, regex_delim, 1), 0]
     endif
     let result = []
@@ -446,7 +468,7 @@ func! rainbow_csv#preserving_quoted_split(line, dlm)
                 while uidx < len(src) && src[uidx] == ' '
                     let uidx += 1
                 endwhile
-                if uidx >= len(src) || src[uidx] == a:dlm
+                if uidx >= len(src) || src[uidx] == a:delim
                     call add(result, strpart(src, cidx, uidx - cidx))
                     let cidx = uidx + 1
                     break
@@ -454,7 +476,7 @@ func! rainbow_csv#preserving_quoted_split(line, dlm)
                 let has_warning = 1
             endwhile
         else
-            let uidx = stridx(src, a:dlm, uidx)
+            let uidx = stridx(src, a:delim, uidx)
             if uidx == -1
                 let uidx = len(src)
             endif
@@ -464,15 +486,15 @@ func! rainbow_csv#preserving_quoted_split(line, dlm)
             let has_warning = has_warning || stridx(field, '"') != -1
         endif
     endwhile
-    if src[len(src) - 1] == a:dlm
+    if src[len(src) - 1] == a:delim
         call add(result, '')
     endif
     return [result, has_warning]
 endfunc
 
 
-func! rainbow_csv#quoted_split(line, dlm)
-    let quoted_fields = rainbow_csv#preserving_quoted_split(a:line, a:dlm)[0]
+func! rainbow_csv#quoted_split(line, delim)
+    let quoted_fields = rainbow_csv#preserving_quoted_split(a:line, a:delim)[0]
     let clean_fields = rainbow_csv#unescape_quoted_fields(quoted_fields)
     return clean_fields
 endfunc
@@ -515,14 +537,14 @@ func! rainbow_csv#whitespace_split(line, preserve_whitespaces)
 endfunc
 
 
-func! rainbow_csv#smart_split(line, dlm, policy)
+func! rainbow_csv#smart_split(line, delim, policy)
     let stripped = rainbow_csv#rstrip(a:line)
     if a:policy == 'monocolumn'
         return [stripped]
     elseif a:policy == 'quoted'
-        return rainbow_csv#quoted_split(stripped, a:dlm)
+        return rainbow_csv#quoted_split(stripped, a:delim)
     elseif a:policy == 'simple'
-        let regex_delim = escape(a:dlm, s:magic_chars)
+        let regex_delim = escape(a:delim, s:magic_chars)
         return split(stripped, regex_delim, 1)
     elseif a:policy == 'whitespace'
         return rainbow_csv#whitespace_split(a:line, 0)
@@ -532,14 +554,14 @@ func! rainbow_csv#smart_split(line, dlm, policy)
 endfunc
 
 
-func! rainbow_csv#preserving_smart_split(line, dlm, policy)
+func! rainbow_csv#preserving_smart_split(line, delim, policy)
     let stripped = rainbow_csv#rstrip(a:line)
     if a:policy == 'monocolumn'
         return [[stripped], 0]
     elseif a:policy == 'quoted'
-        return rainbow_csv#preserving_quoted_split(stripped, a:dlm)
+        return rainbow_csv#preserving_quoted_split(stripped, a:delim)
     elseif a:policy == 'simple'
-        let regex_delim = escape(a:dlm, s:magic_chars)
+        let regex_delim = escape(a:delim, s:magic_chars)
         return [split(stripped, regex_delim, 1), 0]
     elseif a:policy == 'whitespace'
         return [rainbow_csv#whitespace_split(a:line, 1), 0]
