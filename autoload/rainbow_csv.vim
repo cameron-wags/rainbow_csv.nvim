@@ -17,8 +17,7 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
-
-let s:rainbow_dev_mode = 1 "FIXME set to 0!
+let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted'], 'tsv': ["\t", 'simple'], 'csv_pipe': ['|', 'simple'], 'csv_whitespace': [" ", 'whitespace']}
 
 
 " XXX Use :syntax command to list all syntax groups
@@ -41,14 +40,6 @@ let s:rainbow_dev_mode = 1 "FIXME set to 0!
 " FIXME sync vimdoc with readme file
 
 " FIXME test and descibe in readme column edit with Align
-
-" FIXME regenerate all built-in syntax files
-
-" FIXME write a dev function that will regenerate all named syntax files
-
-
-let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted'], 'tsv': ["\t", 'simple'], 'csv_pipe': ['|', 'simple'], 'csv_whitespace': [" ", 'whitespace']}
-
 
 
 func! s:init_groups_from_links()
@@ -1307,7 +1298,7 @@ endfunc
 
 func! rainbow_csv#set_rainbow_filetype(delim, policy)
     let rainbow_ft = rainbow_csv#dialect_to_ft(a:delim, a:policy)
-    if match(rainbow_ft, 'rcsv') == 0 || s:rainbow_dev_mode
+    if match(rainbow_ft, 'rcsv') == 0
         call rainbow_csv#ensure_syntax_exists(rainbow_ft, a:delim, a:policy)
     endif
     call rainbow_csv#do_set_rainbow_filetype(rainbow_ft)
