@@ -47,6 +47,10 @@ let s:rainbow_dev_mode = 1 "FIXME set to 0!
 " FIXME write a dev function that will regenerate all named syntax files
 
 
+let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted'], 'tsv': ["\t", 'simple'], 'csv_pipe': ['|', 'simple'], 'csv_whitespace': [" ", 'whitespace']}
+
+
+
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
     for gi in range(len(link_groups))
@@ -233,48 +237,31 @@ endfunc
 
 
 func! rainbow_csv#dialect_to_ft(delim, policy)
-    " TODO consider using hex codes instead
-    if a:delim == ',' && a:policy == 'quoted'
-        return 'csv'
-    endif
-    if a:delim == ';' && a:policy == 'quoted'
-        return 'csv_semicolon'
-    endif
-    if a:delim == "\t" && a:policy == 'simple'
-        return 'tsv'
-    endif
-    if a:delim == "|" && a:policy == 'simple'
-        return 'csv_pipe'
-    endif
-    if a:delim == " " && a:policy == 'whitespace'
-        return 'csv_whitespace'
-    endif
-    "return join(['rcsv', char2nr(a:delim), a:policy], '_')
+    for [ft, delim_policy] in items(s:named_syntax_map)
+        if a:delim == delim_policy[0] && a:policy == delim_policy[1]
+            return ft
+        endif
+    endfor
     return join(['rcsv', s:string_to_hex(a:delim), a:policy], '_')
 endfunc
 
 
 func! rainbow_csv#ft_to_dialect(ft_val)
-    if a:ft_val == 'csv'
-        return [',', 'quoted']
-    endif
-    if a:ft_val == 'csv_semicolon'
-        return [';', 'quoted']
-    endif
-    if a:ft_val == 'tsv'
-        return ["\t", 'simple']
-    endif
-    if a:ft_val == 'csv_pipe'
-        return ['|', 'simple']
-    endif
-    if a:ft_val == 'csv_whitespace'
-        return [' ', 'whitespace']
+    if has_key(s:named_syntax_map, a:ft_val)
+        return s:named_syntax_map[a:ft_val]
     endif
     let ft_parts = split(a:ft_val, '_')
     if len(ft_parts) != 3 || ft_parts[0] != 'rcsv'
         return ['', 'monocolumn']
     endif
     return [s:hex_to_string(ft_parts[1]), ft_parts[2]]
+endfunc
+
+
+func! rainbow_csv#generate_named_dialects()
+    for [ft, delim_policy] in items(s:named_syntax_map)
+        call rainbow_csv#ensure_syntax_exists(ft, delim_policy[0], delim_policy[1])
+    endfor
 endfunc
 
 
