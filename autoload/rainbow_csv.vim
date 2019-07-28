@@ -152,14 +152,41 @@ func! s:update_records(records, key, new_record)
 endfunc
 
 
+func! s:index_encode_delim(delim)
+    " We need this ugly function to keep backward-compatibility with old single-char delim format
+    if a:delim == "\t"
+        return 'TAB'
+    endif
+    if len(a:delim) > 1
+        let result = substitute(a:delim, '\\', '\\\\', "g")
+        let result = substitute(result, '\t', '\\t', "g")
+        return 'multichar:' . result
+    endif
+    return a:delim
+endfunc
+
+
+func! s:index_decode_delim(encoded_delim)
+    if a:encoded_delim == "TAB"
+        return "\t"
+    endif
+    if stridx(a:encoded_delim, 'multichar:') == 0
+        let result = strpart(a:encoded_delim, len('multichar:'))
+        let result = substitute(result, '\\t', '\t', 'g')
+        let result = substitute(result, '\\\\', '\\', 'g')
+        return result
+    endif
+    return a:encoded_delim
+endfunc
+
+
 func! s:update_table_record(table_path, delim, policy)
     if !len(a:table_path)
         " For tmp buffers e.g. `cat table.csv | vim -`
         return
     endif
-    " FIXME handle multi char delims with tab
-    let delim = a:delim == "\t" ? 'TAB' : a:delim
-    let new_record = [a:table_path, delim, a:policy]
+    let encoded_delim = s:index_encode_delim(a:delim)
+    let new_record = [a:table_path, encoded_delim, a:policy]
     let records = s:try_read_index(s:rainbow_table_index)
     let records = s:update_records(records, a:table_path, new_record)
     if len(records) > 100
@@ -176,8 +203,7 @@ func! s:get_table_record(table_path)
     let records = s:try_read_index(s:rainbow_table_index)
     for record in records
         if len(record) >= 3 && record[0] == a:table_path
-            " FIXME handle multi char delims with tab
-            let delim = record[1] == 'TAB' ? "\t" : record[1]
+            let delim = s:index_decode_delim(record[1])
             let policy = record[2]
             return [delim, policy]
         endif
@@ -1262,7 +1288,7 @@ func! rainbow_csv#generate_whitespace_syntax()
     let groupid = s:num_groups - 1
     while groupid >= 0
         let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
-        let cmd = 'syntax match column%d /.\{-}\(  *\|$\)/ nextgroup=column%d'
+        let cmd = 'syntax match column%d / *.\{-}\(  *\|$\)/ nextgroup=column%d'
         call add(syntax_lines, printf(cmd, groupid, next_group_id))
         let groupid -= 1
     endwhile
