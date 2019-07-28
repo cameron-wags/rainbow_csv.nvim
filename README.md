@@ -447,8 +447,8 @@ Usage: `$ rbql-py --query "select a1, a2 order by a1" < input.tsv`
 
 #### RBQL
 
-* rbql-js CLI App for Node.js - [npm](https://www.npmjs.com/package/rbql)  
-* rbql-py CLI App in [python](https://pypi.org/project/rbql/)  
+* rbql-js library and CLI App for [JavaScript](https://www.npmjs.com/package/rbql)  
+* rbql-py library and CLI App for [Python](https://pypi.org/project/rbql/)  
 
 
 #### RBQL alternatives:
