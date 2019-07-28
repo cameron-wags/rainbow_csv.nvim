@@ -33,7 +33,6 @@ let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted
 " TODO support comment prefixes
 
 " TODO support multi-character separators
-" TODO add separator properties table to README like in vscode version
 
 " TODO warning for trailing spaces in CSVLint
 
@@ -41,6 +40,7 @@ let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted
 
 " FIXME test and descibe in readme column edit with Align
 
+" FIXME add limit on max multicharacter separator length
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
