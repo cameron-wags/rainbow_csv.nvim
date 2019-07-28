@@ -20,7 +20,8 @@ Main features:
 There are 3 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content and/or extension  
 2. Manual CSV delimiter selection with _:RainbowDelim_ command with cursor over the delimiter  
-3. Execute `:set ft=csv` or `:set ft=tsv` for CSV/TSV dialects. For other separators use _:RainbowDelim_
+3. Manual CSV delimiter selection with _:RainbowMultiDelim_ for multi-character delimiters  
+4. Execute `:set ft=csv` or `:set ft=tsv` for CSV/TSV dialects. For other separators use _:RainbowDelim_  
 
 To run an RBQL query either press _F5_ or enter the query in vim command line e.g. _:Select a1, a2_  
 As soon as you finish entering "select" (or update) and press whitespace, the plugin will show column names in the status line.  
@@ -52,7 +53,7 @@ The following named csv dialects are available for extension association: "csv",
 ### Rainbow highlighting for non-table files
 You can use rainbow highlighting and RBQL even for non-csv/tsv files.  
 E.g. you can highlight records in log files, one-line xmls and other delimited records.  
-You can even highlight function arguments in your programming language using comma as a delimiter for _:RainbowDelim_ command.  
+You can even highlight function arguments in your programming language using comma or comma+whitespaces as a delimiter for _:RainbowDelim_ or _:RainbowMultiDelim_ commands.  
 And you can always turn off the rainbow highlighting using _:NoRainbowDelim_ command.  
 
 Here is an example of how to extract some fields from a bunch of uniform single-line xmls:  
@@ -77,6 +78,11 @@ Mark current file as a table and highlight it's columns in rainbow colors. Chara
 
 You can also use this command for non-csv files, e.g. to highlight function arguments  
 in source code in different colors. To return back to original syntax highlighting run _:NoRainbowDelim_
+
+#### :RainbowMultiDelim
+
+Same as _:RainbowDelim_, but works with multicharacter separators.
+Visually select the multicharacter separator (e.g. `~#~`) and run _:RainbowMultiDelim_ command.
 
 #### :NoRainbowDelim
 
