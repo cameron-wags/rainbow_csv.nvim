@@ -40,7 +40,6 @@ let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted
 
 " FIXME test and descibe in readme column edit with Align
 
-" FIXME add limit on max multicharacter separator length
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -1369,6 +1368,11 @@ func! rainbow_csv#manual_set(arg_policy, is_multidelim)
     if a:is_multidelim
         let delim = rainbow_csv#get_visual_selection()
         let policy = 'simple'
+        let max_delim_len = exists('g:max_multichar_delim_len') ? g:max_multichar_delim_len : 5
+        if len(delim) > max_delim_len
+            echoerr 'Multicharater delimiter is too long. Adjust g:max_multichar_delim_len or use a different separator'
+            return
+        endif
     else
         let delim = getline('.')[col('.') - 1]  
         let policy = a:arg_policy
