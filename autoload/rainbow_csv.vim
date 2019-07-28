@@ -32,13 +32,7 @@ let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted
 "
 " TODO support comment prefixes
 
-" TODO support multi-character separators
-
 " TODO warning for trailing spaces in CSVLint
-
-" FIXME sync vimdoc with readme file
-
-" FIXME test and descibe in readme column edit with Align
 
 
 func! s:init_groups_from_links()

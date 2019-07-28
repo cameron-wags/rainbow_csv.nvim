@@ -17,7 +17,7 @@ Main features:
 * Consistency check for csv files (CSVLint)
 * Align and Shrink CSV fields (add/remove trailing spaces in fields)
 
-There are 3 ways to enable csv columns highlighting:
+There are 4 ways to enable csv columns highlighting:
 1. CSV autodetection based on file content and/or extension  
 2. Manual CSV delimiter selection with _:RainbowDelim_ command with cursor over the delimiter  
 3. Manual CSV delimiter selection with _:RainbowMultiDelim_ for multi-character delimiters  
@@ -112,6 +112,7 @@ The linter checks the following:
 
 Align CSV columns with whitespaces.  
 Don't run this command if you treat leading and trailing whitespaces in fields as part of the data.  
+You can edit aligned CSV file in Vim column-edit mode (Ctrl+v).  
 
 #### :RainbowShrink
 
