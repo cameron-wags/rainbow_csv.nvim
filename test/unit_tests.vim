@@ -69,6 +69,15 @@
 :let log_msg = (&ft == 'csv') ? 'OK' : 'FAIL'
 :call add(g:rbql_test_log_records, log_msg)
 
+:e ../rbql_core/test/csv_files/movies_multichar_separator.txt
+:sleep 1
+:call rainbow_csv#set_rainbow_filetype('~#~', 'simple')
+:sleep 1
+:Select a2, COUNT(*) GROUP BY a2
+:sleep 1
+:let num_lines = line('$')
+:let log_msg = (num_lines == 5) ? 'OK' : 'FAIL'
+:call add(g:rbql_test_log_records, log_msg)
 
 :call add(g:rbql_test_log_records, 'Finished full integration tests')
 :call writefile(g:rbql_test_log_records, "./vim_unit_tests.log")
