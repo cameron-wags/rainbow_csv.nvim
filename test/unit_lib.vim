@@ -43,14 +43,14 @@ func! RunUnitTests()
 
     "10,a,b,20000,5
     "a1 a2 a3 a4  a5
-    let test_stln = rainbow_csv#generate_tab_statusline(1, ['10', 'a', 'b', '20000', '5'])
+    let test_stln = rainbow_csv#generate_tab_statusline(1, 1, ['10', 'a', 'b', '20000', '5'])
     let test_stln_str = join(test_stln, '')
     let canonic_stln = 'a1 a2 a3 a4  a5'
     call AssertEqual(test_stln_str, canonic_stln)
 
     "10  a   b   20000   5
     "a1  a2  a3  a4      a5
-    let test_stln = rainbow_csv#generate_tab_statusline(4, ['10', 'a', 'b', '20000', '5'])
+    let test_stln = rainbow_csv#generate_tab_statusline(4, 1, ['10', 'a', 'b', '20000', '5'])
     let test_stln_str = join(test_stln, '')
     let canonic_stln = 'a1  a2  a3  a4      a5'
     call AssertEqual(test_stln_str, canonic_stln)
