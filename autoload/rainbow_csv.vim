@@ -622,7 +622,11 @@ endfunc
 func! rainbow_csv#csv_align()
     let [delim, policy] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
-        echoerr "CSVLint is available only for highlighted CSV files"
+        echoerr "RainbowAlign is available only for highlighted CSV files"
+        return
+    endif
+    if policy == 'rfc_csv'
+        echoerr 'RainbowAlign not available for "rfc_csv" filetypes, consider using "csv" instead'
         return
     endif
     let column_sizes = s:calc_column_sizes(delim, policy)
@@ -661,7 +665,11 @@ endfunc
 func! rainbow_csv#csv_shrink()
     let [delim, policy] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
-        echoerr "CSVLint is available only for highlighted CSV files"
+        echoerr "RainbowShrink is available only for highlighted CSV files"
+        return
+    endif
+    if policy == 'rfc_csv'
+        echoerr 'RainbowShrink not available for "rfc_csv" filetypes, consider using "csv" instead'
         return
     endif
     let lastLineNo = line("$")
