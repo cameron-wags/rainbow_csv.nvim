@@ -17,7 +17,7 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
-let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted'], 'tsv': ["\t", 'simple'], 'csv_pipe': ['|', 'simple'], 'csv_whitespace': [" ", 'whitespace']}
+let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted'], 'tsv': ["\t", 'simple'], 'csv_pipe': ['|', 'simple'], 'csv_whitespace': [" ", 'whitespace'], 'rfc_csv': [',', 'quoted_rfc'], 'rfc_csv_semicolon': [';', 'quoted_rfc']}
 
 
 " XXX Use :syntax command to list all syntax groups
@@ -33,6 +33,8 @@ let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted
 " TODO support comment prefixes
 
 " TODO warning for trailing spaces in CSVLint
+
+" FIXME RBQL: decode delim and query, and check delim has all ascii for latin-1, just like query (both py and js)
 
 
 func! s:init_groups_from_links()
@@ -1254,6 +1256,23 @@ func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
 endfunc
 
 
+func! rainbow_csv#generate_escaped_rfc_rainbow_syntax(delim)
+    let syntax_lines = []
+    let regex_delim = escape(a:delim, s:magic_chars)
+    let char_class_delim = s:char_class_escape(a:delim)
+    let groupid = s:num_groups - 1
+    while groupid >= 0
+        let next_group_id = groupid + 1 < s:num_groups ? groupid + 1 : 0
+        let cmd = 'syntax match column%d /.\{-}\(%s\|$\)/ nextgroup=escaped_column%d,column%d'
+        call add(syntax_lines, printf(cmd, groupid, regex_delim, next_group_id, next_group_id))
+        let cmd = 'syntax match escaped_column%d / *"\(\([^"]\|\n\)*""\)*\([^"]\|\n\)*" *\(%s\|$\)/ nextgroup=escaped_column%d,column%d'
+        call add(syntax_lines, printf(cmd, groupid, regex_delim, next_group_id, next_group_id))
+        let groupid -= 1
+    endwhile
+    return syntax_lines
+endfunc
+
+
 func! rainbow_csv#generate_whitespace_syntax()
     let syntax_lines = []
     let groupid = s:num_groups - 1
@@ -1271,6 +1290,8 @@ func! rainbow_csv#ensure_syntax_exists(rainbow_ft, delim, policy)
     let syntax_code = ""
     if a:policy == 'quoted'
         let syntax_lines = rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
+    elseif a:policy == 'quoted_rfc'
+        let syntax_lines = rainbow_csv#generate_escaped_rfc_rainbow_syntax(a:delim)
     elseif a:policy == 'simple'
         let syntax_lines = rainbow_csv#generate_rainbow_syntax(a:delim)
     elseif a:policy == 'whitespace'
