@@ -579,6 +579,7 @@ func! rainbow_csv#csv_lint()
         echoerr "CSVLint is available only for highlighted CSV files"
         return
     endif
+    " FIXME add impl for rfc_csv
     let lastLineNo = line("$")
     let num_fields = 0
     for linenum in range(1, lastLineNo)
@@ -703,6 +704,7 @@ func! rainbow_csv#get_csv_header(delim, policy)
     if exists("b:cached_virtual_header") && len(b:cached_virtual_header)
         return b:cached_virtual_header
     endif
+    " FIXME handle rfc_csv
     return rainbow_csv#smart_split(getline(1), a:delim, a:policy)
 endfunc
 
@@ -715,6 +717,7 @@ func! rainbow_csv#provide_column_info_on_hover()
     let line = getline('.')
     let kb_pos = col('.')
 
+    " FIXME handle rfc_csv
     let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
     let num_cols = len(fields)
 
@@ -882,6 +885,7 @@ func! rainbow_csv#set_statusline_columns()
         let indent = ' NR' . repeat(' ', indent_len - 3)
     endif
     let cur_line = getline(line('.'))
+    " FIXME adjust for rfc_csv. Use first line instead?
     let cur_fields = rainbow_csv#preserving_smart_split(cur_line, delim, policy)[0]
     let status_labels = []
     if delim == "\t"
@@ -1006,8 +1010,6 @@ func! rainbow_csv#select_from_file()
         return
     endif
 
-    let fields = rainbow_csv#preserving_smart_split(lines[0], delim, policy)[0]
-    let num_fields = len(fields)
     call rainbow_csv#set_statusline_columns()
 
     let splitbelow_before = &splitbelow
@@ -1027,6 +1029,9 @@ func! rainbow_csv#select_from_file()
 
     nnoremap <buffer> <F5> :RbRun<cr>
 
+    " FIXME handle rfc_csv
+    let fields = rainbow_csv#preserving_smart_split(lines[0], delim, policy)[0]
+    let num_fields = len(fields)
     call s:generate_microlang_syntax(num_fields)
     if !already_exists
         if meta_language == "python"
