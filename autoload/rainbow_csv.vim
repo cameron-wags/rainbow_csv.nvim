@@ -1008,6 +1008,10 @@ func! rainbow_csv#select_from_file()
         return
     endif
 
+    " FIXME handle rfc_csv
+    let fields = rainbow_csv#preserving_smart_split(lines[0], delim, policy)[0]
+    let num_fields = len(fields)
+
     call rainbow_csv#set_statusline_columns()
 
     let splitbelow_before = &splitbelow
@@ -1027,9 +1031,6 @@ func! rainbow_csv#select_from_file()
 
     nnoremap <buffer> <F5> :RbRun<cr>
 
-    " FIXME handle rfc_csv
-    let fields = rainbow_csv#preserving_smart_split(lines[0], delim, policy)[0]
-    let num_fields = len(fields)
     call s:generate_microlang_syntax(num_fields)
     if !already_exists
         if meta_language == "python"
