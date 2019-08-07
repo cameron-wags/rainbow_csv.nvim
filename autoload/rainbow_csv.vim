@@ -604,6 +604,7 @@ func! s:calc_column_sizes(delim, policy)
     let lastLineNo = line("$")
     for linenum in range(1, lastLineNo)
         let line = getline(linenum)
+        " FIXME do not align if table has quoting issues
         let fields = rainbow_csv#preserving_smart_split(line, a:delim, a:policy)[0]
         for fnum in range(len(fields))
             let field = rainbow_csv#strip_spaces(fields[fnum])
@@ -667,6 +668,7 @@ func! rainbow_csv#csv_shrink()
     for linenum in range(1, lastLineNo)
         let has_line_edit = 0
         let line = getline(linenum)
+        " FIXME do not shrink if table has quoting issues
         let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
         for fnum in range(len(fields))
             let field = rainbow_csv#strip_spaces(fields[fnum])
