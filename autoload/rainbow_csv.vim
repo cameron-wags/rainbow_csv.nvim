@@ -19,6 +19,7 @@ let s:magic_chars = '^*$.~/[]\'
 
 let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted'], 'tsv': ["\t", 'simple'], 'csv_pipe': ['|', 'simple'], 'csv_whitespace': [" ", 'whitespace'], 'rfc_csv': [',', 'quoted_rfc'], 'rfc_csv_semicolon': [';', 'quoted_rfc']}
 
+let s:multiline_search_range = exists('g:multiline_search_range') ? g:multiline_search_range : 10
 
 " XXX Use :syntax command to list all syntax groups
 
@@ -543,7 +544,7 @@ func! rainbow_csv#smart_split(line, delim, policy)
     let stripped = rainbow_csv#rstrip(a:line)
     if a:policy == 'monocolumn'
         return [stripped]
-    elseif a:policy == 'quoted'
+    elseif a:policy == 'quoted' || a:policy == 'quoted_rfc'
         return rainbow_csv#quoted_split(stripped, a:delim)
     elseif a:policy == 'simple'
         let regex_delim = escape(a:delim, s:magic_chars)
@@ -702,8 +703,88 @@ func! rainbow_csv#get_csv_header(delim, policy)
     if exists("b:cached_virtual_header") && len(b:cached_virtual_header)
         return b:cached_virtual_header
     endif
-    " FIXME handle rfc_csv
     return rainbow_csv#smart_split(getline(1), a:delim, a:policy)
+endfunc
+
+
+func! s:get_col_num_single_line(fields, delim)
+    let col_num = 0
+    let kb_pos = col('.')
+    let cpos = len(a:fields[col_num]) + len(a:delim)
+    while kb_pos > cpos && col_num + 1 < len(a:fields)
+        let col_num += 1
+        let cpos += len(a:fields[col_num]) + len(a:delim)
+    endwhile
+    return col_num
+endfunc
+
+
+func s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line)
+    let record_lines = []
+    for lnmb in range(start_line, end_line)
+        call add(record_lines, line(lnmb))
+    endfor
+    let record_str = join(record_lines, "\n")
+    let [fields, has_warning] = rainbow_csv#preserving_smart_split(record_str, a:delim, 'quoted_rfc')
+    if has_warning || len(fields) != expected_num_fields
+        return []
+    endif
+    let cursor_line_offset = a:cur_line - start_line
+    let current_line_offset = 0
+    let current_field = 0
+    while current_field < len(fields)
+        let current_line_offset += len(split(fields[current_field], "\n", 1))
+        if current_line_offset >= cursor_line_offset
+            break
+        endif
+        let current_field += 1
+    endwhile
+    if current_line_offset < cursor_line_offset
+        " Should never happen
+        return []
+    endif
+    let col_num = s:get_col_num_single_line(fields[current_field:], a:delim)
+    return [fields, col_num]
+endfunc
+
+
+func s:get_col_num_rfc_lines(line, delim, expected_num_fields)
+    let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted_rfc')
+    if !has_warning && len(fields) == a:expected_num_fields
+        let col_num = s:get_col_num_single_line(fields, a:delim)
+        return [fields, col_num]
+    endif
+    let even_number_of_dquotes = len(split(a:line, '"', 1)) % 2 == 0
+    if even_number_of_dquotes
+        " We need to find two lines: one above and one below the current line with odd number of delims
+        let cur_line = line('.')
+        let start_line = -1
+        let end_line = -1
+        let lnmb = max([1, cur_line - s:multiline_search_range])
+        let lnme = min([line('$'), cur_line + s:multiline_search_range])
+        while lnmb < lnme
+            if len(split(getline(lnb), '"', 1)) % 2 == 1
+                if lnmb < cur_line
+                    let start_line = lnmb
+                endif
+                if lnmb > cur_line
+                    let end_line = lnmb
+                    break
+                endif
+            endif
+            let lnmb += 1
+        endwhile
+        if start_line == -1 || end_line == -1
+            return []
+        endif
+        return s:do_get_col_num_rfc_lines(cur_line, a:delim, start_line, end_line)
+    endif
+    " FIXME handle complex situation
+    " Two cases: 
+    " 1. even number of dquotes
+    " 2. odd number of dquotes
+    " In case "1" we need to search in two directions for lines with odd
+    " number of dquotes and use them as border
 endfunc
 
 
@@ -713,21 +794,19 @@ func! rainbow_csv#provide_column_info_on_hover()
         return
     endif
     let line = getline('.')
-    let kb_pos = col('.')
 
-    " FIXME handle rfc_csv
-    let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
+    let header = rainbow_csv#get_csv_header(delim, policy)
+    let fields = []
+    let col_num = 0
+    if policy == 'quoted_rfc'
+        let [fields, col_num] = s:get_col_num_rfc_lines(line, delim, len(header))
+    else
+        let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
+        let col_num = s:get_col_num_single_line(fields, delim)
+    endif
     let num_cols = len(fields)
 
-    let col_num = 0
-    let cpos = len(fields[col_num]) + len(delim)
-    while kb_pos > cpos && col_num + 1 < len(fields)
-        let col_num += 1
-        let cpos += len(fields[col_num]) + len(delim)
-    endwhile
-
     let ui_message = printf('Col #%s', col_num + 1)
-    let header = rainbow_csv#get_csv_header(delim, policy)
     let col_name = ''
     if col_num < len(header)
         let col_name = header[col_num]
