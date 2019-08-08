@@ -580,7 +580,11 @@ func! rainbow_csv#csv_lint()
         echoerr "CSVLint is available only for highlighted CSV files"
         return
     endif
-    " FIXME add impl for rfc_csv
+    if policy == 'rfc_csv'
+        " FIXME implement
+        echoerr "CSVLint is not implemented yet for rfc_csv"
+        return
+    endif
     let lastLineNo = line("$")
     let num_fields = 0
     for linenum in range(1, lastLineNo)
@@ -721,14 +725,14 @@ func! s:get_col_num_single_line(fields, delim)
 endfunc
 
 
-func s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line)
+func s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
     let record_lines = []
     for lnmb in range(start_line, end_line)
         call add(record_lines, line(lnmb))
     endfor
     let record_str = join(record_lines, "\n")
     let [fields, has_warning] = rainbow_csv#preserving_smart_split(record_str, a:delim, 'quoted_rfc')
-    if has_warning || len(fields) != expected_num_fields
+    if has_warning || len(fields) != a:expected_num_fields
         return []
     endif
     let cursor_line_offset = a:cur_line - start_line
@@ -750,43 +754,56 @@ func s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line)
 endfunc
 
 
+func s:find_unbalanced_lines_around(cur_line)
+    let start_line = -1
+    let end_line = -1
+    let lnmb = max([1, a:cur_line - s:multiline_search_range])
+    let lnme = min([line('$'), a:cur_line + s:multiline_search_range])
+    while lnmb < lnme
+        if len(split(getline(lnb), '"', 1)) % 2 == 1
+            if lnmb < a:cur_line
+                let start_line = lnmb
+            endif
+            if lnmb > a:cur_line
+                let end_line = lnmb
+                break
+            endif
+        endif
+        let lnmb += 1
+    endwhile
+    return [start_line, end_line]
+endfunc
+
+
 func s:get_col_num_rfc_lines(line, delim, expected_num_fields)
     let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted_rfc')
     if !has_warning && len(fields) == a:expected_num_fields
         let col_num = s:get_col_num_single_line(fields, a:delim)
         return [fields, col_num]
     endif
+    let cur_line = line('.')
+    let [start_line, end_line] = s:find_unbalanced_lines_around(cur_line)
     let even_number_of_dquotes = len(split(a:line, '"', 1)) % 2 == 0
     if even_number_of_dquotes
-        " We need to find two lines: one above and one below the current line with odd number of delims
-        let cur_line = line('.')
-        let start_line = -1
-        let end_line = -1
-        let lnmb = max([1, cur_line - s:multiline_search_range])
-        let lnme = min([line('$'), cur_line + s:multiline_search_range])
-        while lnmb < lnme
-            if len(split(getline(lnb), '"', 1)) % 2 == 1
-                if lnmb < cur_line
-                    let start_line = lnmb
-                endif
-                if lnmb > cur_line
-                    let end_line = lnmb
-                    break
-                endif
-            endif
-            let lnmb += 1
-        endwhile
         if start_line == -1 || end_line == -1
             return []
         endif
-        return s:do_get_col_num_rfc_lines(cur_line, a:delim, start_line, end_line)
+        return s:do_get_col_num_rfc_lines(cur_line, a:delim, start_line, end_line, a:expected_num_fields)
+    else
+        if start_line != -1
+            lef result = s:do_get_col_num_rfc_lines(cur_line, a:delim, start_line, cur_line, a:expected_num_fields)
+            if len(result)
+                return result
+            endif
+        endif
+        if end_line != -1
+            lef result = s:do_get_col_num_rfc_lines(cur_line, a:delim, cur_line, end_line, a:expected_num_fields)
+            if len(result)
+                return result
+            endif
+        endif
+        return []
     endif
-    " FIXME handle complex situation
-    " Two cases: 
-    " 1. even number of dquotes
-    " 2. odd number of dquotes
-    " In case "1" we need to search in two directions for lines with odd
-    " number of dquotes and use them as border
 endfunc
 
 
@@ -963,8 +980,7 @@ func! rainbow_csv#set_statusline_columns()
         let indent_len = max([len(string(line('$'))) + 1, 4])
         let indent = ' NR' . repeat(' ', indent_len - 3)
     endif
-    let cur_line = getline(line('.'))
-    " FIXME adjust for rfc_csv. Use first line instead?
+    let cur_line = policy == 'quoted_rfc' ? getline(1) : getline(line('.'))
     let cur_fields = rainbow_csv#preserving_smart_split(cur_line, delim, policy)[0]
     let status_labels = []
     if delim == "\t"
@@ -1083,15 +1099,7 @@ func! rainbow_csv#select_from_file()
     let rb_script_path = s:get_rb_script_path_for_this_table()
     let already_exists = filereadable(rb_script_path)
 
-    let lines = getline(1, 10)
-    if !len(lines)
-        echoerr "Error: no lines in file"
-        return
-    endif
-
-    " FIXME handle rfc_csv
-    let fields = rainbow_csv#preserving_smart_split(lines[0], delim, policy)[0]
-    let num_fields = len(fields)
+    let num_fields = len(rainbow_csv#preserving_smart_split(getline(1), delim, policy)[0])
 
     call rainbow_csv#set_statusline_columns()
 
