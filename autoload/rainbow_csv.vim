@@ -725,15 +725,15 @@ endfunc
 
 func s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
     let record_lines = []
-    for lnmb in range(start_line, end_line)
+    for lnmb in range(a:start_line, a:end_line)
         call add(record_lines, line(lnmb))
     endfor
     let record_str = join(record_lines, "\n")
-    let [fields, has_warning] = rainbow_csv#preserving_smart_split(record_str, a:delim, 'quoted_rfc')
+    let [fields, has_warning] = rainbow_csv#preserving_smart_split(record_str, a:delim, 'quoted')
     if has_warning || len(fields) != a:expected_num_fields
         return []
     endif
-    let cursor_line_offset = a:cur_line - start_line
+    let cursor_line_offset = a:cur_line - a:start_line
     let current_line_offset = 0
     let current_field = 0
     while current_field < len(fields)
@@ -758,7 +758,7 @@ func s:find_unbalanced_lines_around(cur_line)
     let lnmb = max([1, a:cur_line - s:multiline_search_range])
     let lnme = min([line('$'), a:cur_line + s:multiline_search_range])
     while lnmb < lnme
-        if len(split(getline(lnb), '"', 1)) % 2 == 1
+        if len(split(getline(lnmb), '"', 1)) % 2 == 1
             if lnmb < a:cur_line
                 let start_line = lnmb
             endif
@@ -774,7 +774,7 @@ endfunc
 
 
 func s:get_col_num_rfc_lines(line, delim, expected_num_fields)
-    let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted_rfc')
+    let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted')
     if !has_warning && len(fields) == a:expected_num_fields
         let col_num = s:get_col_num_single_line(fields, a:delim)
         return [fields, col_num]
@@ -789,15 +789,15 @@ func s:get_col_num_rfc_lines(line, delim, expected_num_fields)
         return s:do_get_col_num_rfc_lines(cur_line, a:delim, start_line, end_line, a:expected_num_fields)
     else
         if start_line != -1
-            lef result = s:do_get_col_num_rfc_lines(cur_line, a:delim, start_line, cur_line, a:expected_num_fields)
-            if len(result)
-                return result
+            let report = s:do_get_col_num_rfc_lines(cur_line, a:delim, start_line, cur_line, a:expected_num_fields)
+            if len(report)
+                return report
             endif
         endif
         if end_line != -1
-            lef result = s:do_get_col_num_rfc_lines(cur_line, a:delim, cur_line, end_line, a:expected_num_fields)
-            if len(result)
-                return result
+            let report = s:do_get_col_num_rfc_lines(cur_line, a:delim, cur_line, end_line, a:expected_num_fields)
+            if len(report)
+                return report
             endif
         endif
         return []
@@ -816,7 +816,12 @@ func! rainbow_csv#provide_column_info_on_hover()
     let fields = []
     let col_num = 0
     if policy == 'quoted_rfc'
-        let [fields, col_num] = s:get_col_num_rfc_lines(line, delim, len(header))
+        let report = s:get_col_num_rfc_lines(line, delim, len(header))
+        if len(report) != 2
+            echo ''
+            return
+        endif
+        let [fields, col_num] = report
     else
         let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
         let col_num = s:get_col_num_single_line(fields, delim)
