@@ -726,10 +726,7 @@ endfunc
 
 
 func s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
-    let record_lines = []
-    for lnmb in range(a:start_line, a:end_line)
-        call add(record_lines, line(lnmb))
-    endfor
+    let record_lines = getline(a:start_line, a:end_line)
     let record_str = join(record_lines, "\n")
     let [fields, has_warning] = rainbow_csv#preserving_smart_split(record_str, a:delim, 'quoted')
     if has_warning || len(fields) != a:expected_num_fields
@@ -760,7 +757,7 @@ func s:find_unbalanced_lines_around(cur_line)
     let lnmb = max([1, a:cur_line - s:multiline_search_range])
     let lnme = min([line('$'), a:cur_line + s:multiline_search_range])
     while lnmb < lnme
-        if len(split(getline(lnmb), '"', 1)) % 2 == 1
+        if len(split(getline(lnmb), '"', 1)) % 2 == 0
             if lnmb < a:cur_line
                 let start_line = lnmb
             endif
@@ -778,12 +775,13 @@ endfunc
 func s:get_col_num_rfc_lines(line, delim, expected_num_fields)
     let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted')
     if !has_warning && len(fields) == a:expected_num_fields
+        " FIXME try to look ahead just like in even case
         let col_num = s:get_col_num_single_line(fields, a:delim)
         return [fields, col_num]
     endif
     let cur_line = line('.')
     let [start_line, end_line] = s:find_unbalanced_lines_around(cur_line)
-    let even_number_of_dquotes = len(split(a:line, '"', 1)) % 2 == 0
+    let even_number_of_dquotes = len(split(a:line, '"', 1)) % 2 == 1
     if even_number_of_dquotes
         if start_line == -1 || end_line == -1
             return []
@@ -808,6 +806,7 @@ endfunc
 
 
 func! rainbow_csv#provide_column_info_on_hover()
+    "FIXME still broken for rfc
     let [delim, policy] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
         return
