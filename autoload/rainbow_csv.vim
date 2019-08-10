@@ -711,10 +711,10 @@ func! rainbow_csv#get_csv_header(delim, policy)
 endfunc
 
 
-func! s:get_col_num_single_line(fields, delim)
+func! s:get_col_num_single_line(fields, delim, offset)
     let col_num = 0
     let kb_pos = col('.')
-    let cpos = len(a:fields[col_num]) + len(a:delim)
+    let cpos = a:offset + len(a:fields[col_num]) + len(a:delim)
     while kb_pos > cpos && col_num + 1 < len(a:fields)
         let col_num += 1
         let cpos += len(a:fields[col_num]) + len(a:delim)
@@ -732,19 +732,27 @@ func s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_
     endif
     let cursor_line_offset = a:cur_line - a:start_line
     let current_line_offset = 0
-    let current_field = 0
-    while current_field < len(fields)
-        let current_line_offset += len(split(fields[current_field], "\n", 1))
+    let col_num = 0
+    while col_num < len(fields)
+        let current_line_offset += len(split(fields[col_num], "\n", 1)) - 1
         if current_line_offset >= cursor_line_offset
             break
         endif
-        let current_field += 1
+        let col_num += 1
     endwhile
+    if current_line_offset > cursor_line_offset
+        return [fields, col_num]
+    endif
     if current_line_offset < cursor_line_offset
         " Should never happen
         return []
     endif
-    let col_num = s:get_col_num_single_line(fields[current_field:], a:delim)
+    let length_of_previous_field_segment_on_cursor_line = current_line_offset > 0 ? len(split(fields[col_num], "\n", 1)[-1]) + len(a:delim) : 0
+    if col('.') <= length_of_previous_field_segment_on_cursor_line
+        return [fields, col_num]
+    endif
+    let col_num += 1
+    let col_num = col_num + s:get_col_num_single_line(fields[col_num:], a:delim, length_of_previous_field_segment_on_cursor_line)
     return [fields, col_num]
 endfunc
 
@@ -771,10 +779,11 @@ endfunc
 
 
 func s:get_col_num_rfc_lines(line, delim, expected_num_fields)
+    " FIXME line 9 in the synthetic test produces wrong hover info
     let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted')
     if !has_warning && len(fields) == a:expected_num_fields
         " FIXME try to look ahead just like in even case
-        let col_num = s:get_col_num_single_line(fields, a:delim)
+        let col_num = s:get_col_num_single_line(fields, a:delim, 0)
         return [fields, col_num]
     endif
     let cur_line = line('.')
@@ -823,7 +832,7 @@ func! rainbow_csv#provide_column_info_on_hover()
         let [fields, col_num] = report
     else
         let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
-        let col_num = s:get_col_num_single_line(fields, delim)
+        let col_num = s:get_col_num_single_line(fields, delim, 0)
     endif
     let num_cols = len(fields)
 
