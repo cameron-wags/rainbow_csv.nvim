@@ -17,7 +17,7 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
-let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted'], 'tsv': ["\t", 'simple'], 'csv_pipe': ['|', 'simple'], 'csv_whitespace': [" ", 'whitespace'], 'rfc_csv': [',', 'quoted_rfc'], 'rfc_csv_semicolon': [';', 'quoted_rfc']}
+let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted'], 'tsv': ["\t", 'simple'], 'csv_pipe': ['|', 'simple'], 'csv_whitespace': [" ", 'whitespace'], 'rfc_csv': [',', 'quoted_rfc'], 'rfc_semicolon': [';', 'quoted_rfc']}
 
 
 " XXX Use :syntax command to list all syntax groups
@@ -37,6 +37,8 @@ let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted
 " TODO implement csv_lint for "rfc_csv" dialect
 
 " FIXME RBQL: decode delim and query, and check delim has all ascii for latin-1, just like query (both py and js)
+
+" TODO write a github article about limitation of rfc_csv dialect
 
 
 func! s:init_groups_from_links()
