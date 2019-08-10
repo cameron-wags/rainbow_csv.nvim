@@ -46,13 +46,15 @@ Each Rainbow CSV filetype is mapped to a separator and "policy" which describes 
 If user selects a separator that doesn't map to one of the built-in filetypes, Rainbow CSV will dynamically generate a filetype syntax file and put it into the "syntax" folder.  
 List of built-in filetypes:  
 
-|Filetype       | Separator     | Extension | Properties                          |
-|---------------|---------------|-----------|-------------------------------------|
-|csv            | , (comma)     | .csv      | Ignored inside double-quoted fields |
-|tsv            | \t (TAB)      | .tsv .tab |                                     |
-|csv_semicolon  | ; (semicolon) |           | Ignored inside double-quoted fields |
-|csv_whitespace | whitespace    |           | Consecutive whitespaces are merged  |
-|csv_pipe       | &#124; (pipe) |           |                                     |
+|Filetype       | Separator     | Extension | Properties                                          |
+|---------------|---------------|-----------|-----------------------------------------------------|
+|csv            | , (comma)     | .csv      | Ignored inside double-quoted fields                 |
+|tsv            | \t (TAB)      | .tsv .tab |                                                     |
+|csv_semicolon  | ; (semicolon) |           | Ignored inside double-quoted fields                 |
+|csv_whitespace | whitespace    |           | Consecutive whitespaces are merged                  |
+|csv_pipe       | &#124; (pipe) |           |                                                     |
+|rfc_csv        | , (comma)     |           | Same as "csv" but allows multiline fields           |
+|rfc_semicolon  | ; (semicolon) |           | Same as "csv_semicolon" but allows multiline fields |
 
 
 ### Associating file extensions with CSV dialects
@@ -73,6 +75,11 @@ And you can always turn off the rainbow highlighting using _:NoRainbowDelim_ com
 Here is an example of how to extract some fields from a bunch of uniform single-line xmls:  
 
 ![demo_xml_screencast](https://i.imgur.com/HlzBWOV.gif)
+
+
+### Working with multiline CSV fields
+In rare cases some CSV files can contain double-quoted fields spanning multiple lines.  
+To work with such files you can set filetype to either "rfc_csv" or "rfc_semicolon".  
 
 
 ### Key Mappings

@@ -21,15 +21,15 @@ queries in SQL-like language
 Main features:  ~
 *  Highlight CSV columns in different rainbow colors. 
 *  Provide info about column under the cursor
-*  Provide _SELECT_ and _UPDATE_ queries in RBQL: SQL-like transprogramming query language.
+*  Provide `SELECT` and `UPDATE` queries in RBQL: SQL-like transprogramming query language.
 *  Consistency check for csv files (CSVLint)
 *  Align and Shrink CSV fields (add/remove trailing spaces in fields)
 
 There are 4 ways to enable csv columns highlighting:
 1.  CSV autodetection based on file content and/or extension  
-2.  Manual CSV delimiter selection with _:RainbowDelim_ command with cursor over the delimiter  
-3.  Manual CSV delimiter selection with _:RainbowMultiDelim_ for multi-character delimiters  
-4.  Execute `:set ft=csv` or `:set ft=tsv` for CSV/TSV dialects. For other separators use _:RainbowDelim_  
+2.  Manual CSV delimiter selection with |:RainbowDelim| command with cursor over the delimiter  
+3.  Manual CSV delimiter selection with |:RainbowMultiDelim| for multi-character delimiters  
+4.  Execute `:set ft=csv` or `:set ft=tsv` for CSV/TSV dialects. For other separators use |:RainbowDelim|  
 
 To run an RBQL query either press <F5> or enter the query in vim command line e.g. >
     :Select a1, a2
@@ -54,6 +54,8 @@ tsv               \t (TAB)         .tsv .tab
 csv_semicolon     ; (semicolon)                 Ignored inside double-quoted fields
 csv_whitespace    whitespace                    Consecutive whitespaces are merged 
 csv_pipe          | (pipe)                                                         
+rfc_csv           , (comma)                     Same as "csv" but allows multiline fields
+rfc_semicolon     ; (semicolon)                 Same as "csv_semicolon" but allows multiline fields
 
 
 Associating file extensions with CSV dialects  ~
@@ -63,6 +65,15 @@ Example: to associate ".dat" extension with "csv_pipe" dialect and ".csv" extens
     autocmd BufNewFile,BufRead *.dat   set filetype=csv_pipe
 <
 
+Rainbow highlighting for non-table files  ~
+You can use rainbow highlighting and RBQL even for non-csv/tsv files.  
+E.g. you can highlight records in log files, one-line xmls and other delimited records.  
+You can even highlight function arguments in your programming language using comma or comma+whitespaces as a delimiter for |:RainbowDelim| or |:RainbowMultiDelim| commands.  
+And you can always turn off the rainbow highlighting using |:NoRainbowDelim| command.  
+
+Working with multiline CSV fields  ~
+In rare cases some CSV files can contain double-quoted fields spanning multiple lines.  
+To work with such files you can set filetype to either "rfc_csv" or "rfc_semicolon".  
 
 ==============================================================================
 2. Mappings                                                        *mappings*
@@ -89,8 +100,8 @@ syntax highlighting run |:NoRainbowDelim|
 
 *:RainbowMultiDelim*
 
-Same as _:RainbowDelim_, but works with multicharacter separators.
-Visually select the multicharacter separator (e.g. `~#~`) and run _:RainbowMultiDelim_ command.
+Same as |:RainbowDelim|, but works with multicharacter separators.
+Visually select the multicharacter separator (e.g. `~#~`) and run |:RainbowMultiDelim| command.
 
 
 *:NoRainbowDelim*
