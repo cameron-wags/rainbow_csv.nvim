@@ -80,6 +80,7 @@ Here is an example of how to extract some fields from a bunch of uniform single-
 ### Working with multiline CSV fields
 In rare cases some CSV files can contain double-quoted fields spanning multiple lines.  
 To work with such files you can set filetype to either "rfc_csv" or "rfc_semicolon".  
+Syntax highlighting for rfc_csv and rfc_semicolon dialects can go out of sync with the file content under specific conditions, use `:syntax sync fromstart` command in that case  
 
 
 ### Key Mappings
