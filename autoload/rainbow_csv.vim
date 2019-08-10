@@ -19,7 +19,6 @@ let s:magic_chars = '^*$.~/[]\'
 
 let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted'], 'tsv': ["\t", 'simple'], 'csv_pipe': ['|', 'simple'], 'csv_whitespace': [" ", 'whitespace'], 'rfc_csv': [',', 'quoted_rfc'], 'rfc_csv_semicolon': [';', 'quoted_rfc']}
 
-let s:multiline_search_range = exists('g:multiline_search_range') ? g:multiline_search_range : 10
 
 " XXX Use :syntax command to list all syntax groups
 
@@ -34,6 +33,8 @@ let s:multiline_search_range = exists('g:multiline_search_range') ? g:multiline_
 " TODO support comment prefixes
 
 " TODO warning for trailing spaces in CSVLint
+
+" TODO implement csv_lint for "rfc_csv" dialect
 
 " FIXME RBQL: decode delim and query, and check delim has all ascii for latin-1, just like query (both py and js)
 
@@ -581,7 +582,7 @@ func! rainbow_csv#csv_lint()
         return
     endif
     if policy == 'rfc_csv'
-        " FIXME implement
+        " TODO implement
         echoerr "CSVLint is not implemented yet for rfc_csv"
         return
     endif
@@ -764,8 +765,9 @@ endfunc
 func s:find_unbalanced_lines_around(cur_line)
     let start_line = -1
     let end_line = -1
-    let lnmb = max([1, a:cur_line - s:multiline_search_range])
-    let lnme = min([line('$'), a:cur_line + s:multiline_search_range])
+    let multiline_search_range = exists('g:multiline_search_range') ? g:multiline_search_range : 10
+    let lnmb = max([1, a:cur_line - multiline_search_range])
+    let lnme = min([line('$'), a:cur_line + multiline_search_range])
     while lnmb < lnme
         if len(split(getline(lnmb), '"', 1)) % 2 == 0
             if lnmb < a:cur_line
@@ -782,21 +784,28 @@ func s:find_unbalanced_lines_around(cur_line)
 endfunc
 
 
-func s:get_col_num_rfc_lines(line, delim, expected_num_fields)
+func s:get_col_num_rfc_basic_even_case(line, delim, expected_num_fields)
     let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted')
     if !has_warning && len(fields) == a:expected_num_fields
-        " FIXME try to look ahead just like in even case
         let col_num = s:get_col_num_single_line(fields, a:delim, 0)
         return [fields, col_num]
     endif
+    return []
+endfunc
+
+
+func s:get_col_num_rfc_lines(line, delim, expected_num_fields)
     let cur_line = line('.')
     let [start_line, end_line] = s:find_unbalanced_lines_around(cur_line)
     let even_number_of_dquotes = len(split(a:line, '"', 1)) % 2 == 1
     if even_number_of_dquotes
-        if start_line == -1 || end_line == -1
-            return []
+        if start_line != -1 && end_line != -1
+            let report = s:do_get_col_num_rfc_lines(cur_line, a:delim, start_line, end_line, a:expected_num_fields)
+            if len(report)
+                return report
+            endif
         endif
-        return s:do_get_col_num_rfc_lines(cur_line, a:delim, start_line, end_line, a:expected_num_fields)
+        return s:get_col_num_rfc_basic_even_case(a:line, a:delim, a:expected_num_fields)
     else
         if start_line != -1
             let report = s:do_get_col_num_rfc_lines(cur_line, a:delim, start_line, cur_line, a:expected_num_fields)
@@ -816,7 +825,6 @@ endfunc
 
 
 func! rainbow_csv#provide_column_info_on_hover()
-    "FIXME still broken for rfc
     let [delim, policy] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
         return
