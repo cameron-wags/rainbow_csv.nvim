@@ -747,11 +747,15 @@ func s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_
         " Should never happen
         return []
     endif
-    let length_of_previous_field_segment_on_cursor_line = current_line_offset > 0 ? len(split(fields[col_num], "\n", 1)[-1]) + len(a:delim) : 0
-    if col('.') <= length_of_previous_field_segment_on_cursor_line
-        return [fields, col_num]
+    let length_of_previous_field_segment_on_cursor_line = 0
+    if current_line_offset > 0
+        let length_of_previous_field_segment_on_cursor_line = len(split(fields[col_num], "\n", 1)[-1]) + len(a:delim)
+        if col('.') <= length_of_previous_field_segment_on_cursor_line
+            return [fields, col_num]
+        else
+            let col_num += 1
+        endif
     endif
-    let col_num += 1
     let col_num = col_num + s:get_col_num_single_line(fields[col_num:], a:delim, length_of_previous_field_segment_on_cursor_line)
     return [fields, col_num]
 endfunc
@@ -779,7 +783,6 @@ endfunc
 
 
 func s:get_col_num_rfc_lines(line, delim, expected_num_fields)
-    " FIXME line 9 in the synthetic test produces wrong hover info
     let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted')
     if !has_warning && len(fields) == a:expected_num_fields
         " FIXME try to look ahead just like in even case
