@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from __future__ import print_function
@@ -141,11 +140,35 @@ def round_floats(src_table):
                 row[c] = round(row[c], 3)
 
 
+
+class TestTableRun(unittest.TestCase):
+    def test_table_run_simple(self):
+        input_table = [('Roosevelt', 1858), ('Napoleon', 1769), ('Confucius', -551)]
+        query = 'select a2 // 10, "name " + a1 order by a2'
+        expected_output_table = [[-56, 'name Confucius'], [176, 'name Napoleon'], [185, 'name Roosevelt']]
+        output_table = []
+        error_info, warnings = rbql.table_run(query, input_table, output_table)
+        self.assertEqual(error_info, None)
+        self.assertEqual(warnings, [])
+        self.assertEqual(expected_output_table, output_table)
+
+
+    def test_table_run_simple_join(self):
+        input_table = [('Roosevelt', 1858, 'USA'), ('Napoleon', 1769, 'France'), ('Confucius', -551, 'China')]
+        join_table = [('China', 1386), ('France', 67), ('USA', 327), ('Russia', 140)]
+        query = 'select a2 // 10, b2, "name " + a1 order by a2 JOIN B on a3 == b1'
+        expected_output_table = [[-56, 1386, 'name Confucius'], [176, 67, 'name Napoleon'], [185, 327, 'name Roosevelt']]
+        output_table = []
+        error_info, warnings = rbql.table_run(query, input_table, output_table, join_table)
+        self.assertEqual(error_info, None)
+        self.assertEqual(warnings, [])
+        self.assertEqual(expected_output_table, output_table)
+
+
 class TestJsonTables(unittest.TestCase):
 
     def process_test_case(self, test_case):
         test_name = test_case['test_name']
-        #print(test_name)
         query = test_case.get('query_python', None)
         if query is None:
             self.assertTrue(test_case.get('query_js', None) is not None)
@@ -156,11 +179,9 @@ class TestJsonTables(unittest.TestCase):
         expected_output_table = test_case.get('expected_output_table', None)
         expected_error = test_case.get('expected_error', None)
         expected_warnings = test_case.get('expected_warnings', [])
-        input_iterator = rbql.TableIterator(input_table)
-        output_writer = rbql.TableWriter()
-        join_tables_registry = None if join_table is None else rbql.SingleTableRegistry(join_table)
+        output_table = []
 
-        error_info, warnings = rbql.generic_run(query, input_iterator, output_writer, join_tables_registry, user_init_code=user_init_code)
+        error_info, warnings = rbql.table_run(query, input_table, output_table, join_table, user_init_code=user_init_code)
 
         warnings = sorted(normalize_warnings(warnings))
         expected_warnings = sorted(expected_warnings)
@@ -169,7 +190,6 @@ class TestJsonTables(unittest.TestCase):
         if expected_error is not None:
             self.assertTrue(error_info['message'].find(expected_error) != -1, 'Inside json test: {}'.format(test_name))
         else:
-            output_table = output_writer.table
             round_floats(expected_output_table)
             round_floats(output_table)
             self.assertEqual(expected_output_table, output_table)

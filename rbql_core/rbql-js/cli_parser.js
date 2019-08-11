@@ -9,35 +9,44 @@ function normalize_cli_key(cli_key) {
 }
 
 
-function show_help(scheme) {
-    console.log('Options:\n');
+function show_help(scheme, description, epilog) {
+    if (description)
+        console.log(description);
+    console.log('Options:');
     for (var k in scheme) {
         if (scheme[k].hasOwnProperty('hidden')) {
             continue;
         }
-        console.log(k);
+        let metavar = '';
+        if (scheme[k].hasOwnProperty('metavar'))
+            metavar = ' ' + scheme[k]['metavar'];
+        console.log('  ' + k + metavar);
         if (scheme[k].hasOwnProperty('default')) {
-            console.log('    Default: "' + scheme[k]['default'] + '"');
+            console.log('      Default: "' + scheme[k]['default'] + '"');
         }
-        console.log('    ' + scheme[k]['help']);
+        console.log('      ' + scheme[k]['help']);
         console.log();
     }
+    if (epilog)
+        console.log(epilog);
 }
 
 
-function parse_cmd_args(cmd_args, scheme) {
+function parse_cmd_args(cmd_args, scheme, description=null, epilog=null) {
     var result = {};
     for (var arg_key in scheme) {
         var arg_info = scheme[arg_key];
         if (arg_info.hasOwnProperty('default'))
             result[normalize_cli_key(arg_key)] = arg_info['default'];
+        if (arg_info.hasOwnProperty('boolean'))
+            result[normalize_cli_key(arg_key)] = false;
     }
     cmd_args = cmd_args.slice(2);
     var i = 0;
     while(i < cmd_args.length) {
         var arg_key = cmd_args[i];
-        if (arg_key == '--help') {
-            show_help(scheme);
+        if (arg_key == '--help' || arg_key == '-h') {
+            show_help(scheme, description, epilog);
             process.exit(0);
         }
         i += 1;
@@ -48,7 +57,7 @@ function parse_cmd_args(cmd_args, scheme) {
         var normalized_key = normalize_cli_key(arg_key);
         if (arg_info['boolean']) {
             result[normalized_key] = true;
-            continue;    
+            continue;
         }
         if (i >= cmd_args.length) {
             die(`no CLI value for key: ${arg_key}`);

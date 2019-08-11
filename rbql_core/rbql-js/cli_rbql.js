@@ -4,9 +4,12 @@ const fs = require('fs');
 const readline = require('readline');
 
 var rbql = null;
-var rbq_csv = null;
+var rbql_csv = null;
 const csv_utils = require('./csv_utils.js');
 const cli_parser = require('./cli_parser.js');
+
+
+// TODO implement query history like in Python version. "readline" modules allows to do that, see "completer" parameter.
 
 
 function die(error_msg) {
@@ -20,6 +23,7 @@ var tmp_worker_module_path = null;
 var error_format = 'hr';
 var interactive_mode = false;
 var user_input_reader = null;
+var args = null;
 
 
 function show_error(msg) {
@@ -62,12 +66,6 @@ function cleanup_tmp() {
     if (fs.existsSync(tmp_worker_module_path)) {
         fs.unlinkSync(tmp_worker_module_path);
     }
-}
-
-
-function show_query_prompt() {
-    console.log('\nInput SQL-like RBQL query and press Enter:');
-    process.stdout.write('> ');
 }
 
 
@@ -216,7 +214,7 @@ function handle_query_success(warnings, output_path, delim, policy) {
 }
 
 
-function run_with_js(args) {
+function run_with_js() {
     var delim = normalize_delim(args['delim']);
     var policy = args['policy'] ? args['policy'] : get_default_policy(delim);
     var query = args['query'];
@@ -232,14 +230,19 @@ function run_with_js(args) {
     let init_source_file = get_default(args, 'init-source-file', null);
     let output_format = args['out-format'];
     if (output_delim === null) {
-        [output_delim, output_policy] = output_format == 'input' ? [delim, policy] : csv_utils.interpret_named_csv_format(output_format);
+        [output_delim, output_policy] = output_format == 'input' ? [delim, policy] : rbql_csv.interpret_named_csv_format(output_format);
     }
 
     let handle_success = function(warnings) {
         handle_query_success(warnings, output_path, delim, policy);
     };
 
-    rbq_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, handle_success, finish_query_with_error, init_source_file, args['debug-mode']);
+    if (args['debug-mode'])
+        rbql_csv.set_debug_mode();
+    let user_init_code = '';
+    if (init_source_file !== null)
+        user_init_code = rbql_csv.read_user_init_code(init_source_file);
+    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, handle_success, finish_query_with_error, user_init_code);
 }
 
 
@@ -251,17 +254,15 @@ function get_default_output_path(input_path, delim) {
 }
 
 
-function run_interactive_loop(args) {
-    show_query_prompt();
-    user_input_reader = readline.createInterface({ input: process.stdin });
-    user_input_reader.on('line', line => {
-        args.query = line.trim();
-        run_with_js(args);
+function show_query_prompt() {
+    user_input_reader.question('Input SQL-like RBQL query and press Enter:\n> ', (query) => {
+        args.query = query.trim();
+        run_with_js();
     });
 }
 
 
-function show_preview(args, input_path, delim, policy) {
+function show_preview(input_path, delim, policy) {
     if (!delim) {
         die('Unable to autodetect table delimiter. Provide column separator explicitly with "--delim" option');
     }
@@ -278,7 +279,8 @@ function show_preview(args, input_path, delim, policy) {
             args.output = get_default_output_path(input_path, delim);
             show_warning('Output path was not provided. Result set will be saved as: ' + args.output);
         }
-        run_interactive_loop(args);
+        user_input_reader = readline.createInterface({ input: process.stdin, output: process.stdout });
+        show_query_prompt();
     });
 }
 
@@ -298,47 +300,71 @@ function start_preview_mode(args) {
     if (delim !== null) {
         delim = normalize_delim(delim);
         policy = args['policy'] ? args['policy'] : get_default_policy(delim);
-        show_preview(args, input_path, delim, policy);
+        show_preview(input_path, delim, policy);
     } else {
         sample_lines(input_path, (sampled_lines) => {
             let [delim, policy] = autodetect_delim_policy(input_path, sampled_lines);
-            show_preview(args, input_path, delim, policy);
+            show_preview(input_path, delim, policy);
         });
     }
 }
 
 
+let tool_description = `rbql-js
+
+Run RBQL queries against CSV files and data streams
+
+rbql-js supports two modes: non-interactive (with "--query" option) and interactive (without "--query" option)
+Interactive mode shows source table preview which makes query editing much easier. Usage example:
+  $ rbql-js --input input.csv
+Non-interactive mode supports source tables in stdin. Usage example:
+  $ rbql-js --query "select a1, a2 order by a1" --delim , < input.csv
+`;
+
+let epilog = `
+Description of the available CSV split policies:
+  * "simple" - RBQL uses simple split() function and doesn't perform special handling of double quote characters
+  * "quoted" - Separator can be escaped inside double-quoted fields. Double quotes inside double-quoted fields must be doubled
+  * "quoted_rfc" - Same as "quoted", but also allows newlines inside double-quoted fields, see RFC-4180: https://tools.ietf.org/html/rfc4180
+  * "whitespace" - Works only with whitespace separator, multiple consecutive whitespaces are treated as a single whitespace
+  * "monocolumn" - RBQL doesn't perform any split at all, each line is a single-element record, i.e. only "a1" and "NR" are available
+`;
+
+
 function main() {
     var scheme = {
-        '--query': {'help': 'Query string in rbql'},
-        '--input': {'help': 'Read csv table from FILE instead of stdin'},
-        '--output': {'help': 'Write output table to FILE instead of stdout'},
-        '--delim': {'help': 'Delimiter'},
-        '--policy': {'help': 'Split policy'},
-        '--out-format': {'default': 'input', 'help': 'Output format, available values: ' + out_format_names.join(',')},
-        '--error-format': {'default': 'hr', 'help': 'Error and warnings format. [hr|json]'},
-        '--out-delim': {'help': 'Output delim. Use with "out-policy". Overrides out-format'},
-        '--out-policy': {'help': 'Output policy. Use with "out-delim". Overrides out-format'},
-        '--encoding': {'default': 'latin-1', 'help': 'Manually set csv table encoding'},
-        '--parse-only': {'boolean': true, 'help': 'Create worker module and exit'},
-        '--version': {'boolean': true, 'help': 'Script language to use in query'},
+        '--query': {'help': 'Query string in rbql. Run in interactive mode if empty', 'metavar': 'QUERY'},
+        '--input': {'help': 'Read csv table from FILE instead of stdin. Required in interactive mode', 'metavar': 'FILE'},
+        '--output': {'help': 'Write output table to FILE instead of stdout', 'metavar': 'FILE'},
+        '--delim': {'help': 'Delimiter character or multicharacter string, e.g. "," or "###". Can be autodetected in interactive mode', 'metavar': 'DELIM'},
+        '--policy': {'help': 'Split policy, see the explanation below. Supported values: "simple", "quoted", "quoted_rfc", "whitespace", "monocolumn". Can be autodetected in interactive mode', 'metavar': 'POLICY'},
+        '--encoding': {'default': 'latin-1', 'help': 'Manually set csv encoding', 'metavar': 'ENCODING'},
+        '--out-format': {'default': 'input', 'help': 'Output format. Supported values: ' + out_format_names.map(v => `"${v}"`).join(', '), 'metavar': 'FORMAT'},
+        '--out-delim': {'help': 'Output delim. Use with "out-policy". Overrides out-format', 'metavar': 'DELIM'},
+        '--out-policy': {'help': 'Output policy. Use with "out-delim". Overrides out-format', 'metavar': 'POLICY'},
+        '--error-format': {'default': 'hr', 'help': 'Errors and warnings format. [hr|json]', 'hidden': true},
+        '--version': {'boolean': true, 'help': 'Print RBQL version and exit'},
         '--auto-rebuild-engine': {'boolean': true, 'help': 'Auto rebuild engine', 'hidden': true},
         '--debug-mode': {'boolean': true, 'help': 'Run in debug mode', 'hidden': true},
-        '--init-source-file': {'help': 'Path to init source file to use instead of ~/.rbql_init_source.js'}
+        '--init-source-file': {'help': 'Path to init source file to use instead of ~/.rbql_init_source.js', 'hidden': true}
     };
-    var args = cli_parser.parse_cmd_args(process.argv, scheme);
+    args = cli_parser.parse_cmd_args(process.argv, scheme, tool_description, epilog);
 
-    if (args.hasOwnProperty('auto-rebuild-engine')) {
+    if (args['auto-rebuild-engine']) {
         let build_engine = require('./build_engine.js');
         build_engine.build_engine();
     }
 
     rbql = require('./rbql.js');
-    rbq_csv = require('./rbql_csv.js');
+    rbql_csv = require('./rbql_csv.js');
 
-    if (args.hasOwnProperty('version')) {
+    if (args['version']) {
         console.log(rbql.version);
         process.exit(0);
+    }
+
+    if (args.hasOwnProperty('policy') && !args.hasOwnProperty('delim')) {
+        die('Using "--policy" without "--delim" is not allowed');
     }
 
     if (args.encoding == 'latin-1')
@@ -351,7 +377,7 @@ function main() {
         if (!args.delim) {
             die('Separator must be provided with "--delim" option in non-interactive mode');
         }
-        run_with_js(args);
+        run_with_js();
     } else {
         interactive_mode = true;
         start_preview_mode(args);

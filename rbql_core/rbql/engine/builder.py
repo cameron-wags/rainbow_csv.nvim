@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from __future__ import print_function
@@ -25,13 +24,14 @@ from collections import defaultdict
 
 # This module must be both python2 and python3 compatible
 
-# This module works with records only. It is CSV-agnostic. 
+# This module works with records only. It is CSV-agnostic.
 # Do not add CSV-related logic or variables/functions/objects like "delim", "separator" etc
 
 
 # TODO get rid of functions with "_py" suffix
 
-# FIXME add table_run interface just like in js version
+# TODO new feature: allow record iterator provide custom column names.
+
 
 GROUP_BY = 'GROUP BY'
 UPDATE = 'UPDATE'
@@ -463,8 +463,7 @@ class RbqlPyEnv:
             pass
 
 
-
-def generic_run(user_query, input_iterator, output_writer, join_tables_registry=None, user_init_code='', convert_only_dst=None):
+def generic_run(user_query, input_iterator, output_writer, join_tables_registry=None, user_init_code=''):
     # Join registry can cotain info about any number of tables (e.g. about one table "B" only)
     try:
         user_init_code = indent_user_init_code(user_init_code)
@@ -472,9 +471,6 @@ def generic_run(user_query, input_iterator, output_writer, join_tables_registry=
         with codecs.open(os.path.join(rbql_home_dir, 'template.py'), encoding='utf-8') as py_src:
             py_template_text = py_src.read()
         python_code, join_map = parse_to_py(user_query, py_template_text, join_tables_registry, user_init_code)
-        if convert_only_dst is not None:
-            write_python_module(python_code, convert_only_dst)
-            return (None, [])
         with RbqlPyEnv() as worker_env:
             write_python_module(python_code, worker_env.module_path)
             # TODO find a way to report module_path if exception is thrown.
@@ -496,8 +492,6 @@ def generic_run(user_query, input_iterator, output_writer, join_tables_registry=
     finally:
         input_iterator.finish()
         output_writer.finish()
-
-
 
 
 def make_inconsistent_num_fields_warning(table_name, inconsistent_records_info):
@@ -537,8 +531,8 @@ class TableIterator:
 
 
 class TableWriter:
-    def __init__(self):
-        self.table = []
+    def __init__(self, external_table):
+        self.table = external_table
 
     def write(self, fields):
         self.table.append(fields)
@@ -559,3 +553,10 @@ class SingleTableRegistry:
         if table_id != self.table_name:
             raise RbqlIOHandlingError('Unable to find join table: "{}"'.format(table_id))
         return TableIterator(self.table)
+
+
+def table_run(user_query, input_table, output_table, join_table=None, user_init_code=''):
+    input_iterator = TableIterator(input_table)
+    output_writer = TableWriter(output_table)
+    join_tables_registry = None if join_table is None else SingleTableRegistry(join_table)
+    return generic_run(user_query, input_iterator, output_writer, join_tables_registry, user_init_code=user_init_code)

@@ -2,7 +2,7 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs');
 
-const rbq_csv = require('./rbql-js/rbql_csv.js');
+const rbql_csv = require('./rbql-js/rbql_csv.js');
 
 
 function handle_worker_error(error_type, error_msg) {
@@ -38,7 +38,7 @@ function main() {
     let handle_success = function(warnings) {
         handle_worker_success(warnings, output_path);
     }
-    rbq_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, handle_success, handle_worker_error);
+    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, handle_success, handle_worker_error);
 }
 
 
