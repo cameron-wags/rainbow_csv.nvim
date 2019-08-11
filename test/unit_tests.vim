@@ -79,6 +79,18 @@
 :let log_msg = (num_lines == 5) ? 'OK' : 'FAIL'
 :call add(g:rbql_test_log_records, log_msg)
 
+
+:e ../rbql_core/test/csv_files/synthetic_rfc_newline_data.csv
+:sleep 1
+:set ft=rfc_csv
+:sleep 1
+:Select a3, a2, a2 + ' adjusted', a1
+:sleep 1
+:let file_size = getfsize(expand(@%))
+:let log_msg = (file_size == 544) ? 'OK' : 'FAIL'
+:call add(g:rbql_test_log_records, log_msg)
+
+
 :call add(g:rbql_test_log_records, 'Finished full integration tests')
 :call writefile(g:rbql_test_log_records, "./vim_unit_tests.log")
 

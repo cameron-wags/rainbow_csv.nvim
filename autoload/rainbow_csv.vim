@@ -40,8 +40,6 @@ let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted
 
 " TODO write a github article about limitation of rfc_csv dialect
 
-" FIXME add integration test with rfc_csv dialect
-
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
