@@ -40,6 +40,9 @@ let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted
 
 " TODO write a github article about limitation of rfc_csv dialect
 
+" FIXME RBQL fails with synthetic file and rfc_csv dialect
+" FIXME add integration test with rfc_csv dialect
+
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -564,7 +567,7 @@ func! rainbow_csv#preserving_smart_split(line, delim, policy)
     let stripped = rainbow_csv#rstrip(a:line)
     if a:policy == 'monocolumn'
         return [[stripped], 0]
-    elseif a:policy == 'quoted'
+    elseif a:policy == 'quoted' || a:policy == 'quoted_rfc'
         return rainbow_csv#preserving_quoted_split(stripped, a:delim)
     elseif a:policy == 'simple'
         let regex_delim = escape(a:delim, s:magic_chars)
@@ -731,7 +734,7 @@ endfunc
 func s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
     let record_lines = getline(a:start_line, a:end_line)
     let record_str = join(record_lines, "\n")
-    let [fields, has_warning] = rainbow_csv#preserving_smart_split(record_str, a:delim, 'quoted')
+    let [fields, has_warning] = rainbow_csv#preserving_smart_split(record_str, a:delim, 'quoted_rfc')
     if has_warning || len(fields) != a:expected_num_fields
         return []
     endif
@@ -789,7 +792,7 @@ endfunc
 
 
 func s:get_col_num_rfc_basic_even_case(line, delim, expected_num_fields)
-    let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted')
+    let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted_rfc')
     if !has_warning && len(fields) == a:expected_num_fields
         let col_num = s:get_col_num_single_line(fields, a:delim, 0)
         return [fields, col_num]
