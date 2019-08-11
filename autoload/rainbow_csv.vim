@@ -40,7 +40,6 @@ let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted
 
 " TODO write a github article about limitation of rfc_csv dialect
 
-" FIXME RBQL fails with synthetic file and rfc_csv dialect
 " FIXME add integration test with rfc_csv dialect
 
 

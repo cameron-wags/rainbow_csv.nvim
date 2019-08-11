@@ -8,7 +8,6 @@ import time
 
 import rbql
 from rbql import rbql_csv
-from rbql import csv_utils
 
 vim_interface = None
 
@@ -56,7 +55,7 @@ def get_random_suffix():
 
 def execute_python(src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy, dst_table_path):
     query = codecs.open(rb_script_path, encoding='utf-8').read()
-    csv_encoding = csv_utils.default_csv_encoding
+    csv_encoding = rbql_csv.default_csv_encoding
     error_info, warnings = rbql_csv.csv_run(query, src_table_path, input_delim, input_policy, dst_table_path, out_delim, out_policy, csv_encoding)
 
     if error_info is None:
@@ -70,8 +69,8 @@ def execute_python(src_table_path, rb_script_path, input_delim, input_policy, ou
 
 def converged_execute(src_table_path, rb_script_path, input_delim, input_policy, out_delim, out_policy):
     try:
-        input_delim = csv_utils.normalize_delim(input_delim)
-        out_delim = csv_utils.normalize_delim(out_delim)
+        input_delim = rbql_csv.normalize_delim(input_delim)
+        out_delim = rbql_csv.normalize_delim(out_delim)
         tmp_dir = tempfile.gettempdir()
         table_name = os.path.basename(src_table_path)
         dst_table_name = '{}.txt'.format(table_name)

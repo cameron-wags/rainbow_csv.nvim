@@ -46,6 +46,7 @@ if [ "$rc" != 0 ] || [ -z "$node_version" ] ; then
 fi
 
 if [ "$has_node" == "yes" ] ; then
+    node rbql-js/build_engine.js
     js_rbql_version=$( node rbql-js/cli_rbql.js --version )
     if [ "$py_rbql_version" != "$js_rbql_version" ] ; then
         echo "Error: version missmatch between rbql.py ($py_rbql_version) and rbql.js ($js_rbql_version)"  1>&2
@@ -56,10 +57,10 @@ if [ "$has_node" == "yes" ] ; then
     node test_csv_utils.js --run-random-csv-mode ../random_tmp_table.txt
     die_if_error $?
 
-    node test_rbql.js --auto-rebuild-engine
+    node test_rbql.js
     die_if_error $?
 
-    node test_csv_utils.js --auto-rebuild-engine
+    node test_csv_utils.js
     die_if_error $?
 
     cd ..
@@ -74,7 +75,8 @@ if [ "$md5sum_canonic" != "$md5sum_test" ] ; then
     exit 1
 fi
 
-printf "select select a1\nselect a1, nonexistent_func(a2)\nselect a1,a2,a7,b2,b3,b4 left join test/csv_files/countries.tsv on a2 == b1 where 'Sci-Fi' in a7.split('|') and b2!='US' and int(a4) > 2010\n" | python -m rbql --delim '\t' --input test/csv_files/movies.tsv --output tmp_out.csv > /dev/null
+# XXX theorethically this test can randomly fail because sleep timeout is not long enough
+(echo "select select a1" && sleep 0.5 && echo "select a1, nonexistent_func(a2)" && sleep 0.5 && echo "select a1,a2,a7,b2,b3,b4 left join test/csv_files/countries.tsv on a2 == b1 where 'Sci-Fi' in a7.split('|') and b2!='US' and int(a4) > 2010") | python -m rbql --delim '\t' --input test/csv_files/movies.tsv --output tmp_out.csv > /dev/null
 md5sum_test=($(cat tmp_out.csv | md5sum))
 if [ "$md5sum_canonic" != "$md5sum_test" ] ; then
     echo "Interactive CLI Python test FAIL!"  1>&2
@@ -88,7 +90,8 @@ if [ "$has_node" == "yes" ] ; then
         exit 1
     fi
 
-    printf "select select a1\nselect a1, nonexistent_func(a2)\nselect a1,a2,a7,b2,b3,b4 left join test/csv_files/countries.tsv on a2 == b1 where a7.split('|').includes('Sci-Fi') && b2!='US' && a4 > 2010\n" | node ./rbql-js/cli_rbql.js --input test/csv_files/movies.tsv --output tmp_out.csv --delim '\t' > /dev/null
+    # XXX theorethically this test can randomly fail because sleep timeout is not long enough
+    (echo "select select a1" && sleep 0.5 && echo "select a1, nonexistent_func(a2)" && sleep 0.5 && echo "select a1,a2,a7,b2,b3,b4 left join test/csv_files/countries.tsv on a2 == b1 where a7.split('|').includes('Sci-Fi') && b2!='US' && a4 > 2010") | node ./rbql-js/cli_rbql.js --input test/csv_files/movies.tsv --output tmp_out.csv --delim '\t' > /dev/null
     md5sum_test=($(cat tmp_out.csv | md5sum))
     if [ "$md5sum_canonic" != "$md5sum_test" ] ; then
         echo "Interactive CLI JS test FAIL!"  1>&2

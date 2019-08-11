@@ -41,7 +41,7 @@ function test_string_literals_separation() {
         let query = test_case[0];
         let expected_literals = test_case[1];
         let [format_expression, string_literals] = rbql.separate_string_literals_js(query);
-        assert(test_common.arrays_are_equal(expected_literals, string_literals));
+        test_common.assert_arrays_are_equal(expected_literals, string_literals);
         assert(query == rbql.combine_string_literals(format_expression, string_literals));
     }
 }
@@ -73,10 +73,10 @@ function test_join_parsing() {
     let join_part = null;
     let catched = false;
     join_part = '/path/to/the/file.tsv on a1 == b3';
-    assert(test_common.arrays_are_equal(['/path/to/the/file.tsv', 'safe_join_get(afields, 0)', 2], rbql.parse_join_expression(join_part)));
+    test_common.assert_arrays_are_equal(['/path/to/the/file.tsv', 'safe_join_get(afields, 0)', 2], rbql.parse_join_expression(join_part));
 
     join_part = ' file.tsv on b20== a12  ';
-    assert(test_common.arrays_are_equal(['file.tsv', 'safe_join_get(afields, 11)', 19], rbql.parse_join_expression(join_part)));
+    test_common.assert_arrays_are_equal(['file.tsv', 'safe_join_get(afields, 11)', 19], rbql.parse_join_expression(join_part));
 
     join_part = '/path/to/the/file.tsv on a1==a12  ';
     catched = false;
@@ -174,9 +174,9 @@ function process_test_case(tests, test_id) {
     let success_handler = function(warnings) {
         assert(expected_error === null);
         warnings = test_common.normalize_warnings(warnings).sort();
-        assert(test_common.arrays_are_equal(expected_warnings, warnings));
+        test_common.assert_arrays_are_equal(expected_warnings, warnings);
         test_common.round_floats(output_table);
-        assert(test_common.tables_are_equal(expected_output_table, output_table), 'Expected and output tables mismatch');
+        test_common.assert_tables_are_equal(expected_output_table, output_table);
         process_test_case(tests, test_id + 1);
     }
     rbql.table_run(query, input_table, output_table, success_handler, error_handler, join_table, user_init_code, debug_mode);
@@ -190,6 +190,20 @@ function test_json_tables() {
 }
 
 
+function test_direct_table_queries() {
+    let output_table = [];
+    let expected_table = [['foo test', 1], ['bar test', 2]];
+    let error_handler = function(error_type, error_msg) {
+        die(error_type + ": " + error_msg);
+    }
+    let success_handler = function(warnings) {
+        assert(warnings.length == 0);
+        test_common.assert_tables_are_equal(expected_table, output_table);
+    }
+    rbql.table_run('select a2 + " test", a1 limit 2', [[1, 'foo'], [2, 'bar'], [3, 'hello']], output_table, success_handler, error_handler);
+}
+
+
 function test_everything() {
     test_comment_strip();
     test_string_literals_separation();
@@ -198,6 +212,7 @@ function test_everything() {
     test_join_parsing();
     test_update_translation();
     test_select_translation();
+    test_direct_table_queries();
     test_json_tables();
 }
 
@@ -211,11 +226,11 @@ function main() {
     };
     var args = cli_parser.parse_cmd_args(process.argv, scheme);
 
-    if (args.hasOwnProperty('auto-rebuild-engine')) {
+    if (args['auto-rebuild-engine']) {
         build_engine.build_engine();
     }
 
-    debug_mode = args.hasOwnProperty('dbg');
+    debug_mode = args['dbg'];
 
     let engine_text_current = build_engine.read_engine_text();
     let engine_text_expected = build_engine.build_engine_text();

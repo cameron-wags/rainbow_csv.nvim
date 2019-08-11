@@ -5,26 +5,28 @@ const readline = require('readline');
 const crypto = require('crypto');
 const stream = require('stream');
 
-var rbql = null;
-var rbql_csv = null;
 const csv_utils = require('../rbql-js/csv_utils.js');
 const cli_parser = require('../rbql-js/cli_parser.js');
 const build_engine = require('../rbql-js/build_engine.js');
 const test_common = require('./test_common.js');
 
+var rbql_csv = null;
 
-// FIXME add record iterator tests, see python version
+
+// TODO add all record iterator tests, see python version
+// TODO Add tests: 1. utf decoding errors 2. bom
+
 
 const script_dir = __dirname;
-var debug_mode = false;
 
+var debug_mode = false;
 
 const line_separators = ['\n', '\r\n', '\r'];
 
 
 function rmtree(root_path) {
     if (fs.existsSync(root_path)) {
-        fs.readdirSync(root_path).forEach(function(file_name, index) {
+        fs.readdirSync(root_path).forEach(function(file_name, _index) {
             let child_path = path.join(root_path, file_name);
             if (fs.lstatSync(child_path).isDirectory()) {
                 rmtree(child_path);
@@ -39,6 +41,25 @@ function rmtree(root_path) {
 
 function random_choice(values) {
     return values[Math.floor(Math.random() * values.length)];
+}
+
+
+function random_int(min_val, max_val) {
+    min_val = Math.ceil(min_val);
+    max_val = Math.floor(max_val + 1);
+    return Math.floor(Math.random() * (max_val - min_val)) + min_val;
+}
+
+
+function natural_random(min_val, max_val) {
+    if (min_val <= 0 && max_val >= 0 && random_int(0, 2) == 0)
+        return 0;
+    let k = random_int(0, 8);
+    if (k < 2)
+        return min_val + k;
+    if (k > 6)
+        return max_val - 8 + k;
+    return random_int(min_val, max_val);
 }
 
 
@@ -68,8 +89,13 @@ function assert(condition, message = null) {
 }
 
 
+function replace_all(src, search, replacement) {
+    return src.split(search).join(replacement);
+}
+
+
 function compare_splits(src, test_dst, canonic_dst, test_warning, canonic_warning) {
-    if (test_warning != canonic_warning || !test_common.arrays_are_equal(test_dst, canonic_dst)) {
+    if (test_warning != canonic_warning || !test_common.assert_arrays_are_equal(test_dst, canonic_dst, false, true)) {
         console.error('Error in csv split logic. Source line: ' + src);
         console.error('Test result: ' + test_dst.join(';'));
         console.error('Canonic result: ' + canonic_dst.join(';'));
@@ -79,6 +105,119 @@ function compare_splits(src, test_dst, canonic_dst, test_warning, canonic_warnin
 }
 
 
+function make_random_decoded_binary_csv_entry(min_len, max_len, restricted_chars) {
+    let strlen = random_int(min_len, max_len);
+    let bytes_set = [];
+    if (restricted_chars == null)
+        restricted_chars = [];
+    for (let cc = 0; cc < 256; cc++) {
+        let add_to_set = true;
+        for (let i = 0; i < restricted_chars.length; i++) {
+            if (cc == restricted_chars[i].charCodeAt(0))
+                add_to_set = false;
+        }
+        if (add_to_set)
+            bytes_set.push(cc);
+    }
+    let data_bytes = [];
+    for (let i = 0; i < strlen; i++) {
+        data_bytes.push(random_choice(bytes_set));
+    }
+    let data_buf = Buffer.from(data_bytes);
+    let result = data_buf.toString('binary');
+    let check_buf = Buffer.from(result, 'binary');
+    assert(data_buf.equals(check_buf));
+    return result;
+}
+
+
+function generate_random_decoded_binary_table(max_num_rows, max_num_cols, restricted_chars) {
+    let num_rows = natural_random(1, max_num_rows);
+    let num_cols = natural_random(1, max_num_cols);
+    let good_keys = ['Hello', 'Avada Kedavra ', ' ??????', '128', '3q295 fa#(@*$*)', ' abc defg ', 'NR', 'a1', 'a2'];
+    let result = [];
+    let good_column = random_int(0, num_cols - 1);
+    for (let r = 0; r < num_rows; r++) {
+        result.push([]);
+        for (let c = 0; c < num_cols; c++) {
+            if (c == good_column) {
+                result[r].push(random_choice(good_keys));
+            } else {
+                result[r].push(make_random_decoded_binary_csv_entry(0, 20, restricted_chars));
+            }
+        }
+    }
+    return result;
+}
+
+
+function randomly_quote_field(src, delim) {
+    if (src.indexOf('"') != -1 || src.indexOf(delim) != -1 || src.indexOf('\n') != -1 || src.indexOf('\r') != -1 || random_int(0, 1) == 1) {
+        let spaces_before = delim == ' ' ? '' : ' '.repeat(random_int(0, 2));
+        let spaces_after = delim == ' ' ? '' : ' '.repeat(random_int(0, 2));
+        let escaped = replace_all(src, '"', '""');
+        return `${spaces_before}"${escaped}"${spaces_after}`;
+    }
+    return src;
+}
+
+
+function randomly_join_quoted(fields, delim) {
+    let efields = [];
+    for (let field of fields) {
+        efields.push(randomly_quote_field(field, delim));
+    }
+    test_common.assert_arrays_are_equal(csv_utils.unquote_fields(efields), fields);
+    return efields.join(delim);
+}
+
+
+function random_whitespace_join(fields) {
+    let result = [' '.repeat(random_int(0, 5))];
+    for (let f of fields) {
+        result.push(f + ' '.repeat(random_int(1, 5)));
+    }
+    return result.join('');
+}
+
+
+function simple_join(fields, delim) {
+    assert(fields.join('').indexOf(delim) == -1, 'unable to use simple policy');
+    return fields.join(delim);
+}
+
+
+function random_smart_join(fields, delim, policy) {
+    if (policy == 'simple') {
+        return simple_join(fields, delim);
+    } else if (policy == 'whitespace') {
+        assert(delim == ' ');
+        return random_whitespace_join(fields);
+    } else if (policy == 'quoted' || policy == 'quoted_rfc') {
+        assert(delim != '"');
+        return randomly_join_quoted(fields, delim);
+    } else if (policy == 'monocolumn') {
+        assert(fields.length == 1);
+        return fields[0];
+    } else {
+        assert(false, 'unknown policy');
+    }
+}
+
+
+function table_to_csv_string_random(table, delim, policy) {
+    let line_separator = random_choice(line_separators);
+    let result = [];
+    for (let record of table) {
+        result.push(random_smart_join(record, delim, policy));
+    }
+    result = result.join(line_separator);
+    if (random_int(0, 1) == 1) {
+        result += line_separator;
+    }
+    return result;
+}
+
 
 function PseudoWritable() {
     this.data_chunks = [];
@@ -86,7 +225,7 @@ function PseudoWritable() {
 
     this.setDefaultEncoding = function(encoding) {
         this.encoding = encoding;
-    }
+    };
 
     this.write = function(data) {
         this.data_chunks.push(data);
@@ -101,6 +240,7 @@ function PseudoWritable() {
 function string_to_randomly_encoded_stream(src_str) {
     let encoding = random_choice(['utf-8', 'binary']);
     let input_stream = new stream.Readable();
+    input_stream.setEncoding(encoding); // For older node versions we have to call setEncoding() before pushing anything into the stream. E.g. in node version 8 this is broken but fixed in node version 12
     input_stream.push(Buffer.from(src_str, encoding));
     input_stream.push(null);
     return [input_stream, encoding];
@@ -112,24 +252,34 @@ function write_and_parse_back(table, encoding, delim, policy) {
         encoding = 'utf-8'; // Writing js string in utf-8 then reading back should be a lossless operation? Or not?
     let writer_stream = new PseudoWritable();
     let line_separator = random_choice(line_separators);
-    let writer = new csv_utils.CSVWriter(writer_stream, true, encoding, delim, policy, line_separator);
+    let writer = new rbql_csv.CSVWriter(writer_stream, true, encoding, delim, policy, line_separator);
     writer._write_all(table);
     assert(writer.get_warnings().length === 0);
     let data_buffer = writer_stream.get_data();
     let input_stream = new stream.Readable();
+    input_stream.setEncoding(encoding); // For older node versions we have to call setEncoding() before pushing anything into the stream. E.g. in node version 8 this is broken but fixed in node version 12
     input_stream.push(data_buffer);
     input_stream.push(null);
-    let record_iterator = new csv_utils.CSVRecordIterator(input_stream, encoding, delim, policy);
+    let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
     record_iterator._get_all_records(function(output_table) {
-        assert(test_common.tables_are_equal(table, output_table), 'Expected and output tables mismatch');
+        test_common.assert_tables_are_equal(table, output_table);
     });
+}
+
+
+function find_in_table(table, token) {
+    for (let r = 0; r < table.length; r++)
+        for (let c = 0; c < table[r].length; c++)
+            if (table[r][c].indexOf(token) != -1)
+                return true;
+    return false;
 }
 
 
 function test_split() {
 
-    assert(test_common.arrays_are_equal(csv_utils.split_quoted_str(' aaa, " aaa, bbb " , ccc , ddd ', ',', true)[0], [' aaa', ' " aaa, bbb " ', ' ccc ', ' ddd ']))
-    assert(test_common.arrays_are_equal(csv_utils.split_quoted_str(' aaa, " aaa, bbb " , ccc , ddd ', ',', false)[0], [' aaa', ' aaa, bbb ', ' ccc ', ' ddd ']))
+    test_common.assert_arrays_are_equal(csv_utils.split_quoted_str(' aaa, " aaa, bbb " , ccc , ddd ', ',', true)[0], [' aaa', ' " aaa, bbb " ', ' ccc ', ' ddd ']);
+    test_common.assert_arrays_are_equal(csv_utils.split_quoted_str(' aaa, " aaa, bbb " , ccc , ddd ', ',', false)[0], [' aaa', ' aaa, bbb ', ' ccc ', ' ddd ']);
 
     var test_cases = [];
     test_cases.push(['hello,world', ['hello','world'], false]);
@@ -150,8 +300,8 @@ function test_split() {
     test_cases.push(['"a"aa" a,bbb",ccc,ddd', ['"a"aa" a', 'bbb"','ccc', 'ddd'], true]);
     test_cases.push(['"aa, bb, cc",ccc",ddd', ['aa, bb, cc','ccc"', 'ddd'], true]);
     test_cases.push(['hello,world,"', ['hello','world', '"'], true]);
-    test_cases.push([' aaa, " aaa, bbb " , ccc , ddd ', [' aaa', ' aaa, bbb ', ' ccc ', ' ddd '], false])
-    test_cases.push([' aaa ,bbb ,ccc , ddd ', [' aaa ', 'bbb ', 'ccc ', ' ddd '], false])
+    test_cases.push([' aaa, " aaa, bbb " , ccc , ddd ', [' aaa', ' aaa, bbb ', ' ccc ', ' ddd '], false]);
+    test_cases.push([' aaa ,bbb ,ccc , ddd ', [' aaa ', 'bbb ', 'ccc ', ' ddd '], false]);
 
     for (let i = 0; i < test_cases.length; i++) {
         let [src, canonic_dst, canonic_warning] = test_cases[i];
@@ -163,7 +313,7 @@ function test_split() {
         assert(test_warning === split_result_preserved[1], 'warnings do not match');
         assert(split_result_preserved[0].join(',') === src, 'preserved restore do not match');
         if (!canonic_warning) {
-            assert(test_common.arrays_are_equal(test_dst, csv_utils.unquote_fields(split_result_preserved[0])), 'unquoted do not match');
+            test_common.assert_arrays_are_equal(test_dst, csv_utils.unquote_fields(split_result_preserved[0]));
         }
         if (!canonic_warning) {
             compare_splits(src, test_dst, canonic_dst, test_warning, canonic_warning);
@@ -174,31 +324,31 @@ function test_split() {
 function test_split_whitespaces() {
     var test_cases = [];
 
-    test_cases.push(['hello world', ['hello','world'], false])
-    test_cases.push(['hello   world', ['hello','world'], false])
-    test_cases.push(['   hello   world   ', ['hello','world'], false])
-    test_cases.push(['     ', [], false])
-    test_cases.push(['', [], false])
-    test_cases.push(['   a   b  c d ', ['a', 'b', 'c', 'd'], false])
+    test_cases.push(['hello world', ['hello','world'], false]);
+    test_cases.push(['hello   world', ['hello','world'], false]);
+    test_cases.push(['   hello   world   ', ['hello','world'], false]);
+    test_cases.push(['     ', [], false]);
+    test_cases.push(['', [], false]);
+    test_cases.push(['   a   b  c d ', ['a', 'b', 'c', 'd'], false]);
 
-    test_cases.push(['hello world', ['hello','world'], true])
-    test_cases.push(['hello   world', ['hello  ','world'], true])
-    test_cases.push(['   hello   world   ', ['   hello  ','world   '], true])
-    test_cases.push(['     ', [], true])
-    test_cases.push(['', [], true])
-    test_cases.push(['   a   b  c d ', ['   a  ', 'b ', 'c', 'd '], true])
+    test_cases.push(['hello world', ['hello','world'], true]);
+    test_cases.push(['hello   world', ['hello  ','world'], true]);
+    test_cases.push(['   hello   world   ', ['   hello  ','world   '], true]);
+    test_cases.push(['     ', [], true]);
+    test_cases.push(['', [], true]);
+    test_cases.push(['   a   b  c d ', ['   a  ', 'b ', 'c', 'd '], true]);
 
     for (let i = 0; i < test_cases.length; i++) {
         let [src, canonic_dst, preserve_whitespaces] = test_cases[i];
-        let test_dst = csv_utils.split_whitespace_separated_str(src, preserve_whitespaces)
-        assert(test_common.arrays_are_equal(canonic_dst, test_dst, 'whitespace split failure'));
+        let test_dst = csv_utils.split_whitespace_separated_str(src, preserve_whitespaces);
+        test_common.assert_arrays_are_equal(canonic_dst, test_dst);
     }
 }
 
 
 function test_unquote() {
     var test_cases = [];
-    test_cases.push(['  "hello, ""world"" aa""  " ', 'hello, "world" aa"  '])
+    test_cases.push(['  "hello, ""world"" aa""  " ', 'hello, "world" aa"  ']);
     for (let i = 0; i < test_cases.length; i++) {
         let unquoted = csv_utils.unquote_field(test_cases[i][0]);
         let canonic = test_cases[i][1];
@@ -223,9 +373,9 @@ function test_whitespace_separated_parsing() {
     let delim = ' ';
     let policy = 'whitespace';
     let encoding = null;
-    let record_iterator = new csv_utils.CSVRecordIterator(input_stream, encoding, delim, policy);
+    let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
     record_iterator._get_all_records(function(output_table) {
-        assert(test_common.tables_are_equal(expected_table, output_table), 'Expected and output tables mismatch');
+        test_common.assert_tables_are_equal(expected_table, output_table);
         write_and_parse_back(expected_table, encoding, delim, policy);
     });
 }
@@ -241,15 +391,12 @@ function test_split_lines_custom() {
     for (let tc of test_cases) {
         let [src, expected_res] = tc;
         let [stream, encoding] = string_to_randomly_encoded_stream(src);
-        let line_iterator = new csv_utils.CSVRecordIterator(stream, encoding, null, null);
+        let line_iterator = new rbql_csv.CSVRecordIterator(stream, encoding, null, null);
         line_iterator._get_all_lines(function(test_res) {
-            assert(test_common.arrays_are_equal(expected_res, test_res));
+            test_common.assert_arrays_are_equal(expected_res, test_res);
         });
     }
 }
-
-
-// TODO add BOM test like "test_bom_warning" function in python version
 
 
 function process_test_case(tmp_tests_dir, tests, test_id) {
@@ -277,7 +424,7 @@ function process_test_case(tmp_tests_dir, tests, test_id) {
     let policy = test_case['csv_policy'];
     let encoding = test_case['csv_encoding'];
     let output_format = test_common.get_default(test_case, 'output_format', 'input');
-    let [output_delim, output_policy] = output_format == 'input' ? [delim, policy] : csv_utils.interpret_named_csv_format(output_format);
+    let [output_delim, output_policy] = output_format == 'input' ? [delim, policy] : rbql_csv.interpret_named_csv_format(output_format);
     let actual_output_table_path = null;
     let expected_md5 = null;
     if (expected_output_table_path !== null) {
@@ -288,22 +435,22 @@ function process_test_case(tmp_tests_dir, tests, test_id) {
     } else {
         actual_output_table_path = path.join(tmp_tests_dir, 'expected_empty_file');
     }
-    
+
     let error_handler = function(error_type, error_msg) {
         assert(expected_error);
         assert(error_msg.indexOf(expected_error) != -1);
         process_test_case(tmp_tests_dir, tests, test_id + 1);
-    }
+    };
     let success_handler = function(warnings) {
         assert(expected_error === null);
         warnings = test_common.normalize_warnings(warnings).sort();
-        assert(test_common.arrays_are_equal(expected_warnings, warnings));
+        test_common.assert_arrays_are_equal(expected_warnings, warnings);
         let actual_md5 = calc_file_md5(actual_output_table_path);
         assert(expected_md5 == actual_md5, `md5 mismatch. Expected table: ${expected_output_table_path}, Actual table: ${actual_output_table_path}`);
         process_test_case(tmp_tests_dir, tests, test_id + 1);
-    }
+    };
 
-    rbql_csv.csv_run(query, input_table_path, delim, policy, actual_output_table_path, output_delim, output_policy, encoding, success_handler, error_handler, null, debug_mode);
+    rbql_csv.csv_run(query, input_table_path, delim, policy, actual_output_table_path, output_delim, output_policy, encoding, success_handler, error_handler, '');
 }
 
 
@@ -317,13 +464,122 @@ function test_json_scenarios() {
 }
 
 
+function test_random_funcs() {
+    while (1) {
+        if (random_int(0, 1) == 0 && random_int(0, 1) == 1)
+            break;
+    }
+    while (1) {
+        if (random_choice([1, 2, 3]) == 1 && random_choice([1, 2, 3]) == 2 && random_choice([1, 2, 3]) == 3)
+            break;
+    }
+}
+
+
+function normalize_newlines_in_fields(table) {
+    for (let r = 0; r < table.length; r++) {
+        for (let c = 0; c < table[r].length; c++) {
+            table[r][c] = replace_all(table[r][c], '\r\n', '\n');
+            table[r][c] = replace_all(table[r][c], '\r', '\n');
+        }
+    }
+}
+
+
+function do_test_record_iterator(table, delim, policy) {
+    let csv_data = table_to_csv_string_random(table, delim, policy);
+    if (policy == 'quoted_rfc')
+        normalize_newlines_in_fields(table);
+    let [stream, encoding] = string_to_randomly_encoded_stream(csv_data);
+    let record_iterator = new rbql_csv.CSVRecordIterator(stream, encoding, delim, policy);
+    record_iterator._get_all_records(function(parsed_table) {
+        test_common.assert_tables_are_equal(table, parsed_table);
+        write_and_parse_back(table, encoding, delim, policy);
+    });
+}
+
+
+function test_record_iterator() {
+    for (let itest = 0; itest < 100; itest++) {
+        let table = generate_random_decoded_binary_table(10, 10, ['\r', '\n']);
+        let delims = ['\t', ',', ';', '|'];
+        let delim = random_choice(delims);
+        let table_has_delim = find_in_table(table, delim);
+        let policy = table_has_delim ? 'quoted' : random_choice(['quoted', 'simple']);
+        do_test_record_iterator(table, delim, policy);
+    }
+}
+
+
+function test_iterator_rfc() {
+    for (let itest = 0; itest < 100; itest++) {
+        let table = generate_random_decoded_binary_table(10, 10, null);
+        let delims = ['\t', ',', ';', '|'];
+        let delim = random_choice(delims);
+        let policy = 'quoted_rfc';
+        do_test_record_iterator(table, delim, policy);
+    }
+}
+
+
+function test_multicharacter_separator_parsing() {
+    let data_lines = [];
+    data_lines.push('aaa:=)bbb:=)ccc');
+    data_lines.push('aaa :=) bbb :=)ccc ');
+    let expected_table = [['aaa', 'bbb', 'ccc'], ['aaa ', ' bbb ', 'ccc ']];
+    let csv_data = data_lines.join('\n');
+    let input_stream = new stream.Readable();
+    input_stream.push(csv_data);
+    input_stream.push(null);
+    let delim = ':=)';
+    let policy = 'simple';
+    let encoding = null;
+    let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
+    record_iterator._get_all_records(function(parsed_table) {
+        test_common.assert_tables_are_equal(expected_table, parsed_table);
+        write_and_parse_back(expected_table, encoding, delim, policy);
+    });
+}
+
+
+function test_monocolumn_separated_parsing() {
+    for (let itest = 0; itest < 30; itest++) {
+        let table = [];
+        let num_rows = random_int(1, 30);
+        for (let r = 0; r < num_rows; r++) {
+            let min_len = r + 1 < num_rows ? 0 : 1;
+            table.push([make_random_decoded_binary_csv_entry(min_len, 20, ['\r', '\n'])]);
+        }
+        let delim = null;
+        let policy = 'monocolumn';
+        let encoding = 'binary';
+        let csv_data = table_to_csv_string_random(table, delim, policy);
+        let input_stream = new stream.Readable();
+        input_stream.setEncoding('binary'); // For older node versions we have to call setEncoding() before pushing anything into the stream. E.g. in node version 8 this is broken but fixed in node version 12
+        input_stream.push(Buffer.from(csv_data, encoding));
+        input_stream.push(null);
+        let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
+        record_iterator._get_all_records(function(parsed_table) {
+            test_common.assert_tables_are_equal(table, parsed_table);
+            write_and_parse_back(table, encoding, delim, policy);
+            test_common.assert_tables_are_equal(table, parsed_table);
+        });
+    }
+}
+
+
 function test_all() {
+    test_random_funcs();
     test_unquote();
     test_split();
     test_split_whitespaces();
     test_whitespace_separated_parsing();
     test_split_lines_custom();
     test_json_scenarios();
+    test_record_iterator();
+    test_monocolumn_separated_parsing();
+    test_multicharacter_separator_parsing();
+    test_iterator_rfc();
 }
 
 
@@ -343,7 +599,7 @@ function process_random_test_line(line) {
     assert(test_warning === split_result_preserved[1]);
     assert(split_result_preserved[0].join(',') === escaped_entry);
     if (!canonic_warning) {
-        assert(test_common.arrays_are_equal(csv_utils.unquote_fields(split_result_preserved[0]), test_dst));
+        test_common.assert_arrays_are_equal(csv_utils.unquote_fields(split_result_preserved[0]), test_dst);
     }
     if (!canonic_warning) {
         compare_splits(escaped_entry, test_dst, canonic_dst, test_warning, canonic_warning);
@@ -352,14 +608,12 @@ function process_random_test_line(line) {
 
 
 function run_random_csv_mode(random_csv_table_path) {
-    lineReader = readline.createInterface({ input: fs.createReadStream(random_csv_table_path, {encoding: 'binary'}) });
+    let lineReader = readline.createInterface({ input: fs.createReadStream(random_csv_table_path, {encoding: 'binary'}) });
     lineReader.on('line', process_random_test_line);
     lineReader.on('close', function () {
         console.log('Finished split unit test');
     });
 }
-
-
 
 
 function main() {
@@ -372,7 +626,7 @@ function main() {
     };
     var args = cli_parser.parse_cmd_args(process.argv, scheme);
 
-    if (args.hasOwnProperty('auto-rebuild-engine')) {
+    if (args['auto-rebuild-engine']) {
         build_engine.build_engine();
     }
 
@@ -382,7 +636,7 @@ function main() {
         return;
     }
 
-    debug_mode = args.hasOwnProperty('dbg');
+    debug_mode = args['dbg'];
 
     let engine_text_current = build_engine.read_engine_text();
     let engine_text_expected = build_engine.build_engine_text();
@@ -390,8 +644,8 @@ function main() {
         die("rbql.js must be rebuild from template.js and builder.js");
     }
 
-    rbql = require('../rbql-js/rbql.js')
-    rbql_csv = require('../rbql-js/rbql_csv.js')
+    rbql_csv = require('../rbql-js/rbql_csv.js');
+    rbql_csv.debug_mode = debug_mode;
 
     test_all();
 }
