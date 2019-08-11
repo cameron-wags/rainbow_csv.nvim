@@ -81,6 +81,8 @@ Here is an example of how to extract some fields from a bunch of uniform single-
 In rare cases some CSV files can contain double-quoted fields spanning multiple lines.  
 To work with such files you can set filetype to either "rfc_csv" or "rfc_semicolon".  
 Syntax highlighting for rfc_csv and rfc_semicolon dialects can go out of sync with the file content under specific conditions, use `:syntax sync fromstart` command in that case  
+rfc_csv and rfc_semicolon are fully supported by RBQL which among other things allows you to easily convert them to line-by-line CSV by replacing newlines in fields with sequences of 4 spaces or something like that.  
+rfc_csv and rfc_semicolon take their name from [RFC 4180](https://tools.ietf.org/html/rfc4180) memo with which they are fully compatible.  
 
 
 ### Key Mappings
@@ -178,6 +180,12 @@ Example:
 ```
 let g:rcsv_colorpairs = [['red', 'red'], ['blue', 'blue'], ['green', 'green'], ['magenta', 'magenta'], ['NONE', 'NONE'], ['darkred', 'darkred'], ['darkblue', 'darkblue'], ['darkgreen', 'darkgreen'], ['darkmagenta', 'darkmagenta'], ['darkcyan', 'darkcyan']]
 ```
+
+#### g:multiline_search_range
+Default: _10_
+This settings is only relevant for rfc_csv and rfc_semicolon dialects.  
+If some multiline records contain more lines that this value, hover info will not work correctly. It is not recommended to significantly increase this value because it will have negative impact on hover info performance 
+
 
 #### g:rbql_backend_language
 Default: _python_
