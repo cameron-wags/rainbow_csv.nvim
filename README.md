@@ -182,7 +182,7 @@ let g:rcsv_colorpairs = [['red', 'red'], ['blue', 'blue'], ['green', 'green'], [
 ```
 
 #### g:multiline_search_range
-Default: _10_
+Default: _10_  
 This settings is only relevant for rfc_csv and rfc_semicolon dialects.  
 If some multiline records contain more lines that this value, hover info will not work correctly. It is not recommended to significantly increase this value because it will have negative impact on hover info performance 
 
