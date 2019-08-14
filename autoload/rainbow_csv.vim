@@ -615,8 +615,10 @@ func! s:calc_column_sizes(delim, policy)
     let lastLineNo = line("$")
     for linenum in range(1, lastLineNo)
         let line = getline(linenum)
-        " FIXME do not align if table has quoting issues
-        let fields = rainbow_csv#preserving_smart_split(line, a:delim, a:policy)[0]
+        let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, a:delim, a:policy)
+        if has_warning
+            return [result, linenum]
+        endif
         for fnum in range(len(fields))
             let field = rainbow_csv#strip_spaces(fields[fnum])
             if len(result) <= fnum
@@ -625,7 +627,7 @@ func! s:calc_column_sizes(delim, policy)
             let result[fnum] = max([result[fnum], strdisplaywidth(field)])
         endfor
     endfor
-    return result
+    return [result, 0]
 endfunc
 
 
@@ -639,7 +641,11 @@ func! rainbow_csv#csv_align()
         echoerr 'RainbowAlign not available for "rfc_csv" filetypes, consider using "csv" instead'
         return
     endif
-    let column_sizes = s:calc_column_sizes(delim, policy)
+    let [column_sizes, first_failed_line] = s:calc_column_sizes(delim, policy)
+    if first_failed_line != 0
+        echoerr 'Unable to allign: Inconsistent double quotes at line ' . first_failed_line
+        return
+    endif
     let lastLineNo = line("$")
     let has_edit = 0
     for linenum in range(1, lastLineNo)
@@ -687,8 +693,11 @@ func! rainbow_csv#csv_shrink()
     for linenum in range(1, lastLineNo)
         let has_line_edit = 0
         let line = getline(linenum)
-        " FIXME do not shrink if table has quoting issues
-        let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
+        let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, delim, policy)
+        if has_warning
+            echoerr 'Unable to shrink: Inconsistent double quotes at line ' . linenum
+            return
+        endif
         for fnum in range(len(fields))
             let field = rainbow_csv#strip_spaces(fields[fnum])
             if fields[fnum] != field
