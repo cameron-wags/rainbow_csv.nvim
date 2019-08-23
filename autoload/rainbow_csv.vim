@@ -1476,7 +1476,11 @@ func! rainbow_csv#buffer_enable_rainbow_features(delim, policy)
     let b:rainbow_features_enabled = 1
 
     set laststatus=2
-    set nocompatible
+
+    if &compatible == 1
+        set nocompatible
+    endif
+
     " maybe use setlocal number ?
     set number
 
