@@ -240,68 +240,35 @@ And you can always turn off the rainbow highlighting using |:NoRainbowDelim| com
 6. RBQL                                                                *RBQL*
 
 RBQL stands for "RainBow Query Language"
+See the language reference at https://github.com/mechatroner/rainbow_csv#rbql-rainbow-query-language-description
 
 
 Main Features ~
-*  Use Python or JavaScript expressions inside SELECT, UPDATE, WHERE and ORDER BY statements
-*  Result set of any query immediately becomes a first-class table on it's own.
-*  Output entries appear in the same order as in input unless ORDER BY is provided.
-*  Input csv/tsv spreadsheet may contain varying number of entries (but select query 
-   must be written in a way that prevents output of missing values)
-*  Works out of the box, no external dependencies.
+* Use Python or JavaScript expressions inside _SELECT_, _UPDATE_, _WHERE_ and _ORDER BY_ statements
+* Result set of any query immediately becomes a first-class table on it's own
+* Supports input tables with inconsistent number of fields per record
+* Output records appear in the same order as in input unless _ORDER BY_ is provided
+* Each record has a unique NR (line number) identifier
+* Supports all main SQL keywords
+* Supports aggregate functions and GROUP BY queries
+* Provides some new useful query modes which traditional SQL engines do not have
+* Supports both _TOP_ and _LIMIT_ keywords
+* Supports user-defined functions (UDF)
+* Works out of the box, no external dependencies
 
 
 Supported SQL Keywords (Keywords are case insensitive) ~
 
-*  SELECT TOP {N} DISTINCT [ COUNT ]
-*  UPDATE [ SET ]
-*  WHERE
-*  ORDER BY ... [ DESC | ASC ]
-*  [ [ STRICT ] LEFT | INNER ] JOIN
-*  GROUP BY
+* SELECT
+* UPDATE
+* WHERE
+* ORDER BY ... [ DESC | ASC ]
+* [ LEFT | INNER ] JOIN
+* DISTINCT
+* GROUP BY
+* TOP _N_
+* LIMIT _N_
 
-All keywords have the same meaning as in SQL queries. You can check them here
-https://www.w3schools.com/sql/default.asp
-
-But there are also two new keywords: DISTINCT COUNT and STRICT LEFT JOIN.
-*  DISTINCT COUNT is like DISTINCT, but adds a new column to the "distinct" 
-   result set: number of occurences of the entry, similar to "uniq -c" unix command.
-*  STRICT LEFT JOIN is like LEFT JOIN, but generates an error if any key 
-   in left table "A" doesn't have exactly one matching key in the right table "B".
-
-Some important rules:
-*  UPDATE SET is synonym to UPDATE, because in RBQL there is no need to
-   specify the source table.
-*  UPDATE has the same semantic as in SQL, but it is actually a special type
-   of SELECT query.
-*  JOIN statements must have the following form: >
-   <JOIN KEYWORD> ( {/path/to/table.tsv} | {table_name} ) ON a{i} == b{j}
-<
-
-Special RBQL variables ~
-
-Variable name		Variable Type	Variable description
-
-a1, a2,..., a{N}	string		Value of i-th column
-b1, b2,..., b{N}	string		Value of i-th column in join table B
-NR	                integer		Line number (1-based)
-NF	                integer		Number of fields in line
-
-
-Aggregate functions and queries ~
-RBQL supports the following aggregate functions, which can also be used with
-"GROUP BY" keyword:
-
-COUNT(), MIN(), MAX(), SUM(), AVG(), VARIANCE(), MEDIAN(), FOLD()
-
-Limitations~
-*  Aggregate function are CASE SENSITIVE and must be CAPITALIZED.
-*  Aggregate functions inside Python (or JS) expressions are not supported, but you can use expressions inside aggregate functions.
-   E.g. this is invalid: >
-   MAX(float(a1) / 1000)
-<   But this is valid: >
-   MAX(a1) / 1000
-< 
 
 Examples of RBQL queries with Python expressions~
 >
