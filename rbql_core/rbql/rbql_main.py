@@ -273,6 +273,12 @@ def main():
         show_error('generic', 'Using "--policy" without "--delim" is not allowed', is_interactive=False)
         sys.exit(1)
 
+    if args.encoding != 'latin-1' and not PY3:
+        if args.delim is not None:
+            args.delim = args.delim.decode(args.encoding)
+        if args.query is not None:
+            args.query = args.query.decode(args.encoding)
+
     if args.query:
         if args.delim is None:
             show_error('generic', 'Separator must be provided with "--delim" option in non-interactive mode', is_interactive=False)

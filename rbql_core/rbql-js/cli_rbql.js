@@ -8,15 +8,6 @@ var rbql_csv = null;
 const csv_utils = require('./csv_utils.js');
 const cli_parser = require('./cli_parser.js');
 
-
-// TODO implement query history like in Python version. "readline" modules allows to do that, see "completer" parameter.
-
-
-function die(error_msg) {
-    console.error('Error: ' + error_msg);
-    process.exit(1);
-}
-
 let out_format_names = ['csv', 'tsv', 'monocolumn', 'input'];
 
 var tmp_worker_module_path = null;
@@ -26,11 +17,20 @@ var user_input_reader = null;
 var args = null;
 
 
-function show_error(msg) {
+// TODO implement query history like in Python version. "readline" modules allows to do that, see "completer" parameter.
+
+
+function die(error_msg) {
+    console.error('Error: ' + error_msg);
+    process.exit(1);
+}
+
+
+function show_error(error_type, error_msg) {
     if (interactive_mode) {
-        console.log('\x1b[31;1mError:\x1b[0m ' + msg);
+        console.log(`\x1b[31;1mError [${error_type}]:\x1b[0m ${error_msg}`);
     } else {
-        console.error('Error: ' + msg);
+        console.error(`Error [${error_type}]: ${error_msg}`);
     }
     if (fs.existsSync(tmp_worker_module_path)) {
         let output_func = interactive_mode ? console.log : console.error;
@@ -69,14 +69,6 @@ function cleanup_tmp() {
 }
 
 
-function report_warnings_json(warnings) {
-    if (warnings !== null) {
-        var warnings_report = JSON.stringify({'warnings': warnings});
-        process.stderr.write(warnings_report);
-    }
-}
-
-
 function report_error_json(error_type, error_msg) {
     let report = new Object();
     report.error_type = error_type;
@@ -90,7 +82,7 @@ function report_error_json(error_type, error_msg) {
 
 function finish_query_with_error(error_type, error_msg) {
     if (error_format == 'hr') {
-        show_error(error_type + ': ' + error_msg);
+        show_error(error_type, error_msg);
     } else {
         report_error_json(error_type, error_msg);
     }
@@ -209,7 +201,10 @@ function handle_query_success(warnings, output_path, delim, policy) {
             });
         }
     } else {
-        report_warnings_json(warnings);
+        if (warnings !== null && warnings.length) {
+            var warnings_report = JSON.stringify({'warnings': warnings});
+            process.stderr.write(warnings_report);
+        }
     }
 }
 
@@ -288,11 +283,11 @@ function show_preview(input_path, delim, policy) {
 function start_preview_mode(args) {
     let input_path = get_default(args, 'input', null);
     if (!input_path) {
-        show_error('Input file must be provided in interactive mode. You can use stdin input only in non-interactive mode');
+        show_error('generic', 'Input file must be provided in interactive mode. You can use stdin input only in non-interactive mode');
         process.exit(1);
     }
     if (error_format != 'hr') {
-        show_error('Only default "hr" error format is supported in interactive mode');
+        show_error('generic', 'Only default "hr" error format is supported in interactive mode');
         process.exit(1);
     }
     let delim = get_default(args, 'delim', null);

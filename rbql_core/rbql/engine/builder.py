@@ -28,9 +28,16 @@ from collections import defaultdict
 # Do not add CSV-related logic or variables/functions/objects like "delim", "separator" etc
 
 
-# TODO get rid of functions with "_py" suffix
+# TODO cosmetic refactoring: get rid of functions with "_py" suffix
 
 # TODO new feature: allow record iterator provide custom column names.
+
+# TODO catch exceptions in user expression to report the exact place where it occured: "SELECT" expression, "WHERE" expression, etc
+
+# TODO gracefuly handle unknown encoding: generate RbqlIOHandlingError
+
+# TODO modify ARRAY_AGG: it should return array instead of joined string
+# TODO document the second callback argument of ARRAY_AGG in the README.md
 
 
 GROUP_BY = 'GROUP BY'
@@ -47,7 +54,7 @@ EXCEPT = 'EXCEPT'
 
 
 
-class RbqlRutimeError(Exception):
+class RbqlRuntimeError(Exception):
     pass
 
 class RbqlIOHandlingError(Exception):
@@ -59,7 +66,7 @@ class RbqlParsingError(Exception):
 
 def exception_to_error_info(e):
     exceptions_type_map = {
-        'RbqlRutimeError': 'query execution',
+        'RbqlRuntimeError': 'query execution',
         'RbqlParsingError': 'query parsing',
         'RbqlIOHandlingError': 'IO handling'
     }
@@ -122,7 +129,7 @@ def generate_init_statements(column_vars, indent):
 
 
 def replace_star_count(aggregate_expression):
-    return re.sub(r'(^|(?<=,)) *COUNT\( *\* *\) *($|(?=,))', ' COUNT(1)', aggregate_expression).lstrip(' ')
+    return re.sub(r'(^|(?<=,)) *COUNT\( *\* *\) *($|(?=,))', ' COUNT(1)', aggregate_expression, flags=re.IGNORECASE).lstrip(' ')
 
 
 def replace_star_vars(rbql_expression):
@@ -174,7 +181,7 @@ def separate_string_literals_py(rbql_expression):
 
 
 def combine_string_literals(backend_expression, string_literals):
-    for i in range(len(string_literals)):
+    for i in reversed(range(len(string_literals))):
         backend_expression = backend_expression.replace('###RBQL_STRING_LITERAL###{}'.format(i), string_literals[i])
     return backend_expression
 
@@ -316,7 +323,7 @@ class HashJoinMap:
             num_fields = len(fields)
             self.max_record_len = max(self.max_record_len, num_fields)
             if self.key_index >= num_fields:
-                raise RbqlRutimeError('No "b' + str(self.key_index + 1) + '" field at record: ' + str(nr) + ' in "B" table')
+                raise RbqlRuntimeError('No "b' + str(self.key_index + 1) + '" field at record: ' + str(nr) + ' in "B" table')
             key = fields[self.key_index]
             self.hash_map[key].append(fields)
         self.record_iterator.finish()

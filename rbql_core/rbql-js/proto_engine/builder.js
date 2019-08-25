@@ -128,7 +128,7 @@ function generate_init_statements(column_vars, indent) {
 
 
 function replace_star_count(aggregate_expression) {
-    var rgx = /(^|,) *COUNT\( *\* *\) *(?:$|(?=,))/g;
+    var rgx = /(^|,) *COUNT\( *\* *\) *(?:$|(?=,))/ig;
     var result = aggregate_expression.replace(rgx, '$1 COUNT(1)');
     return str_strip(result);
 }
@@ -198,7 +198,7 @@ function separate_string_literals_js(rbql_expression) {
 
 
 function combine_string_literals(backend_expression, string_literals) {
-    for (var i = 0; i < string_literals.length; i++) {
+    for (var i = string_literals.length - 1; i >= 0; i--) {
         backend_expression = replace_all(backend_expression, `###RBQL_STRING_LITERAL###${i}`, string_literals[i]);
     }
     return backend_expression;
