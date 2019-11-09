@@ -5,12 +5,18 @@ const fs = require('fs');
 const rbql_csv = require('./rbql-js/rbql_csv.js');
 
 
-function handle_worker_error(error_type, error_msg) {
-    console.log(error_type);
-    let result_file_path = '';
-    console.log(result_file_path); 
-    console.log(error_msg);
-    process.exit(0);
+function exception_to_error_info(e) {
+    let exceptions_type_map = {
+        'RbqlRuntimeError': 'query execution',
+        'RbqlParsingError': 'query parsing',
+        'RbqlIOHandlingError': 'IO handling'
+    };
+    let error_type = 'unexpected';
+    if (e.constructor && e.constructor.name && exceptions_type_map.hasOwnProperty(e.constructor.name)) {
+        error_type = exceptions_type_map[e.constructor.name];
+    }
+    let error_msg = e.hasOwnProperty('message') ? e.message : String(e);
+    return [error_type, error_msg];
 }
 
 
@@ -25,20 +31,28 @@ function handle_worker_success(warnings, output_path) {
 }
 
 
+function handle_worker_error(exception) {
+    let [error_type, error_msg] = exception_to_error_info(exception);
+    console.log(error_type);
+    let result_file_path = '';
+    console.log(result_file_path); 
+    console.log(error_msg);
+    process.exit(0);
+}
+
+
+
+
 function main() {
     let cmd_args = process.argv;
     cmd_args = cmd_args.slice(2);
     let [input_path, query_file, delim, policy, output_delim, output_policy]  = cmd_args;
-    let csv_encoding = 'latin-1';
+    let csv_encoding = 'utf-8';
     let init_source_file = null;
     let query = fs.readFileSync(query_file, 'utf-8');
     var tmp_dir = os.tmpdir();
     let output_path = path.join(tmp_dir, path.basename(input_path) + '.txt');
-
-    let handle_success = function(warnings) {
-        handle_worker_success(warnings, output_path);
-    }
-    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, handle_success, handle_worker_error);
+    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding).then(warnings => handle_worker_success(warnings, output_path)).catch(e => handle_worker_error(e));
 }
 
 
