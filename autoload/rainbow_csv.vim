@@ -37,10 +37,7 @@ let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : ["\t", ",",
 
 " TODO implement csv_lint for "rfc_csv" dialect
 
-" FIXME fix rbql-js integration
 " FIXME support customizable RBQL encoding
-" FIXME close 2 github tickets
-
 
 
 func! s:init_groups_from_links()
@@ -1138,7 +1135,7 @@ func! rainbow_csv#select_from_file()
 
     let splitbelow_before = &splitbelow
     set splitbelow
-    execute "split " . rb_script_path
+    execute "split " . fnameescape(rb_script_path)
     if bufnr("%") == buf_number
         echoerr "Something went wrong"
         return
@@ -1296,7 +1293,7 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     else
         call s:update_table_record(psv_dst_table_path, ',', 'quoted')
     endif
-    execute "e " . psv_dst_table_path
+    execute "e " . fnameescape(psv_dst_table_path)
 
     let b:self_path = psv_dst_table_path
     let b:root_table_buf_number = a:table_buf_number
