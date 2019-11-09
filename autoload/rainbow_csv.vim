@@ -19,6 +19,9 @@ let s:magic_chars = '^*$.~/[]\'
 
 let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted'], 'tsv': ["\t", 'simple'], 'csv_pipe': ['|', 'simple'], 'csv_whitespace': [" ", 'whitespace'], 'rfc_csv': [',', 'quoted_rfc'], 'rfc_semicolon': [';', 'quoted_rfc']}
 
+let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : ["\t", ",", ";", "|"]
+
+
 
 " XXX Use :syntax command to list all syntax groups
 
@@ -32,13 +35,12 @@ let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted
 "
 " TODO support comment prefixes
 
-" TODO warning for trailing spaces in CSVLint
-
 " TODO implement csv_lint for "rfc_csv" dialect
 
-" FIXME RBQL: decode delim and query, and check delim has all ascii for latin-1, just like query (both py and js)
+" FIXME fix rbql-js integration
+" FIXME support customizable RBQL encoding
+" FIXME close 2 github tickets
 
-" TODO write a github article about limitation of rfc_csv dialect
 
 
 func! s:init_groups_from_links()
@@ -94,10 +96,6 @@ endfunc
 
 
 call s:init_rb_color_groups()
-
-
-let s:delimiters = ["\t", ",", ";", "|"]
-let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : s:delimiters
 
 
 func! s:try_read_lines(src_path)
@@ -1153,7 +1151,9 @@ func! rainbow_csv#select_from_file()
     let b:table_buf_number = buf_number
     let b:rainbow_select = 1
 
-    nnoremap <buffer> <F5> :RbRun<cr>
+    if !exists("g:disable_rainbow_key_mappings")
+        nnoremap <buffer> <F5> :RbRun<cr>
+    endif
 
     call s:generate_microlang_syntax(num_fields)
     if !already_exists
@@ -1304,7 +1304,9 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let b:self_buf_number = bufnr("%")
     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
 
-    nnoremap <buffer> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
+    if !exists("g:disable_rainbow_key_mappings")
+        nnoremap <buffer> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
+    endif
 
     if len(psv_warning_report)
         let warnings = split(psv_warning_report, "\n")

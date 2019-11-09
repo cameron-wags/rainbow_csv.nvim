@@ -92,6 +92,9 @@ Key mappings are only assigned for files with active rainbow highlighting
 |--------------------------|----------------------------------------------------|
 |**F5**                    | Start query editing for the current csv file       |
 |**F5**                    | Execute currently edited query                     |
+|**F7**                    | Copy query result set to the parent buffer         |
+
+You can disable these mappings by setting `let g:disable_rainbow_key_mappings = 1`
 
 
 ### Commands
@@ -185,6 +188,9 @@ let g:rcsv_colorpairs = [['red', 'red'], ['blue', 'blue'], ['green', 'green'], [
 Default: _10_  
 This settings is only relevant for rfc_csv and rfc_semicolon dialects.  
 If some multiline records contain more lines that this value, hover info will not work correctly. It is not recommended to significantly increase this value because it will have negative impact on hover info performance 
+
+#### g:disable_rainbow_key_mappings
+Disable default key mappings introduced by the extension  
 
 
 #### g:rbql_backend_language
