@@ -1468,7 +1468,9 @@ func! rainbow_csv#buffer_disable_rainbow_features()
     augroup RainbowHintGrp
         autocmd! CursorMoved <buffer>
     augroup END
-    unmap <buffer> <F5>
+    if !exists("g:disable_rainbow_key_mappings")
+        unmap <buffer> <F5>
+    endif
 endfunc
 
 
@@ -1486,7 +1488,9 @@ func! rainbow_csv#buffer_enable_rainbow_features(delim, policy)
     " maybe use setlocal number ?
     set number
 
-    nnoremap <buffer> <F5> :RbSelect<cr>
+    if !exists("g:disable_rainbow_key_mappings")
+        nnoremap <buffer> <F5> :RbSelect<cr>
+    endif
 
     let b:cached_virtual_header = s:read_virtual_header(a:delim, a:policy)
 
