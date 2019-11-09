@@ -3,20 +3,27 @@ __RBQLMP__user_init_code
 
 class RbqlParsingError extends Error {}
 class RbqlRuntimeError extends Error {}
+class AssertionError extends Error {}
 
 
-function InternalBadFieldError(idx) {
-    this.idx = idx;
-    this.name = 'InternalBadFieldError';
+function assert(condition, message) {
+    if (!condition)
+        throw new AssertionError(message);
 }
 
+
+class InternalBadFieldError extends Error {
+    constructor(bad_idx, ...params) {
+        super(...params);
+        this.bad_idx = bad_idx;
+    }
+}
 
 
 var unnest_list = null;
 
 var module_was_used_failsafe = false;
 
-// Aggregators:
 var aggregation_stage = 0;
 var functional_aggregators = [];
 
@@ -24,61 +31,10 @@ var writer = null;
 
 var NU = 0; // NU - Num Updated. Alternative variables: NW (Num Where) - Not Practical. NW (Num Written) - Impossible to implement.
 var NR = 0;
+var NF = 0;
 
-var finished_with_error = false;
-
-var external_success_handler = null;
-var external_error_handler = null;
-
-var external_input_iterator = null;
-var external_writer = null;
-var external_join_map_impl = null;
-
-var polymorphic_process = null;
-var join_map = null;
-var node_debug_mode_flag = false;
 
 const wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside JavaScript expressions is not allowed, see the docs';
-
-function finish_processing_error(error_type, error_msg) {
-    if (finished_with_error)
-        return;
-    finished_with_error = true;
-    // Stopping input_iterator to trigger exit procedure.
-    external_input_iterator.finish();
-    external_error_handler(error_type, error_msg);
-}
-
-
-function finish_processing_success() {
-    if (finished_with_error)
-        return;
-    try {
-        writer.finish(() => {
-            var join_warnings = external_join_map_impl ? external_join_map_impl.get_warnings() : [];
-            var warnings = join_warnings.concat(external_writer.get_warnings()).concat(external_input_iterator.get_warnings());
-            external_success_handler(warnings);
-        });
-    } catch (e) {
-        if (e instanceof RbqlRuntimeError) {
-            finish_processing_error('query execution', e.message);
-        } else {
-            if (node_debug_mode_flag) {
-                console.log('Unexpected exception, dumping stack trace:');
-                console.log(e.stack);
-            }
-            finish_processing_error('unexpected', String(e));
-        }
-        return;
-    }
-}
-
-
-function assert(condition, message) {
-    if (!condition) {
-        finish_processing_error('unexpected', message);
-    }
-}
 
 
 function stable_compare(a, b) {
@@ -103,10 +59,10 @@ function safe_join_get(record, idx) {
 
 
 function safe_set(record, idx, value) {
-    if (idx - 1 < record.length) {
-        record[idx - 1] = value;
+    if (idx < record.length) {
+        record[idx] = value;
     } else {
-        throw new InternalBadFieldError(idx - 1);
+        throw new InternalBadFieldError(idx);
     }
 }
 
@@ -136,13 +92,11 @@ const Unnest = UNNEST;
 const UNFOLD = UNNEST; // "UNFOLD" is deprecated, just for backward compatibility
 
 
-
-
 function parse_number(val) {
     // We can do a more pedantic number test like `/^ *-{0,1}[0-9]+\.{0,1}[0-9]* *$/.test(val)`, but  user will probably use just Number(val) or parseInt/parseFloat
     let result = Number(val);
     if (isNaN(result)) {
-        throw new RbqlRuntimeError(`Unable to convert value "${val}" to number. MIN, MAX, SUM, AVG, MEDIAN and VARIANCE aggregate functions convert their string arguments to numeric values`);
+        throw new RbqlRuntimeError(`Unable to convert value "${val}" to a number. MIN, MAX, SUM, AVG, MEDIAN and VARIANCE aggregate functions convert their string arguments to numeric values`);
     }
     return result;
 }
@@ -303,7 +257,7 @@ function CountAggregator() {
 }
 
 
-function ArrayAggAggregator(post_proc) {
+function ArrayAggAggregator(post_proc=null) {
     this.post_proc = post_proc;
     this.stats = new Map();
 
@@ -318,6 +272,8 @@ function ArrayAggAggregator(post_proc) {
 
     this.get_final = function(key) {
         let cur_aggr = this.stats.get(key);
+        if (this.post_proc === null)
+            return cur_aggr;
         return this.post_proc(cur_aggr);
     }
 }
@@ -397,7 +353,7 @@ function MEDIAN(val) {
 const median = MEDIAN;
 const Median = MEDIAN;
 
-function ARRAY_AGG(val, post_proc = v => v.join('|')) {
+function ARRAY_AGG(val, post_proc=null) {
     return aggregation_stage < 2 ? init_aggregator(ArrayAggAggregator, val, post_proc) : val;
 }
 const array_agg = ARRAY_AGG;
@@ -423,8 +379,8 @@ function TopWriter(subwriter) {
         return true;
     }
 
-    this.finish = function(after_finish_callback) {
-        this.subwriter.finish(after_finish_callback);
+    this.finish = async function() {
+        await this.subwriter.finish();
     }
 }
 
@@ -441,8 +397,8 @@ function UniqWriter(subwriter) {
         return true;
     }
 
-    this.finish = function(after_finish_callback) {
-        this.subwriter.finish(after_finish_callback);
+    this.finish = async function() {
+        await this.subwriter.finish();
     }
 }
 
@@ -462,14 +418,14 @@ function UniqCountWriter(subwriter) {
         return true;
     }
 
-    this.finish = function(after_finish_callback) {
+    this.finish = async function() {
         for (var [key, value] of this.records) {
             let [count, record] = value;
             record.unshift(count);
             if (!this.subwriter.write(record))
                 break;
         }
-        this.subwriter.finish(after_finish_callback);
+        await this.subwriter.finish();
     }
 }
 
@@ -483,7 +439,7 @@ function SortedWriter(subwriter) {
         return true;
     }
 
-    this.finish = function(after_finish_callback) {
+    this.finish = async function() {
         var unsorted_entries = this.unsorted_entries;
         unsorted_entries.sort(stable_compare);
         if (__RBQLMP__reverse_flag)
@@ -493,7 +449,7 @@ function SortedWriter(subwriter) {
             if (!this.subwriter.write(entry[entry.length - 1]))
                 break;
         }
-        this.subwriter.finish(after_finish_callback);
+        await this.subwriter.finish();
     }
 }
 
@@ -503,7 +459,7 @@ function AggregateWriter(subwriter) {
     this.aggregators = [];
     this.aggregation_keys = new Set();
 
-    this.finish = function(after_finish_callback) {
+    this.finish = async function() {
         var all_keys = Array.from(this.aggregation_keys);
         all_keys.sort();
         for (var i = 0; i < all_keys.length; i++) {
@@ -515,15 +471,7 @@ function AggregateWriter(subwriter) {
             if (!this.subwriter.write(out_fields))
                 break;
         }
-        this.subwriter.finish(after_finish_callback);
-    }
-}
-
-
-
-function FakeJoiner(join_map) {
-    this.get_rhs = function(lhs_key) {
-        return [null];
+        await this.subwriter.finish();
     }
 }
 
@@ -539,7 +487,7 @@ function InnerJoiner(join_map) {
 
 function LeftJoiner(join_map) {
     this.join_map = join_map;
-    this.null_record = [Array(join_map.max_record_len).fill(null)];
+    this.null_record = [[null, join_map.max_record_len, Array(join_map.max_record_len).fill(null)]];
 
     this.get_rhs = function(lhs_key) {
         let result = this.join_map.get_join_records(lhs_key);
@@ -574,15 +522,28 @@ function select_except(src, except_fields) {
 }
 
 
-function process_update(NF, afields, rhs_records) {
-    if (rhs_records.length > 1)
-        throw new RbqlRuntimeError('More than one record in UPDATE query matched A-key in join table B');
-    var bfields = null;
-    if (rhs_records.length == 1)
-        bfields = rhs_records[0];
-    var up_fields = afields;
-    __RBQLMP__init_column_vars_select
-    if (rhs_records.length == 1 && (__RBQLMP__where_expression)) {
+function process_update_join(record_a, join_matches) {
+    if (join_matches.length > 1)
+        throw new RbqlRuntimeError('More than one record in UPDATE query matched a key from the input table in the join table');
+    let record_b = null;
+    let bNR = null;
+    let bNF = null;
+    if (join_matches.length == 1)
+        [bNR, bNF, record_b] = join_matches[0];
+    var up_fields = record_a;
+    __RBQLMP__init_column_vars_update
+    if (join_matches.length == 1 && (__RBQLMP__where_expression)) {
+        NU += 1;
+        __RBQLMP__update_statements
+    }
+    return writer.write(up_fields);
+}
+
+
+function process_update_simple(record_a, _join_matches) {
+    var up_fields = record_a;
+    __RBQLMP__init_column_vars_update
+    if (__RBQLMP__where_expression) {
         NU += 1;
         __RBQLMP__update_statements
     }
@@ -609,7 +570,7 @@ function select_aggregated(key, transparent_values) {
     }
     if (aggregation_stage === 1) {
         if (!(writer instanceof TopWriter)) {
-            throw new RbqlParsingError('Unable to use "ORDER BY" or "DISTINCT" keywords in aggregate query');
+            throw new RbqlParsingError('"ORDER BY", "UPDATE" and "DISTINCT" keywords are not allowed in aggregate queries');
         }
         writer = new AggregateWriter(writer);
         let num_aggregators_found = 0;
@@ -650,129 +611,93 @@ function select_unnested(sort_key, folded_fields) {
 }
 
 
-function process_select(NF, afields, rhs_records) {
-    for (var i = 0; i < rhs_records.length; i++) {
-        unnest_list = null;
-        var bfields = rhs_records[i];
-        var star_fields = afields;
-        if (bfields != null)
-            star_fields = afields.concat(bfields);
-        __RBQLMP__init_column_vars_update
-        if (!(__RBQLMP__where_expression))
-            continue;
-        // TODO wrap all user expression in try/catch block to improve error reporting
-        var out_fields = __RBQLMP__select_expression;
-        if (aggregation_stage > 0) {
-            var key = __RBQLMP__aggregation_key_expression;
-            select_aggregated(key, out_fields);
+function process_select_simple(record_a, join_match) {
+    unnest_list = null;
+    if (join_match === null) {
+        var star_fields = record_a;
+    } else {
+        var [bNR, bNF, record_b] = join_match;
+        var star_fields = record_a.concat(record_b);
+    }
+    __RBQLMP__init_column_vars_select
+    if (!(__RBQLMP__where_expression))
+        return true;
+    let out_fields = __RBQLMP__select_expression;
+    if (aggregation_stage > 0) {
+        let key = __RBQLMP__aggregation_key_expression;
+        select_aggregated(key, out_fields);
+    } else {
+        let sort_key = [__RBQLMP__sort_key_expression];
+        if (unnest_list !== null) {
+            if (!select_unnested(sort_key, out_fields))
+                return false;
         } else {
-            var sort_key = [__RBQLMP__sort_key_expression];
-            if (unnest_list !== null) {
-                if (!select_unnested(sort_key, out_fields))
-                    return false;
-            } else {
-                if (!select_simple(sort_key, out_fields))
-                    return false;
-            }
+            if (!select_simple(sort_key, out_fields))
+                return false;
         }
     }
     return true;
 }
 
 
-function process_record(record) {
-    NR += 1;
-    if (finished_with_error)
-        return;
-    try {
-        do_process_record(record);
-    } catch (e) {
-        if (e instanceof InternalBadFieldError) {
-            finish_processing_error('query execution', 'No "a' + (e.idx + 1) + '" column at record: ' + NR);
-        } else if (e instanceof RbqlRuntimeError) {
-            finish_processing_error('query execution', e.message);
-        } else if (e instanceof RbqlParsingError) {
-            finish_processing_error('query parsing', e.message);
-        } else {
-            if (node_debug_mode_flag) {
-                console.log('Unexpected exception, dumping stack trace:');
-                console.log(e.stack);
-            }
-            finish_processing_error('query execution', `At record: ${NR}, Details: ${String(e)}`);
-        }
+function process_select_join(record_a, join_matches) {
+    for (let join_match of join_matches) {
+        if (!process_select_simple(record_a, join_match))
+            return false;
     }
+    return true;
 }
 
 
-function do_process_record(afields) {
-    let rhs_records = join_map.get_rhs(__RBQLMP__lhs_join_var);
-    let NF = afields.length;
-    if (!polymorphic_process(NF, afields, rhs_records)) {
-        external_input_iterator.finish();
-        return;
+async function rb_transform(input_iterator, join_map_impl, output_writer) {
+    if (module_was_used_failsafe) {
+        throw new Error('Module can only be used once');
     }
-}
+    module_was_used_failsafe = true;
+    assert((join_map_impl === null) === (__RBQLMP__join_operation === null), 'JOIN inconsistency');
+    let join_map = null;
+    if (join_map_impl !== null) {
+        await join_map_impl.build();
+        let sql_join_type = {'JOIN': InnerJoiner, 'INNER JOIN': InnerJoiner, 'LEFT JOIN': LeftJoiner, 'STRICT LEFT JOIN': StrictLeftJoiner}[__RBQLMP__join_operation];
+        join_map = new sql_join_type(join_map_impl);
+    }
 
-
-function do_rb_transform(input_iterator, output_writer) {
-    polymorphic_process = __RBQLMP__is_select_query ? process_select : process_update;
-    var sql_join_type = {'VOID': FakeJoiner, 'JOIN': InnerJoiner, 'INNER JOIN': InnerJoiner, 'LEFT JOIN': LeftJoiner, 'STRICT LEFT JOIN': StrictLeftJoiner}['__RBQLMP__join_operation'];
-
-    join_map = new sql_join_type(external_join_map_impl);
-
+    let polymorphic_process = [[process_update_simple, process_update_join], [process_select_simple, process_select_join]][__RBQLMP__is_select_query][join_map ? 1 : 0];
     writer = new TopWriter(output_writer);
 
-    if ('__RBQLMP__writer_type' == 'uniq') {
+    if (__RBQLMP__writer_type == 'uniq') {
         writer = new UniqWriter(writer);
-    } else if ('__RBQLMP__writer_type' == 'uniq_count') {
+    } else if (__RBQLMP__writer_type == 'uniq_count') {
         writer = new UniqCountWriter(writer);
     }
 
     if (__RBQLMP__sort_flag)
         writer = new SortedWriter(writer);
 
-    input_iterator.set_record_callback(process_record);
-    input_iterator.start();
-}
+    while (true) {
+        let record_a = await input_iterator.get_record();
+        if (record_a === null)
+            break;
+        NR += 1;
+        NF = record_a.length;
 
-
-function rb_transform(input_iterator, join_map_impl, output_writer, external_success_cb, external_error_cb, node_debug_mode=false) {
-    node_debug_mode_flag = node_debug_mode;
-    external_success_handler = external_success_cb;
-    external_error_handler = external_error_cb;
-    external_input_iterator = input_iterator;
-    external_writer = output_writer;
-    external_join_map_impl = join_map_impl;
-
-    input_iterator.set_finish_callback(finish_processing_success);
-
-    if (module_was_used_failsafe) {
-        finish_processing_error('unexpected', 'Module can only be used once');
-        return;
-    }
-    module_was_used_failsafe = true;
-
-    try {
-        if (external_join_map_impl !== null) {
-            external_join_map_impl.build(function() { do_rb_transform(input_iterator, output_writer); }, finish_processing_error);
-        } else {
-            do_rb_transform(input_iterator, output_writer);
-        }
-
-    } catch (e) {
-        if (e instanceof RbqlRuntimeError) {
-            finish_processing_error('query execution', e.message);
-        } else if (e instanceof RbqlParsingError) {
-            finish_processing_error('query parsing', e.message);
-        } else {
-            if (node_debug_mode_flag) {
-                console.log('Unexpected exception, dumping stack trace:');
-                console.log(e.stack);
+        try {
+            let join_matches = join_map ? join_map.get_rhs(__RBQLMP__lhs_join_var) : null;
+            if (!polymorphic_process(record_a, join_matches)) {
+                input_iterator.stop();
+                break;
             }
-            finish_processing_error('unexpected', String(e));
+        } catch (e) {
+            if (e.constructor.name === 'InternalBadFieldError') {
+                throw new RbqlRuntimeError(`No "a${e.bad_idx + 1}" field at record ${NR}`);
+            } else if (e.constructor.name === 'RbqlParsingError') {
+                throw(e);
+            } else {
+                throw new RbqlRuntimeError(`At record ${NR}, Details: ${e.message}`);
+            }
         }
     }
+    await writer.finish();
 }
-
 
 module.exports.rb_transform = rb_transform;

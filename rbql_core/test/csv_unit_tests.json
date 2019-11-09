@@ -10,6 +10,26 @@
         "query_js": "select a1, a2, a4, a8 where a8 * 1.0 == 142 order by parseInt(a4) desc"
     },
     {
+        "test_name": "empty input",
+        "input_table_path": "csv_files/empty_table.txt",
+        "expected_output_table_path": "csv_files/empty_table.txt",
+        "csv_separator": "\t",
+        "csv_policy": "simple",
+        "csv_encoding": "latin-1",
+        "query_python": "select a1, a2, a4, a8 where int(a8) == 142 order by int(a4) desc",
+        "query_js": "select a1, a2, a4, a8 where a8 * 1.0 == 142 order by parseInt(a4) desc"
+    },
+    {
+        "test_name": "empty join",
+        "input_table_path": "csv_files/movies.tsv",
+        "expected_output_table_path": "csv_files/empty_table.txt",
+        "csv_separator": "\t",
+        "csv_policy": "simple",
+        "csv_encoding": "latin-1",
+        "query_python": "select a1,a2,a7,b2,b3,b4 inner join   ###UT_TESTS_DIR###/csv_files/empty_table.txt  on  a2  ==   b1  where 'Sci-Fi' in a7.split('|') and b2!='US' and int(a4) > 2010",
+        "query_js": "select a1,a2,a7,b2,b3,b4 inner join   ###UT_TESTS_DIR###/csv_files/empty_table.txt  on  a2  ==   b1  where a7.split('|').includes('Sci-Fi') && b2!='US' && a4 > 2010"
+    },
+    {
         "test_name": "test_2",
         "input_table_path": "csv_files/movies.tsv",
         "expected_output_table_path": "csv_files/canonic_result_2.tsv",
@@ -40,7 +60,7 @@
         "query_js": "select a1,a2,a7,b2,b3,b4 left join   ###UT_TESTS_DIR###/csv_files/countries.tsv  on  a2  ==   b1  where a7.split('|').includes('Sci-Fi') && b2!='US' && a4 > 2010"
     },
     {
-        "test_name": "test_5",
+        "test_name": "latin-1 with bom",
         "input_table_path": "csv_files/movies_1_bom.csv",
         "expected_output_table_path": "csv_files/canonic_result_5.csv",
         "expected_warnings": [
@@ -54,6 +74,21 @@
         "csv_encoding": "latin-1",
         "output_format": "tsv",
         "query_python": "select 'Movie: ' + a1, None, 2017 - int(a4), format(int(a8) / 60.0, '.2f'), 48 order by a5",
+        "query_js": "select 'Movie: ' + a1, null, 2017 - a4, (a8 / 60.0).toFixed(2), 48 order by a5"
+    },
+    {
+        "test_name": "utf-8 with bom js only",
+        "input_table_path": "csv_files/movies_1_bom.csv",
+        "expected_output_table_path": "csv_files/canonic_result_5.csv",
+        "expected_warnings": [
+            "inconsistent input records",
+            "defective double quote escaping",
+            "null values in output were replaced"
+        ],
+        "csv_separator": ",",
+        "csv_policy": "quoted",
+        "csv_encoding": "utf-8",
+        "output_format": "tsv",
         "query_js": "select 'Movie: ' + a1, null, 2017 - a4, (a8 / 60.0).toFixed(2), 48 order by a5"
     },
     {
@@ -103,7 +138,7 @@
     {
         "test_name": "test_10",
         "input_table_path": "csv_files/movies_small.tsv",
-        "expected_error": "No \"b4\" field at record: 2 in \"B\" table",
+        "expected_error": "No field with index 4 at record 2 in \"B\" table",
         "csv_separator": "\t",
         "csv_policy": "simple",
         "csv_encoding": "latin-1",
@@ -111,7 +146,7 @@
         "query_js": "select * inner join ###UT_TESTS_DIR###/csv_files/countries_variable_width.tsv on a2 == b4"
     },
     {
-        "test_name": "test_11",
+        "test_name": "empty output",
         "input_table_path": "csv_files/movies_small.tsv",
         "expected_output_table_path": "csv_files/empty_table.txt",
         "csv_separator": "\t",
@@ -223,22 +258,13 @@
         "query_js": "select a2, ARRAY_AGG(a1) where NR > 1 group by a2"
     },
     {
-        "test_name": "test_utf-8_error_python",
+        "test_name": "test_utf-8_error",
         "input_table_path": "csv_files/random_1.bin",
-        "expected_error": "Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead.",
+        "expected_error": "Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead",
         "csv_separator": "\t",
         "csv_policy": "simple",
         "csv_encoding": "utf-8",
-        "query_python": "select top 20 * where a2 == 'gamma'"
-    },
-    {
-        "comment": "Ideally this test should fail, but it succeeds because JS doesn't fail on corrupted encoding",
-        "test_name": "test_utf-8_data_loss_js",
-        "input_table_path": "csv_files/random_1.bin",
-        "expected_output_table_path": "csv_files/lossy_binary.txt",
-        "csv_separator": "\t",
-        "csv_policy": "simple",
-        "csv_encoding": "utf-8",
+        "query_python": "select top 20 * where a2 == 'gamma'",
         "query_js": "select top 20 * where a2 == 'gamma'"
     },
     {
@@ -260,5 +286,133 @@
         "csv_encoding": "latin-1",
         "query_python": "select a3, a2, a2 + ' adjusted', a1",
         "query_js": "select a3, a2, a2 + ' adjusted', a1"
+    },
+    {
+        "test_name": "named fields",
+        "input_table_path": "csv_files/university_ranking.csv",
+        "expected_output_table_path": "csv_files/university_ranking_result1.csv",
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "query_python": "select a.world_rank, a.university_name where a.country == 'France' and int(a.world_rank) < 50",
+        "query_js": "select a.world_rank, a.university_name where a.country == 'France' && parseInt(a.world_rank) < 50"
+    },
+    {
+        "test_name": "except named fields",
+        "input_table_path": "csv_files/university_ranking.csv",
+        "expected_output_table_path": "csv_files/university_ranking_result2.csv",
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "query_python": "select top 5 * except a.country, a.world_rank",
+        "query_js": "select top 5 * except a.country, a.world_rank"
+    },
+    {
+        "test_name": "update named fields",
+        "input_table_path": "csv_files/university_ranking.csv",
+        "expected_output_table_path": "csv_files/university_ranking_result3.csv",
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "query_python": "update a.country = a.country.upper(), a.num_students = a.num_students.replace(',', '') where NR > 1",
+        "query_js": "update a.country = a.country.toUpperCase(), a.num_students = a.num_students.replace(/,/g, '') where NR > 1"
+    },
+    {
+        "test_name": "join named fields",
+        "input_table_path": "csv_files/university_ranking.csv",
+        "expected_output_table_path": "csv_files/university_ranking_result4.csv",
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "query_python": "select top 20 a2, b.Country, b.Population join ###UT_TESTS_DIR###/csv_files/countries.csv on a.country == b.Country order by a.university_name",
+        "query_js": "select top 20 a2, b.Country, b.Population join ###UT_TESTS_DIR###/csv_files/countries.csv on a.country == b.Country order by a.university_name"
+    },
+    {
+        "test_name": "dict fields",
+        "input_table_path": "csv_files/countries.csv",
+        "expected_output_table_path": "csv_files/countries_result1.csv",
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "query_python": "select top 10 a1, a['Area square miles'], a[\"GDP per capita\"] where NR > 1 and int(a['Area square miles']) > 1000000 order by int(a['GDP per capita']) desc",
+        "query_js": "select top 10 a1, a['Area square miles'], a[\"GDP per capita\"] where NR > 1 && parseInt(a['Area square miles']) > 1000000 order by parseInt(a['GDP per capita']) desc"
+    },
+    {
+        "test_name": "aggregate dict fields",
+        "input_table_path": "csv_files/countries.csv",
+        "expected_output_table_path": "csv_files/countries_result2.csv",
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "query_python": "select a.Region, max(a['Area square miles']), MIN(a['Area square miles']), MAX(a[\"GDP per capita\"]), min(a[\"GDP per capita\"]) where NR > 1 GROUP BY a.Region",
+        "query_js": "select a.Region, max(a['Area square miles']), MIN(a['Area square miles']), MAX(a[\"GDP per capita\"]), min(a[\"GDP per capita\"]) where NR > 1 GROUP BY a.Region"
+    },
+    {
+        "test_name": "bad field name",
+        "input_table_path": "csv_files/countries.csv",
+        "expected_error": "Unable to find column \"foobar\" in input CSV header line",
+        "expected_error_exact": true,
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "randomly_replace_var_names": false,
+        "query_python": "select top 10 int(a.foobar) + 20, 'hello'",
+        "query_js": "select top 10 parseInt(a.foobar) + 20, 'hello'"
+    },
+    {
+        "test_name": "bad dict field name",
+        "input_table_path": "csv_files/countries.csv",
+        "expected_error": "No \"foobar\" field at record 1",
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "randomly_replace_var_names": false,
+        "query_python": "select a['foobar'], 100"
+    },
+    {
+        "test_name": "JS: demonstration of failure to handle unknown field",
+        "input_table_path": "csv_files/countries.csv",
+        "expected_output_table_path": "csv_files/countries_result4.csv",
+        "expected_warnings": [
+            "null values in output were replaced"
+        ],
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "randomly_replace_var_names": false,
+        "query_js": "select top 3 a['foobar'], 100"
+    },
+    {
+        "test_name": "named fields in interpolated strings",
+        "input_table_path": "csv_files/countries.csv",
+        "expected_output_table_path": "csv_files/countries_result3.csv",
+        "randomly_replace_var_names": false,
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "minimal_python_version": "3.7",
+        "query_python": "select top 10 a1, f\"area: {a['Area square miles'] + ', GDP: ' + a['GDP per capita']} - '{a.Country}' stats\" where NR > 1 and int(a['Area square miles']) > 1000000 order by int(a['GDP per capita']) desc",
+        "query_js": "select top 10 a1, `area: ${a['Area square miles'] + ', GDP: ' + a['GDP per capita']} - '${a.Country}' stats` where NR > 1 && parseInt(a['Area square miles']) > 1000000 order by parseInt(a['GDP per capita']) desc"
+    },
+    {
+        "test_name": "named fields in interpolated triple-quoted strings",
+        "input_table_path": "csv_files/countries.csv",
+        "expected_output_table_path": "csv_files/countries_result3.csv",
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "minimal_python_version": "3.7",
+        "query_python": "select top 10 a1, f\"\"\"area: {a['Area square miles'] + ', GDP: ' + a[\"GDP per capita\"]} - '{a.Country}' stats\"\"\" where NR > 1 and int(a['Area square miles']) > 1000000 order by int(a['GDP per capita']) desc",
+        "query_js": "select top 10 a1, `area: ${a[`Area square miles`] + ', GDP: ' + a['GDP per capita']} - '${a.Country}' stats` where NR > 1 && parseInt(a[`Area square miles`]) > 1000000 order by parseInt(a['GDP per capita']) desc"
+    },
+    {
+        "test_name": "update named fields - unknown field error",
+        "input_table_path": "csv_files/university_ranking.csv",
+        "expected_error": "Unable to parse \"UPDATE\" expression: Unknown field name: \"a['foo-bar']\"",
+        "csv_separator": ",",
+        "csv_policy": "quoted_rfc",
+        "csv_encoding": "utf-8",
+        "query_python": "update a.country = a.country.upper(), a.num_students = a.num_students.replace(',', ''), a['foo-bar'] = len(a.country) where NR > 1",
+        "query_js": "update a.country = a.country.toUpperCase(), a.num_students = a.num_students.replace(/,/g, ''), a['foo-bar'] = a.country.length where NR > 1"
     }
 ]

@@ -40,6 +40,12 @@ line_separators = ['\n', '\r\n', '\r']
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 
+vinf = rbql.VariableInfo
+
+
+python_version = float('{}.{}'.format(sys.version_info[0], sys.version_info[1]))
+
+
 def normalize_warnings(warnings):
     # TODO move into a common test lib module e.g. "tests_common.py"
     result = []
@@ -164,7 +170,7 @@ def write_and_parse_back(table, encoding, delim, policy):
     assert not len(writer.get_warnings())
     writer_stream.seek(0)
     record_iterator = rbql_csv.CSVRecordIterator(writer_stream, True, encoding, delim=delim, policy=policy)
-    parsed_table = record_iterator._get_all_records()
+    parsed_table = record_iterator.get_all_records()
     return parsed_table
 
 
@@ -269,6 +275,37 @@ def normalize_newlines_in_fields(table):
             row[c] = row[c].replace('\r', '\n')
 
 
+def randomly_replace_columns_dictionary_style(query):
+    adjusted_query = query
+    for prefix in ['a', 'b']:
+        var_regex = r'''(?:^|[^_a-zA-Z0-9])(?:{}\.([_a-zA-Z][_a-z0-9A-Z]*))'''.format(prefix)
+        matches = list(re.finditer(var_regex, query))
+        for m in matches:
+            if random.randint(0, 1):
+                continue
+            column_name = m.group(1)
+            quote_style = "'" if random.randint(0, 1) else '"'
+            adjusted_query = adjusted_query.replace('{}.{}'.format(prefix, column_name), '{}[{}{}{}]'.format(prefix, quote_style, column_name, quote_style))
+    return adjusted_query
+
+
+class TestHeaderParsing(unittest.TestCase):
+    def test_dictionary_variables_parsing(self):
+        query = 'select a["foo bar"], a["foo"], max(a["foo"], a["lambda-beta{\'gamma\'}"]), a1, a2, a.epsilon'
+        header_columns_names = ['foo', 'foo bar', 'max', "lambda-beta{'gamma'}", "lambda-beta{'gamma2'}", "eps\\ilon", "omega", "1", "2", "....", "["]
+        expected_variables_map = {'a["foo"]': vinf(True, 0), 'a["foo bar"]': vinf(True, 1), 'a["max"]': vinf(True, 2), "a[\"lambda-beta{'gamma'}\"]": vinf(True, 3), 'a["eps\\\\ilon"]': vinf(True, 5), 'a["1"]': vinf(True, 7), 'a["2"]': vinf(True, 8), 'a["["]': vinf(True, 10), "a['foo']": vinf(False, 0), "a['foo bar']": vinf(False, 1), "a['max']": vinf(False, 2), "a['lambda-beta{\\'gamma\\'}']": vinf(False, 3), "a['eps\\\\ilon']": vinf(False, 5), "a['1']": vinf(False, 7), "a['2']": vinf(False, 8), "a['[']": vinf(False, 10)}
+        actual_variables_map = {}
+        rbql_csv.parse_dictionary_variables(query, 'a', header_columns_names, actual_variables_map)
+        self.assertEqual(expected_variables_map, actual_variables_map)
+
+    def test_attribute_variables_parsing(self):
+        query = 'select a["foo bar"], a1, a2, a.epsilon, a._name + a.Surname, a["income"]'
+        header_columns_names = ['epsilon', 'foo bar', '_name', "Surname", "income", "...", "2", "200"]
+        expected_variables_map = {'a.epsilon': vinf(True, 0), 'a._name': vinf(True, 2), "a.Surname": vinf(True, 3)}
+        actual_variables_map = {}
+        rbql_csv.parse_attribute_variables(query, 'a', header_columns_names, actual_variables_map)
+        self.assertEqual(expected_variables_map, actual_variables_map)
+
 
 class TestSplitMethods(unittest.TestCase):
     def test_split(self):
@@ -372,7 +409,7 @@ class TestLineSplit(unittest.TestCase):
         for tc in test_cases:
             src, expected_res = tc
             stream, encoding = string_to_randomly_encoded_stream(src)
-            line_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim=None, policy=None, chunk_size=6)
+            line_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim=None, policy=None, chunk_size=6, line_mode=True)
             test_res = line_iterator._get_all_rows()
             self.assertEqual(expected_res, test_res)
 
@@ -386,7 +423,7 @@ class TestLineSplit(unittest.TestCase):
                 token = random.choice(source_tokens)
                 src += token
             stream, encoding = string_to_randomly_encoded_stream(src)
-            line_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim=None, policy=None, chunk_size=chunk_size)
+            line_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim=None, policy=None, chunk_size=chunk_size, line_mode=True)
             test_res = line_iterator._get_all_rows()
             expected_res = src.splitlines()
             self.assertEqual(expected_res, test_res)
@@ -404,7 +441,7 @@ class TestRecordIterator(unittest.TestCase):
             stream, encoding = string_to_randomly_encoded_stream(csv_data)
 
             record_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim=delim, policy=policy)
-            parsed_table = record_iterator._get_all_records()
+            parsed_table = record_iterator.get_all_records()
             self.assertEqual(table, parsed_table)
 
             parsed_table = write_and_parse_back(table, encoding, delim, policy)
@@ -423,7 +460,7 @@ class TestRecordIterator(unittest.TestCase):
             stream = io.BytesIO(csv_data.encode(encoding))
 
             record_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim=delim, policy=policy)
-            parsed_table = record_iterator._get_all_records()
+            parsed_table = record_iterator.get_all_records()
             self.assertEqual(table, parsed_table)
 
             parsed_table = write_and_parse_back(table, encoding, delim, policy)
@@ -441,7 +478,7 @@ class TestRecordIterator(unittest.TestCase):
             stream, encoding = string_to_randomly_encoded_stream(csv_data)
 
             record_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim=delim, policy=policy)
-            parsed_table = record_iterator._get_all_records()
+            parsed_table = record_iterator.get_all_records()
             self.assertEqual(table, parsed_table)
 
             parsed_table = write_and_parse_back(table, encoding, delim, policy)
@@ -464,7 +501,7 @@ class TestRecordIterator(unittest.TestCase):
         policy = 'quoted_rfc'
 
         record_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim=delim, policy=policy)
-        parsed_table = record_iterator._get_all_records()
+        parsed_table = record_iterator.get_all_records()
         self.assertEqual(table, parsed_table)
         parsed_table = write_and_parse_back(table, encoding, delim, policy)
         self.assertEqual(table, parsed_table)
@@ -481,7 +518,7 @@ class TestRecordIterator(unittest.TestCase):
         policy = 'simple'
         encoding = None
         record_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim, policy)
-        parsed_table = record_iterator._get_all_records()
+        parsed_table = record_iterator.get_all_records()
         self.assertEqual(expected_table, parsed_table)
 
         parsed_table = write_and_parse_back(expected_table, encoding, delim, policy)
@@ -502,7 +539,7 @@ class TestRecordIterator(unittest.TestCase):
         policy = 'whitespace'
         encoding = None
         record_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim, policy)
-        parsed_table = record_iterator._get_all_records()
+        parsed_table = record_iterator.get_all_records()
         self.assertEqual(expected_table, parsed_table)
 
         parsed_table = write_and_parse_back(expected_table, encoding, delim, policy)
@@ -523,7 +560,7 @@ class TestRecordIterator(unittest.TestCase):
             policy = 'monocolumn'
             encoding = None
             record_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim, policy)
-            parsed_table = record_iterator._get_all_records()
+            parsed_table = record_iterator.get_all_records()
             self.assertEqual(table, parsed_table)
 
             parsed_table = write_and_parse_back(table, encoding, delim, policy)
@@ -568,16 +605,16 @@ class TestRecordIterator(unittest.TestCase):
         csv_data = table_to_csv_string_random(table, delim, policy)
         stream = io.BytesIO(csv_data.encode('latin-1'))
         record_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim, policy)
-        parsed_table = record_iterator._get_all_records()
+        parsed_table = record_iterator.get_all_records()
         self.assertEqual(table, parsed_table)
 
         parsed_table = write_and_parse_back(table, encoding, delim, policy)
         self.assertEqual(table, parsed_table)
 
         stream = io.BytesIO(csv_data.encode('latin-1'))
-        record_iterator = rbql_csv.CSVRecordIterator(stream, True, 'utf-8', delim=delim, policy=policy)
         with self.assertRaises(Exception) as cm:
-            parsed_table = record_iterator._get_all_records()
+            record_iterator = rbql_csv.CSVRecordIterator(stream, True, 'utf-8', delim=delim, policy=policy)
+            parsed_table = record_iterator.get_all_records()
         e = cm.exception
         self.assertTrue(str(e).find('Unable to decode input table as UTF-8') != -1)
 
@@ -598,7 +635,7 @@ class TestRecordIterator(unittest.TestCase):
         csv_data = table_to_csv_string_random(table, delim, policy)
         stream = io.BytesIO(csv_data.encode('latin-1'))
         record_iterator = rbql_csv.CSVRecordIterator(stream, True, encoding, delim, policy)
-        parsed_table = record_iterator._get_all_records()
+        parsed_table = record_iterator.get_all_records()
         expected_warnings = ['UTF-8 Byte Order Mark (BOM) was found and skipped in input table']
         actual_warnings = record_iterator.get_warnings()
         self.assertEqual(expected_warnings, actual_warnings)
@@ -607,16 +644,143 @@ class TestRecordIterator(unittest.TestCase):
         self.assertEqual(expected_table, parsed_table)
 
 
+def make_column_variable(column_name):
+    if re.match('^[_a-zA-Z][_a-zA-Z0-9]*$', column_name):
+        return 'a.' + column_name
+    quote_char = random.choice(['"', "'"])
+    return 'a[' + quote_char + rbql_csv.python_string_escape_column_name(column_name, quote_char) + quote_char + ']'
+
+
+class TestRBQLSimple(unittest.TestCase):
+    def test_simple_case(self):
+        input_table = list()
+        input_table.append(['name', 'value'])
+        input_table.append(['abc', '1234'])
+        input_table.append(['abc', '1234'])
+        input_table.append(['efg', '100'])
+        input_table.append(['abc', '100'])
+        input_table.append(['cde', '12999'])
+        input_table.append(['aaa', '2000'])
+        input_table.append(['abc', '100'])
+
+        expected_table = list()
+        expected_table.append(['abc', '12340'])
+        expected_table.append(['abc', '12340'])
+        expected_table.append(['abc', '1000'])
+        expected_table.append(['abc', '1000'])
+
+        delim = ','
+        policy = 'quoted'
+        csv_data = table_to_csv_string_random(input_table, delim, policy)
+        input_stream, encoding = string_to_randomly_encoded_stream(csv_data)
+
+        input_iterator = rbql_csv.CSVRecordIterator(input_stream, True, encoding, delim=delim, policy=policy)
+
+        output_stream = io.BytesIO() if encoding is not None else io.StringIO()
+        output_writer = rbql_csv.CSVWriter(output_stream, False, encoding, delim, policy)
+
+        error_info, warnings = rbql.generic_run('select a.name, int(a.value) * 10 where NR > 1 and a.name == "abc"', input_iterator, output_writer)
+        self.assertEqual(error_info, None)
+        self.assertEqual(warnings, [])
+
+        output_stream.seek(0)
+        output_iterator = rbql_csv.CSVRecordIterator(output_stream, True, encoding, delim=delim, policy=policy)
+        output_table = output_iterator.get_all_records()
+        self.assertEqual(expected_table, output_table)
+
+
+    def _do_test_random_headers(self):
+        num_rows = natural_random(0, 10)
+        num_cols = natural_random(2, 10)
+        input_table = list()
+        expected_table = list()
+
+        header_row = list()
+        for col in range (num_cols):
+            while True:
+                if random.choice([True, False]):
+                    field_name_len = natural_random(1, 10)
+                    field_name_bytes = []
+                    for c in range(field_name_len):
+                        field_name_bytes.append(random.randint(32, 126))
+                    field_name = bytes(bytearray(field_name_bytes)).decode('ascii')
+                else:
+                    field_name = random.choice(['_foo', 'bar', 'Bar', '__foo', 'a', 'b', 'A', 'B'])
+                if field_name not in header_row:
+                    header_row.append(field_name)
+                    break
+        input_table.append(header_row[:])
+        expected_table.append(header_row[:])
+        all_col_nums = list(range(num_cols))
+        query_col_1 = random.choice(all_col_nums)
+        all_col_nums.remove(query_col_1)
+        query_col_2 = random.choice(all_col_nums)
+        for row_id in range(num_rows):
+            is_good_row = True
+            row = list()
+            for col_id in range(num_cols):
+                if col_id == query_col_1:
+                    field_value = random.choice(['foo bar good', 'foo bar bad'])
+                    if field_value != 'foo bar good':
+                        is_good_row = False
+                elif col_id == query_col_2:
+                    field_value = random.choice(['10', '0'])
+                    if field_value != '10':
+                        is_good_row = False
+                else:
+                    field_value = make_random_decoded_binary_csv_entry(0, 10, restricted_chars=['\r', '\n'])
+                row.append(field_value)
+            input_table.append(row[:])
+            if is_good_row:
+                expected_table.append(row[:])
+        query_col_name_1 = make_column_variable(header_row[query_col_1])
+        query_col_name_2 = make_column_variable(header_row[query_col_2])
+        query = 'select * where NR == 1 or ({}.endswith("good") and int({}) * 2 == 20)'.format(query_col_name_1, query_col_name_2)
+
+        delim = ','
+        policy = 'quoted'
+        csv_data = table_to_csv_string_random(input_table, delim, policy)
+        encoding = 'latin-1'
+        stream = io.BytesIO(csv_data.encode(encoding))
+        input_stream, encoding = string_to_randomly_encoded_stream(csv_data)
+
+        input_iterator = rbql_csv.CSVRecordIterator(input_stream, True, encoding, delim=delim, policy=policy)
+
+        output_stream = io.BytesIO() if encoding is not None else io.StringIO()
+        output_writer = rbql_csv.CSVWriter(output_stream, False, encoding, delim, policy)
+
+        error_info, warnings = rbql.generic_run(query, input_iterator, output_writer)
+        self.assertEqual(error_info, None)
+        self.assertEqual(warnings, [])
+
+        output_stream.seek(0)
+        output_iterator = rbql_csv.CSVRecordIterator(output_stream, True, encoding, delim=delim, policy=policy)
+        output_table = output_iterator.get_all_records()
+        self.assertEqual(expected_table, output_table)
+
+
+    def test_random_headers(self):
+        for i in range(10):
+            self._do_test_random_headers()
+
 
 class TestRBQLWithCSV(unittest.TestCase):
 
     def process_test_case(self, tmp_tests_dir, test_case):
         test_name = test_case['test_name']
+        minimal_python_version = float(test_case.get('minimal_python_version', 2.7))
+        if python_version < minimal_python_version:
+            print('Skipping {}: python version must be at least {}. Interpreter version is {}'.format(test_name, minimal_python_version, python_version))
+            return
         query = test_case.get('query_python', None)
         if query is None:
             return
+        debug_mode = test_case.get('debug_mode', False)
+        randomly_replace_var_names = test_case.get('randomly_replace_var_names', True)
         input_table_path = test_case['input_table_path']
         query = query.replace('###UT_TESTS_DIR###', script_dir)
+        if randomly_replace_var_names:
+            query = randomly_replace_columns_dictionary_style(query)
         input_table_path = os.path.join(script_dir, input_table_path)
         expected_output_table_path = test_case.get('expected_output_table_path', None)
         if expected_output_table_path is not None:
@@ -635,18 +799,20 @@ class TestRBQLWithCSV(unittest.TestCase):
         output_format = test_case.get('output_format', 'input')
 
         out_delim, out_policy = (delim, policy) if output_format == 'input' else rbql_csv.interpret_named_csv_format(output_format)
+        if debug_mode:
+            rbql_csv.set_debug_mode()
         error_info, warnings = rbql_csv.csv_run(query, input_table_path, delim, policy, actual_output_table_path, out_delim, out_policy, encoding)
 
-        self.assertTrue((expected_error is not None) == (error_info is not None), 'Inside json test: {}'.format(test_name))
+        self.assertTrue((expected_error is not None) == (error_info is not None), 'Inside json test: "{}". Expected error: {}, error_info: {}'.format(test_name, expected_error, error_info))
         if expected_error is not None:
-            self.assertTrue(error_info['message'].find(expected_error) != -1, 'Inside json test: {}'.format(test_name))
+            self.assertTrue(error_info['message'].find(expected_error) != -1, 'Inside json test: "{}", Expected error: "{}", Actual error: "{}"'.format(test_name, expected_error, error_info['message']))
         else:
             actual_md5 = calc_file_md5(actual_output_table_path)
             self.assertTrue(expected_md5 == actual_md5, 'md5 missmatch. Expected table: {}, Actual table: {}'.format(expected_output_table_path, actual_output_table_path))
 
         warnings = sorted(normalize_warnings(warnings))
         expected_warnings = sorted(expected_warnings)
-        self.assertEqual(expected_warnings, warnings, 'Inside json test: {}'.format(test_name))
+        self.assertEqual(expected_warnings, warnings, 'Inside json test: "{}"'.format(test_name))
 
 
 
@@ -666,6 +832,7 @@ class TestRBQLWithCSV(unittest.TestCase):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--create_random_csv_table', metavar='FILE', help='create random csv table')
+    parser.add_argument('--create_big_csv_table', metavar='FILE', help='create random csv table for speed test')
     args = parser.parse_args()
 
     if args.create_random_csv_table is not None:
@@ -678,6 +845,17 @@ def main():
                 canonic_warning = rec[2]
                 dst.write('{}\t{}\t{}\n'.format(escaped_entry, canonic_warning, ';'.join(canonic_fields)))
         return
+
+
+    if args.create_big_csv_table is not None:
+        dst_path = args.create_big_csv_table
+        num_rows = 300 * 1000
+        with open(dst_path, 'w') as dst:
+            for nr in xrange6(num_rows):
+                price = str(random.randint(10, 20))
+                item = random.choice(['parsley', 'sage', 'rosemary', 'thyme'])
+                csv_line = random_smart_join([price, item], ',', 'quoted')
+                dst.write(csv_line + '\n')
 
 
 

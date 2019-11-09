@@ -11,13 +11,12 @@ const build_engine = require('../rbql-js/build_engine.js');
 const test_common = require('./test_common.js');
 
 var rbql_csv = null;
+var rbql = null;
 
-
-// TODO add all record iterator tests, see python version
-// TODO Add tests: 1. utf decoding errors 2. bom
 
 // TODO add iterator test with random unicode table / separator just like in Python version
 
+// TODO implement random parse header unit tests similar to _do_test_random_headers in the Python test suite
 
 const script_dir = __dirname;
 
@@ -242,30 +241,28 @@ function PseudoWritable() {
 function string_to_randomly_encoded_stream(src_str) {
     let encoding = random_choice(['utf-8', 'binary']);
     let input_stream = new stream.Readable();
-    input_stream.setEncoding(encoding); // For older node versions we have to call setEncoding() before pushing anything into the stream. E.g. in node version 8 this is broken but fixed in node version 12
     input_stream.push(Buffer.from(src_str, encoding));
     input_stream.push(null);
     return [input_stream, encoding];
 }
 
 
-function write_and_parse_back(table, encoding, delim, policy) {
+async function write_and_parse_back(table, encoding, delim, policy) {
     if (encoding === null)
         encoding = 'utf-8'; // Writing js string in utf-8 then reading back should be a lossless operation? Or not?
     let writer_stream = new PseudoWritable();
     let line_separator = random_choice(line_separators);
-    let writer = new rbql_csv.CSVWriter(writer_stream, true, encoding, delim, policy, line_separator);
+    let writer = new rbql_csv.CSVWriter(writer_stream, false, encoding, delim, policy, line_separator);
     writer._write_all(table);
+    await writer.finish();
     assert(writer.get_warnings().length === 0);
     let data_buffer = writer_stream.get_data();
     let input_stream = new stream.Readable();
-    input_stream.setEncoding(encoding); // For older node versions we have to call setEncoding() before pushing anything into the stream. E.g. in node version 8 this is broken but fixed in node version 12
     input_stream.push(data_buffer);
     input_stream.push(null);
     let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
-    record_iterator._get_all_records(function(output_table) {
-        test_common.assert_tables_are_equal(table, output_table);
-    });
+    let output_table = await record_iterator.get_all_records();
+    test_common.assert_arrays_are_equal(table, output_table);
 }
 
 
@@ -360,7 +357,7 @@ function test_unquote() {
 }
 
 
-function test_whitespace_separated_parsing() {
+async function test_whitespace_separated_parsing() {
     let data_lines = [];
     data_lines.push('hello world');
     data_lines.push('   hello   world  ');
@@ -374,53 +371,48 @@ function test_whitespace_separated_parsing() {
     input_stream.push(null);
     let delim = ' ';
     let policy = 'whitespace';
-    let encoding = null;
+    let encoding = 'utf-8';
     let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
-    record_iterator._get_all_records(function(output_table) {
-        test_common.assert_tables_are_equal(expected_table, output_table);
-        write_and_parse_back(expected_table, encoding, delim, policy);
-    });
+    let output_table = await record_iterator.get_all_records();
+    test_common.assert_arrays_are_equal(expected_table, output_table);
+    await write_and_parse_back(expected_table, encoding, delim, policy);
 }
 
 
-function test_split_lines_custom() {
-    let test_cases = [];
-    test_cases.push(['', []]);
-    test_cases.push(['hello', ['hello']]);
-    test_cases.push(['hello\nworld', ['hello', 'world']]);
-    test_cases.push(['hello\rworld\n', ['hello', 'world']]);
-    test_cases.push(['hello\r\nworld\rhello world\nhello\n', ['hello', 'world', 'hello world', 'hello']]);
-    for (let tc of test_cases) {
-        let [src, expected_res] = tc;
-        let [stream, encoding] = string_to_randomly_encoded_stream(src);
-        let line_iterator = new rbql_csv.CSVRecordIterator(stream, encoding, null, null);
-        line_iterator._get_all_lines(function(test_res) {
-            test_common.assert_arrays_are_equal(expected_res, test_res);
-        });
+function randomly_replace_columns_dictionary_style(query) {
+    let adjusted_query = query;
+    for (let prefix of ['a', 'b']) {
+        let rgx = new RegExp(`(?:^|[^_a-zA-Z0-9])${prefix}\\.([_a-zA-Z][_a-zA-Z0-9]*)`, 'g');
+        let matches = rbql.get_all_matches(rgx, query);
+        for (let match of matches) {
+            if (random_int(0, 1))
+                continue;
+            let column_name = match[1];
+            let quote_style = ['"', "'", "`"][random_int(0, 2)];
+            adjusted_query = replace_all(adjusted_query, `${prefix}.${column_name}`, `${prefix}[${quote_style}${column_name}${quote_style}]`);
+        }
     }
+    return adjusted_query;
 }
 
 
-function process_test_case(tmp_tests_dir, tests, test_id) {
-    if (test_id >= tests.length) {
-        rmtree(tmp_tests_dir);
-        console.log('Finished JS unit tests');
-        return;
-    }
-    let test_case = tests[test_id];
+async function process_test_case(tmp_tests_dir, test_case) {
     let test_name = test_case['test_name'];
-
     let query = test_case['query_js'];
-    if (!query)  {
-        process_test_case(tmp_tests_dir, tests, test_id + 1);
+    if (!query)
         return;
-    }
     console.log('Running rbql test: ' + test_name);
-    query = query.replace('###UT_TESTS_DIR###', script_dir);
 
     let input_table_path = test_case['input_table_path'];
+    let local_debug_mode = test_common.get_default(test_case, 'debug_mode', false);
+    let randomly_replace_var_names = test_common.get_default(test_case, 'randomly_replace_var_names', true)
+    query = query.replace('###UT_TESTS_DIR###', script_dir);
+    if (randomly_replace_var_names)
+        query = randomly_replace_columns_dictionary_style(query);
+
     let expected_output_table_path = test_common.get_default(test_case, 'expected_output_table_path', null);
     let expected_error = test_common.get_default(test_case, 'expected_error', null);
+    let expected_error_exact = test_common.get_default(test_case, 'expected_error_exact', false);
     let expected_warnings = test_common.get_default(test_case, 'expected_warnings', []).sort();
     let delim = test_case['csv_separator'];
     let policy = test_case['csv_policy'];
@@ -438,31 +430,40 @@ function process_test_case(tmp_tests_dir, tests, test_id) {
         actual_output_table_path = path.join(tmp_tests_dir, 'expected_empty_file');
     }
 
-    let error_handler = function(error_type, error_msg) {
-        assert(expected_error);
-        assert(error_msg.indexOf(expected_error) != -1);
-        process_test_case(tmp_tests_dir, tests, test_id + 1);
-    };
-    let success_handler = function(warnings) {
-        assert(expected_error === null);
-        warnings = test_common.normalize_warnings(warnings).sort();
-        test_common.assert_arrays_are_equal(expected_warnings, warnings);
-        let actual_md5 = calc_file_md5(actual_output_table_path);
-        assert(expected_md5 == actual_md5, `md5 mismatch. Expected table: ${expected_output_table_path}, Actual table: ${actual_output_table_path}`);
-        process_test_case(tmp_tests_dir, tests, test_id + 1);
-    };
-
-    rbql_csv.csv_run(query, input_table_path, delim, policy, actual_output_table_path, output_delim, output_policy, encoding, success_handler, error_handler, '');
+    let warnings = null;
+    try {
+        warnings = await rbql_csv.csv_run(query, input_table_path, delim, policy, actual_output_table_path, output_delim, output_policy, encoding, '');
+    } catch (e) {
+        if (local_debug_mode)
+            throw(e);
+        if(!expected_error) {
+            throw(e);
+        }
+        if (expected_error_exact) {
+            test_common.assert_equal(expected_error, e.message);
+        } else {
+            assert(e.message.indexOf(expected_error) != -1, `Expected error is not substring of actual. Expected error: ${expected_error}, Actual error: ${e.message}`);
+        }
+        return;
+    }
+    warnings = test_common.normalize_warnings(warnings).sort();
+    test_common.assert_arrays_are_equal(expected_warnings, warnings);
+    let actual_md5 = calc_file_md5(actual_output_table_path);
+    assert(expected_md5 == actual_md5, `md5 mismatch. Expected table: ${expected_output_table_path}, Actual table: ${actual_output_table_path}`);
 }
 
 
-function test_json_scenarios() {
+async function test_json_scenarios() {
     let tests_file_path = 'csv_unit_tests.json';
     let tests = JSON.parse(fs.readFileSync(tests_file_path, 'utf-8'));
     let tmp_tests_dir = 'rbql_csv_unit_tests_dir_js_' + String(Math.random()).replace('.', '_');
     tmp_tests_dir = path.join(os.tmpdir(), tmp_tests_dir);
     fs.mkdirSync(tmp_tests_dir);
-    process_test_case(tmp_tests_dir, tests, 0);
+    for (let test_case of tests) {
+        await process_test_case(tmp_tests_dir, test_case);
+    }
+    rmtree(tmp_tests_dir);
+    console.log('Finished JS unit tests');
 }
 
 
@@ -488,43 +489,66 @@ function normalize_newlines_in_fields(table) {
 }
 
 
-function do_test_record_iterator(table, delim, policy) {
+async function do_test_record_iterator(table, delim, policy) {
     let csv_data = table_to_csv_string_random(table, delim, policy);
     if (policy == 'quoted_rfc')
         normalize_newlines_in_fields(table);
     let [stream, encoding] = string_to_randomly_encoded_stream(csv_data);
     let record_iterator = new rbql_csv.CSVRecordIterator(stream, encoding, delim, policy);
-    record_iterator._get_all_records(function(parsed_table) {
-        test_common.assert_tables_are_equal(table, parsed_table);
-        write_and_parse_back(table, encoding, delim, policy);
-    });
+    let parsed_table = await record_iterator.get_all_records();
+    test_common.assert_arrays_are_equal(table, parsed_table);
+    await write_and_parse_back(table, encoding, delim, policy);
 }
 
 
-function test_record_iterator() {
+async function test_record_iterator() {
     for (let itest = 0; itest < 100; itest++) {
         let table = generate_random_decoded_binary_table(10, 10, ['\r', '\n']);
         let delims = ['\t', ',', ';', '|'];
         let delim = random_choice(delims);
         let table_has_delim = find_in_table(table, delim);
         let policy = table_has_delim ? 'quoted' : random_choice(['quoted', 'simple']);
-        do_test_record_iterator(table, delim, policy);
+        await do_test_record_iterator(table, delim, policy);
     }
 }
 
 
-function test_iterator_rfc() {
+async function test_iterator_rfc() {
     for (let itest = 0; itest < 100; itest++) {
         let table = generate_random_decoded_binary_table(10, 10, null);
         let delims = ['\t', ',', ';', '|'];
         let delim = random_choice(delims);
         let policy = 'quoted_rfc';
-        do_test_record_iterator(table, delim, policy);
+        await do_test_record_iterator(table, delim, policy);
     }
 }
 
 
-function test_multicharacter_separator_parsing() {
+async function test_large_file() {
+    let data_lines = [];
+    let entries = ['alpha', 'beta', 'gamma', 'omega', 'delta'];
+    let num_records = 300000;
+    for (let r = 0; r < num_records; r++) {
+        let record = [];
+        for (let c = 0; c < 10; c++) {
+            record.push(entries[(r + c) % entries.length]);
+        }
+        data_lines.push(record.join(','));
+
+    }
+    fs.writeFileSync('huge_file.csv', data_lines.join('\n'));
+    let input_stream = fs.createReadStream('huge_file.csv');
+    let input_iterator = new rbql_csv.CSVRecordIterator(input_stream, 'utf-8', ',', 'quoted');
+    input_iterator.collect_debug_stats = true;
+    let records = await input_iterator.get_all_records();
+    console.log("input_iterator.num_chunks_got:" + input_iterator.dbg_stats_num_chunks_got);
+    console.log("input_iterator.max_records:" + input_iterator.dbg_stats_max_records);
+    test_common.assert_equal(num_records, records.length);
+    test_common.assert(records[num_records / 2].indexOf('gamma') != -1);
+}
+
+
+async function test_multicharacter_separator_parsing() {
     let data_lines = [];
     data_lines.push('aaa:=)bbb:=)ccc');
     data_lines.push('aaa :=) bbb :=)ccc ');
@@ -535,16 +559,15 @@ function test_multicharacter_separator_parsing() {
     input_stream.push(null);
     let delim = ':=)';
     let policy = 'simple';
-    let encoding = null;
+    let encoding = 'utf-8';
     let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
-    record_iterator._get_all_records(function(parsed_table) {
-        test_common.assert_tables_are_equal(expected_table, parsed_table);
-        write_and_parse_back(expected_table, encoding, delim, policy);
-    });
+    let parsed_table = await record_iterator.get_all_records();
+    test_common.assert_arrays_are_equal(expected_table, parsed_table);
+    await write_and_parse_back(expected_table, encoding, delim, policy);
 }
 
 
-function test_monocolumn_separated_parsing() {
+async function test_monocolumn_separated_parsing() {
     for (let itest = 0; itest < 30; itest++) {
         let table = [];
         let num_rows = random_int(1, 30);
@@ -557,31 +580,77 @@ function test_monocolumn_separated_parsing() {
         let encoding = 'binary';
         let csv_data = table_to_csv_string_random(table, delim, policy);
         let input_stream = new stream.Readable();
-        input_stream.setEncoding('binary'); // For older node versions we have to call setEncoding() before pushing anything into the stream. E.g. in node version 8 this is broken but fixed in node version 12
         input_stream.push(Buffer.from(csv_data, encoding));
         input_stream.push(null);
         let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
-        record_iterator._get_all_records(function(parsed_table) {
-            test_common.assert_tables_are_equal(table, parsed_table);
-            write_and_parse_back(table, encoding, delim, policy);
-            test_common.assert_tables_are_equal(table, parsed_table);
-        });
+        let parsed_table = await record_iterator.get_all_records();
+        test_common.assert_arrays_are_equal(table, parsed_table);
+        await write_and_parse_back(table, encoding, delim, policy);
+        test_common.assert_arrays_are_equal(table, parsed_table);
     }
 }
 
 
-function test_all() {
+function test_record_queue() {
+    let record_queue = new rbql_csv.RecordQueue();
+    record_queue.enqueue(10);
+    record_queue.enqueue(20);
+    test_common.assert_equal(10, record_queue.dequeue());
+    test_common.assert_equal(20, record_queue.dequeue());
+    test_common.assert_equal(null, record_queue.dequeue());
+    test_common.assert_equal(null, record_queue.dequeue());
+    record_queue.enqueue(10);
+    test_common.assert_equal(10, record_queue.dequeue());
+    record_queue.enqueue(20);
+    test_common.assert_equal(20, record_queue.dequeue());
+    record_queue.enqueue(5);
+    test_common.assert_equal(5, record_queue.dequeue());
+    test_common.assert_equal(null, record_queue.dequeue());
+    test_common.assert_equal(null, record_queue.dequeue());
+    test_common.assert_equal(null, record_queue.dequeue());
+}
+
+
+function vinf(do_init, zb_index) {
+    return {initialize: do_init, index: zb_index};
+}
+
+
+function test_dictionary_variables_parsing() {
+    let query = 'select a["foo bar"], a["foo"], max(a["foo"], a["lambda-beta{\'gamma\'}"]), a1, a2, a.epsilon';
+    let header_columns_names = ['foo', 'foo bar', 'max', "lambda-beta{'gamma'}", "lambda-beta{'gamma2'}", "eps\\ilon", "omega", "1", "2", "....", "["];
+    let expected_variables_map = {'a["foo"]': vinf(true, 0), 'a["foo bar"]': vinf(true, 1), 'a["max"]': vinf(true, 2), "a[\"lambda-beta{'gamma'}\"]": vinf(true, 3), 'a["eps\\\\ilon"]': vinf(true, 5), 'a["1"]': vinf(true, 7), 'a["2"]': vinf(true, 8), 'a["["]': vinf(true, 10), "a['foo']": vinf(false, 0), "a['foo bar']": vinf(false, 1), "a['max']": vinf(false, 2), "a['lambda-beta{\\'gamma\\'}']": vinf(false, 3), "a['eps\\\\ilon']": vinf(false, 5), "a['1']": vinf(false, 7), "a['2']": vinf(false, 8), "a['[']": vinf(false, 10), "a[`foo`]": vinf(false, 0), "a[`foo bar`]": vinf(false, 1), "a[`max`]": vinf(false, 2), "a[`lambda-beta{'gamma'}`]": vinf(false, 3), "a[`eps\\\\ilon`]": vinf(false, 5), "a[`1`]": vinf(false, 7), "a[`2`]": vinf(false, 8), "a[`[`]": vinf(false, 10)};
+    let actual_variables_map = {};
+    rbql_csv.parse_dictionary_variables(query, 'a', header_columns_names, actual_variables_map);
+    test_common.assert_objects_are_equal(expected_variables_map, actual_variables_map);
+}
+
+
+function test_attribute_variables_parsing() {
+    let query = 'select a["foo bar"], a1, a2, a.epsilon, a._name + a.Surname, a["income"]';
+    let header_columns_names = ['epsilon', 'foo bar', '_name', "Surname", "income", "...", "2", "200"];
+    let expected_variables_map = {'a.epsilon': vinf(true, 0), 'a._name': vinf(true, 2), "a.Surname": vinf(true, 3)};
+    let actual_variables_map = {};
+    rbql_csv.parse_attribute_variables(query, 'a', header_columns_names, actual_variables_map);
+    test_common.assert_objects_are_equal(expected_variables_map, actual_variables_map);
+}
+
+
+async function test_everything() {
+    test_record_queue();
     test_random_funcs();
     test_unquote();
     test_split();
     test_split_whitespaces();
-    test_whitespace_separated_parsing();
-    test_split_lines_custom();
-    test_json_scenarios();
-    test_record_iterator();
-    test_monocolumn_separated_parsing();
-    test_multicharacter_separator_parsing();
-    test_iterator_rfc();
+    test_dictionary_variables_parsing();
+    test_attribute_variables_parsing();
+    await test_whitespace_separated_parsing();
+    await test_record_iterator();
+    await test_monocolumn_separated_parsing();
+    await test_multicharacter_separator_parsing();
+    await test_iterator_rfc();
+    await test_json_scenarios();
+    await test_large_file();
 }
 
 
@@ -647,9 +716,11 @@ function main() {
     }
 
     rbql_csv = require('../rbql-js/rbql_csv.js');
-    rbql_csv.debug_mode = debug_mode;
+    rbql = require('../rbql-js/rbql.js');
+    if (debug_mode)
+        rbql_csv.set_debug_mode();
 
-    test_all();
+    test_everything().then(v => { console.log('Finished JS unit tests'); }).catch(error_info => { console.log('JS tests failed:' + JSON.stringify(error_info)); console.log(error_info.stack); });
 }
 
 
