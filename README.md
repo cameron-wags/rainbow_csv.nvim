@@ -195,13 +195,21 @@ Disable default key mappings introduced by the extension
 
 #### g:rbql_backend_language
 Default: _python_
+Supported values: 'python', 'js'  
 
-Scripting language to use in RBQL expression. Either 'js' or 'python'  
-To use JavaScript add _let g:rbql_backend_language = 'js'_ to .vimrc  
+Scripting language to use in RBQL expressions.
+
+
+#### g:rbql_encoding
+Default: _utf-8_
+Supported values: 'utf-8', 'latin-1'  
+
+CSV files encoding for RBQL. 
+
 
 #### g:rbql_output_format
 Default: _input_  
-Allowed values: _tsv_, _csv_, _input_
+Supported values: _tsv_, _csv_, _input_
 
 Format of RBQL result set tables.
 

@@ -37,8 +37,6 @@ let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : ["\t", ",",
 
 " TODO implement csv_lint for "rfc_csv" dialect
 
-" FIXME support customizable RBQL encoding
-
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
@@ -1228,6 +1226,12 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
         return 0
     endif
 
+    let rbql_encoding = exists('g:rbql_encoding') ? g:rbql_encoding : 'utf-8'
+    if rbql_encoding != 'utf-8' && rbql_encoding != 'latin-1'
+        echoerr "Unsupported rbql encoding. Must be 'utf-8' or 'latin-1'"
+        return 0
+    endif
+
     let table_filetype = getbufvar(a:table_buf_number, "&ft")
     let input_dialect = rainbow_csv#ft_to_dialect(table_filetype)
     if !len(input_dialect)
@@ -1257,16 +1261,16 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let input_delim_escaped = s:py_source_escape(input_delim)
     let [out_delim, out_policy] = s:get_output_format_params(input_delim, input_policy)
     let out_delim_escaped = s:py_source_escape(out_delim)
-    let py_call = 'vim_rbql.run_execute("' . table_path_esc . '", "' . rb_script_path_esc . '", "' . input_delim_escaped . '", "' . input_policy . '", "' . out_delim_escaped . '", "' . out_policy . '")'
+    let py_call = 'vim_rbql.run_execute("' . table_path_esc . '", "' . rb_script_path_esc . '", "' . rbql_encoding . '", "' . input_delim_escaped . '", "' . input_policy . '", "' . out_delim_escaped . '", "' . out_policy . '")'
     if meta_language == "js"
         let rbql_executable_path = s:script_folder_path . '/rbql_core/vim_rbql.js'
-        let cmd_args = ['node', shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), shellescape(input_delim), input_policy, shellescape(out_delim), out_policy]
+        let cmd_args = ['node', shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), rbql_encoding, shellescape(input_delim), input_policy, shellescape(out_delim), out_policy]
         let cmd = join(cmd_args, ' ')
         let report_content = system(cmd)
         let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)
     elseif s:system_python_interpreter != ""
         let rbql_executable_path = s:script_folder_path . '/rbql_core/vim_rbql.py'
-        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), shellescape(input_delim), input_policy, shellescape(out_delim), out_policy]
+        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), rbql_encoding, shellescape(input_delim), input_policy, shellescape(out_delim), out_policy]
         let cmd = join(cmd_args, ' ')
         let report_content = system(cmd)
         let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)

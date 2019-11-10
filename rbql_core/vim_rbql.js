@@ -46,13 +46,12 @@ function handle_worker_error(exception) {
 function main() {
     let cmd_args = process.argv;
     cmd_args = cmd_args.slice(2);
-    let [input_path, query_file, delim, policy, output_delim, output_policy]  = cmd_args;
-    let csv_encoding = 'utf-8';
+    let [input_path, query_file, encoding, delim, policy, output_delim, output_policy] = cmd_args;
     let init_source_file = null;
     let query = fs.readFileSync(query_file, 'utf-8');
     var tmp_dir = os.tmpdir();
     let output_path = path.join(tmp_dir, path.basename(input_path) + '.txt');
-    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding).then(warnings => handle_worker_success(warnings, output_path)).catch(e => handle_worker_error(e));
+    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, encoding).then(warnings => handle_worker_success(warnings, output_path)).catch(e => handle_worker_error(e));
 }
 
 
