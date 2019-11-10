@@ -425,9 +425,9 @@ Adding support of TOP/LIMIT keywords is trivial and to support "ORDER BY" we can
 
 
 
-# Generic info
+# General info
 
-## Comparison of Rainbow CSV technology with traditional graphical column alignment
+### Comparison of Rainbow CSV technology with traditional graphical column alignment
 
 #### Advantages
 
@@ -443,7 +443,7 @@ Adding support of TOP/LIMIT keywords is trivial and to support "ORDER BY" we can
 * Rainbow CSV technology may be less effective for CSV files with many (> 10) columns
 * Current Rainbow CSV implementations do not support newlines inside double-quoted csv fields. Adding multiline fields support is technically possible under certain conditions but would impair other Rainbow CSV features and advantages.
 
-## References
+### References
 
 
 #### Rainbow CSV in other editors:
