@@ -6,17 +6,17 @@
 Rainbow CSV: highlight columns in csv/tsv files and execute SELECT and UPDATE
 queries in SQL-like language
 
-1. Overview        |overview|
-2. Mappings        |mappings|
-3. Commands        |commands|
-4. Configuration   |configuration|
-5. Tips            |tips|
-6. RBQL            |RBQL|
+1. Overview        |rainbow_csv-overview|
+2. Mappings        |rainbow_csv-mappings|
+3. Commands        |rainbow_csv-commands|
+4. Configuration   |rainbow_csv-configuration|
+5. Tips            |rainbow_csv-tips|
+6. RBQL            |rainbow_csv-RBQL|
 
 
 
 ==============================================================================
-1. Overview                                                        *overview*
+1. Overview                                              *rainbow_csv-overview*
 
 Main features:  ~
 *  Highlight CSV columns in different rainbow colors. 
@@ -77,7 +77,7 @@ To work with such files you can set filetype to either "rfc_csv" or "rfc_semicol
 Syntax highlighting for rfc_csv and rfc_semicolon dialects can go out of sync with the file content under specific conditions, use `:syntax sync fromstart` command in that case  
 
 ==============================================================================
-2. Mappings                                                        *mappings*
+2. Mappings                                              *rainbow_csv-mappings*
 
 Key 		Action
 <F5>		Start query editing for the current csv file
@@ -86,7 +86,7 @@ Key 		Action
 
 
 ==============================================================================
-3. Commands                                                        *commands*
+3. Commands                                              *rainbow_csv-commands*
 
 *:RainbowDelim*
 
@@ -156,7 +156,7 @@ Intead of: >
 
 
 ==============================================================================
-4. Configuration                                              *configuration*
+4. Configuration                                    *rainbow_csv-configuration*
 
 *g:disable_rainbow_hover*
 Set to `1` to stop showing info about the column under the cursor in Vim command line  
@@ -242,7 +242,7 @@ You can increase or decrease this limit.
 
 
 ==============================================================================
-5. Tips                                                                *tips*
+5. Tips                                                      *rainbow_csv-tips*
 
 Rainbow highlighting for non-table files ~
 
@@ -254,7 +254,7 @@ And you can always turn off the rainbow highlighting using |:NoRainbowDelim| com
 
 
 ==============================================================================
-6. RBQL                                                                *RBQL*
+6. RBQL                                     *rainbow_csv-RBQL* *rainbow_csv-rbql*
 
 RBQL stands for "RainBow Query Language"
 See the language reference at https://github.com/mechatroner/rainbow_csv#rbql-rainbow-query-language-description
