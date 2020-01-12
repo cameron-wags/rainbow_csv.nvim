@@ -34,7 +34,6 @@ The core functionality of the plugin is written in pure vimscript, no additional
 ![demo_screencast](https://i.imgur.com/Tnk9KZv.gif)
 
 
-The demo table is _demo/movies.tsv_. There are also some other test datasets in _python/test\_datasets_.
 In this demo python expressions were used, but JavaScript is also available.
 
 
