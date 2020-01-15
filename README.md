@@ -445,7 +445,7 @@ Adding support of TOP/LIMIT keywords is trivial and to support "ORDER BY" we can
 ### References
 
 
-#### Rainbow CSV in other editors:
+#### Rainbow CSV and similar plugins in other editors:
 
 * Rainbow CSV extension in [Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv)
 * rainbow-csv package in [Atom](https://atom.io/packages/rainbow-csv)
@@ -453,6 +453,7 @@ Adding support of TOP/LIMIT keywords is trivial and to support "ORDER BY" we can
 * rainbow_csv plugin in [gedit](https://github.com/mechatroner/gtk_gedit_rainbow_csv) - doesn't support quoted commas in csv
 * rainbow_csv_4_nedit in [NEdit](https://github.com/DmitTrix/rainbow_csv_4_nedit)
 * CSV highlighting in [Nano](https://github.com/scopatz/nanorc)
+* Rainbow CSV in [IntelliJ IDEA](https://plugins.jetbrains.com/plugin/12896-rainbow-csv/)
 
 
 #### RBQL
