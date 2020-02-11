@@ -260,7 +260,7 @@ async function write_and_parse_back(table, encoding, delim, policy) {
     let input_stream = new stream.Readable();
     input_stream.push(data_buffer);
     input_stream.push(null);
-    let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
+    let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, null, encoding, delim, policy);
     let output_table = await record_iterator.get_all_records();
     test_common.assert_arrays_are_equal(table, output_table);
 }
@@ -372,7 +372,7 @@ async function test_whitespace_separated_parsing() {
     let delim = ' ';
     let policy = 'whitespace';
     let encoding = 'utf-8';
-    let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
+    let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, null, encoding, delim, policy);
     let output_table = await record_iterator.get_all_records();
     test_common.assert_arrays_are_equal(expected_table, output_table);
     await write_and_parse_back(expected_table, encoding, delim, policy);
@@ -405,6 +405,7 @@ async function process_test_case(tmp_tests_dir, test_case) {
 
     let input_table_path = test_case['input_table_path'];
     let local_debug_mode = test_common.get_default(test_case, 'debug_mode', false);
+    let bulk_read = test_common.get_default(test_case, 'bulk_read', false);
     let randomly_replace_var_names = test_common.get_default(test_case, 'randomly_replace_var_names', true)
     query = query.replace('###UT_TESTS_DIR###', script_dir);
     if (randomly_replace_var_names)
@@ -413,6 +414,7 @@ async function process_test_case(tmp_tests_dir, test_case) {
     let expected_output_table_path = test_common.get_default(test_case, 'expected_output_table_path', null);
     let expected_error = test_common.get_default(test_case, 'expected_error', null);
     let expected_error_exact = test_common.get_default(test_case, 'expected_error_exact', false);
+    let skip_headers = test_common.get_default(test_case, 'skip_headers', false);
     let expected_warnings = test_common.get_default(test_case, 'expected_warnings', []).sort();
     let delim = test_case['csv_separator'];
     let policy = test_case['csv_policy'];
@@ -430,9 +432,12 @@ async function process_test_case(tmp_tests_dir, test_case) {
         actual_output_table_path = path.join(tmp_tests_dir, 'expected_empty_file');
     }
 
-    let warnings = null;
+    bulk_read = bulk_read || random_choice([true, false]);
+    let options = {'bulk_read': bulk_read};
+
+    let warnings = [];
     try {
-        warnings = await rbql_csv.csv_run(query, input_table_path, delim, policy, actual_output_table_path, output_delim, output_policy, encoding, '');
+        await rbql_csv.query_csv(query, input_table_path, delim, policy, actual_output_table_path, output_delim, output_policy, encoding, warnings, skip_headers, '', options);
     } catch (e) {
         if (local_debug_mode)
             throw(e);
@@ -463,7 +468,6 @@ async function test_json_scenarios() {
         await process_test_case(tmp_tests_dir, test_case);
     }
     rmtree(tmp_tests_dir);
-    console.log('Finished JS unit tests');
 }
 
 
@@ -494,7 +498,7 @@ async function do_test_record_iterator(table, delim, policy) {
     if (policy == 'quoted_rfc')
         normalize_newlines_in_fields(table);
     let [stream, encoding] = string_to_randomly_encoded_stream(csv_data);
-    let record_iterator = new rbql_csv.CSVRecordIterator(stream, encoding, delim, policy);
+    let record_iterator = new rbql_csv.CSVRecordIterator(stream, null, encoding, delim, policy);
     let parsed_table = await record_iterator.get_all_records();
     test_common.assert_arrays_are_equal(table, parsed_table);
     await write_and_parse_back(table, encoding, delim, policy);
@@ -513,6 +517,22 @@ async function test_record_iterator() {
 }
 
 
+async function test_record_iterator_bulk_mode() {
+    let csv_path = path.join(script_dir, 'csv_files', 'movies.tsv');
+    let record_iterator = new rbql_csv.CSVRecordIterator(null, csv_path, 'utf-8', '\t', 'simple');
+    let parsed_table = await record_iterator.get_all_records();
+    let data = fs.readFileSync(csv_path, 'utf-8')
+    let lines = data.split('\n');
+    let table = [];
+    for (let line of lines) {
+        if (line.length)
+            table.push(line.split('\t'));
+    }
+    test_common.assert_equal(table.length, 4464);
+    test_common.assert_arrays_are_equal(table, parsed_table);
+}
+
+
 async function test_iterator_rfc() {
     for (let itest = 0; itest < 100; itest++) {
         let table = generate_random_decoded_binary_table(10, 10, null);
@@ -521,30 +541,6 @@ async function test_iterator_rfc() {
         let policy = 'quoted_rfc';
         await do_test_record_iterator(table, delim, policy);
     }
-}
-
-
-async function test_large_file() {
-    let data_lines = [];
-    let entries = ['alpha', 'beta', 'gamma', 'omega', 'delta'];
-    let num_records = 300000;
-    for (let r = 0; r < num_records; r++) {
-        let record = [];
-        for (let c = 0; c < 10; c++) {
-            record.push(entries[(r + c) % entries.length]);
-        }
-        data_lines.push(record.join(','));
-
-    }
-    fs.writeFileSync('huge_file.csv', data_lines.join('\n'));
-    let input_stream = fs.createReadStream('huge_file.csv');
-    let input_iterator = new rbql_csv.CSVRecordIterator(input_stream, 'utf-8', ',', 'quoted');
-    input_iterator.collect_debug_stats = true;
-    let records = await input_iterator.get_all_records();
-    console.log("input_iterator.num_chunks_got:" + input_iterator.dbg_stats_num_chunks_got);
-    console.log("input_iterator.max_records:" + input_iterator.dbg_stats_max_records);
-    test_common.assert_equal(num_records, records.length);
-    test_common.assert(records[num_records / 2].indexOf('gamma') != -1);
 }
 
 
@@ -560,7 +556,7 @@ async function test_multicharacter_separator_parsing() {
     let delim = ':=)';
     let policy = 'simple';
     let encoding = 'utf-8';
-    let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
+    let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, null, encoding, delim, policy);
     let parsed_table = await record_iterator.get_all_records();
     test_common.assert_arrays_are_equal(expected_table, parsed_table);
     await write_and_parse_back(expected_table, encoding, delim, policy);
@@ -582,7 +578,7 @@ async function test_monocolumn_separated_parsing() {
         let input_stream = new stream.Readable();
         input_stream.push(Buffer.from(csv_data, encoding));
         input_stream.push(null);
-        let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, encoding, delim, policy);
+        let record_iterator = new rbql_csv.CSVRecordIterator(input_stream, null, encoding, delim, policy);
         let parsed_table = await record_iterator.get_all_records();
         test_common.assert_arrays_are_equal(table, parsed_table);
         await write_and_parse_back(table, encoding, delim, policy);
@@ -621,7 +617,7 @@ function test_dictionary_variables_parsing() {
     let header_columns_names = ['foo', 'foo bar', 'max', "lambda-beta{'gamma'}", "lambda-beta{'gamma2'}", "eps\\ilon", "omega", "1", "2", "....", "["];
     let expected_variables_map = {'a["foo"]': vinf(true, 0), 'a["foo bar"]': vinf(true, 1), 'a["max"]': vinf(true, 2), "a[\"lambda-beta{'gamma'}\"]": vinf(true, 3), 'a["eps\\\\ilon"]': vinf(true, 5), 'a["1"]': vinf(true, 7), 'a["2"]': vinf(true, 8), 'a["["]': vinf(true, 10), "a['foo']": vinf(false, 0), "a['foo bar']": vinf(false, 1), "a['max']": vinf(false, 2), "a['lambda-beta{\\'gamma\\'}']": vinf(false, 3), "a['eps\\\\ilon']": vinf(false, 5), "a['1']": vinf(false, 7), "a['2']": vinf(false, 8), "a['[']": vinf(false, 10), "a[`foo`]": vinf(false, 0), "a[`foo bar`]": vinf(false, 1), "a[`max`]": vinf(false, 2), "a[`lambda-beta{'gamma'}`]": vinf(false, 3), "a[`eps\\\\ilon`]": vinf(false, 5), "a[`1`]": vinf(false, 7), "a[`2`]": vinf(false, 8), "a[`[`]": vinf(false, 10)};
     let actual_variables_map = {};
-    rbql_csv.parse_dictionary_variables(query, 'a', header_columns_names, actual_variables_map);
+    rbql.parse_dictionary_variables(query, 'a', header_columns_names, actual_variables_map);
     test_common.assert_objects_are_equal(expected_variables_map, actual_variables_map);
 }
 
@@ -631,7 +627,7 @@ function test_attribute_variables_parsing() {
     let header_columns_names = ['epsilon', 'foo bar', '_name', "Surname", "income", "...", "2", "200"];
     let expected_variables_map = {'a.epsilon': vinf(true, 0), 'a._name': vinf(true, 2), "a.Surname": vinf(true, 3)};
     let actual_variables_map = {};
-    rbql_csv.parse_attribute_variables(query, 'a', header_columns_names, actual_variables_map);
+    rbql.parse_attribute_variables(query, 'a', header_columns_names, 'CSV header line', actual_variables_map);
     test_common.assert_objects_are_equal(expected_variables_map, actual_variables_map);
 }
 
@@ -646,11 +642,11 @@ async function test_everything() {
     test_attribute_variables_parsing();
     await test_whitespace_separated_parsing();
     await test_record_iterator();
+    await test_record_iterator_bulk_mode();
     await test_monocolumn_separated_parsing();
     await test_multicharacter_separator_parsing();
     await test_iterator_rfc();
     await test_json_scenarios();
-    await test_large_file();
 }
 
 

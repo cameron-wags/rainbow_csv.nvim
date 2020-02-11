@@ -219,6 +219,9 @@ async function test_json_tables() {
         let input_table = test_case['input_table'];
         let local_debug_mode = test_common.get_default(test_case, 'debug_mode', false);
         let join_table = test_common.get_default(test_case, 'join_table', null);
+        let input_column_names = test_common.get_default(test_case, 'input_column_names', null)
+        let join_column_names = test_common.get_default(test_case, 'join_column_names', null)
+        let normalize_column_names = test_common.get_default(test_case, 'normalize_column_names', true)
         let user_init_code = test_common.get_default(test_case, 'js_init_code', '');
         let expected_output_table = test_common.get_default(test_case, 'expected_output_table', null);
         let expected_error = test_common.get_default(test_case, 'expected_error', null);
@@ -229,10 +232,10 @@ async function test_json_tables() {
         }
         let expected_warnings = test_common.get_default(test_case, 'expected_warnings', []);
         let output_table = [];
-        let warnings = null;
+        let warnings = [];
         let error_type = null;
         try {
-            warnings = await rbql.table_run(query, input_table, output_table, join_table, user_init_code);
+            await rbql.query_table(query, input_table, output_table, warnings, join_table, input_column_names, join_column_names, normalize_column_names, user_init_code);
         } catch (e) {
             if (local_debug_mode)
                 throw(e);
@@ -265,7 +268,8 @@ async function test_direct_table_queries() {
     let output_table = [];
     let expected_table = [['foo test', 1], ['bar test', 2]];
 
-    let warnings = await rbql.table_run('select a2 + " test", a1 limit 2', [[1, 'foo'], [2, 'bar'], [3, 'hello']], output_table);
+    let warnings = [];
+    await rbql.query_table('select a2 + " test", a1 limit 2', [[1, 'foo'], [2, 'bar'], [3, 'hello']], output_table, warnings);
     test_common.assert(warnings.length == 0);
     test_common.assert_arrays_are_equal(expected_table, output_table);
 }

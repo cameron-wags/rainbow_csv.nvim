@@ -9,13 +9,15 @@ import json
 import random
 
 import rbql
+from rbql import rbql_csv
+from rbql import rbql_engine
 
 #This module must be both python2 and python3 compatible
 
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-vinf = rbql.VariableInfo
+vinf = rbql_engine.VariableInfo
 
 python_version = float('{}.{}'.format(sys.version_info[0], sys.version_info[1]))
 
@@ -36,7 +38,7 @@ class TestRBQLQueryParsing(unittest.TestCase):
 
     def test_comment_strip(self):
         a = ''' # a comment  '''
-        a_strp = rbql.strip_comments(a)
+        a_strp = rbql_engine.strip_comments(a)
         self.assertEqual(a_strp, '')
 
 
@@ -50,57 +52,57 @@ class TestRBQLQueryParsing(unittest.TestCase):
         test_cases.append((r'Select "hello", "world", "hello \" world", "hello \\\" world", "hello \\\\\\\" world" order by "world"', ['"hello"', '"world"', r'"hello \" world"', r'"hello \\\" world"', r'"hello \\\\\\\" world"', '"world"']))
 
         for tc in test_cases:
-            format_expression, string_literals = rbql.separate_string_literals_py(tc[0])
+            format_expression, string_literals = rbql_engine.separate_string_literals_py(tc[0])
             expected_literals = tc[1]
             self.assertEqual(expected_literals, string_literals)
-            self.assertEqual(tc[0], rbql.combine_string_literals(format_expression, string_literals))
+            self.assertEqual(tc[0], rbql_engine.combine_string_literals(format_expression, string_literals))
 
 
     def test_separate_actions(self):
         query = 'select top   100 *, a2, a3 inner  join /path/to/the/file.tsv on a1 == b3 where a4 == "hello" and int(b3) == 100 order by int(a7) desc '
-        expected_res = {'JOIN': {'text': '/path/to/the/file.tsv on a1 == b3', 'join_subtype': rbql.INNER_JOIN}, 'SELECT': {'text': '*, a2, a3', 'top': 100}, 'WHERE': {'text': 'a4 == "hello" and int(b3) == 100'}, 'ORDER BY': {'text': 'int(a7)', 'reverse': True}}
-        test_res = rbql.separate_actions(query)
+        expected_res = {'JOIN': {'text': '/path/to/the/file.tsv on a1 == b3', 'join_subtype': rbql_engine.INNER_JOIN}, 'SELECT': {'text': '*, a2, a3', 'top': 100}, 'WHERE': {'text': 'a4 == "hello" and int(b3) == 100'}, 'ORDER BY': {'text': 'int(a7)', 'reverse': True}}
+        test_res = rbql_engine.separate_actions(query)
         assert test_res == expected_res
 
 
     def test_except_parsing(self):
         except_part = '  a1,a2,a3, a4,a5, a[6] ,   a7  ,a8'
-        self.assertEqual('select_except(record_a, [0,1,2,3,4,5,6,7])', rbql.translate_except_expression(except_part, {'a1': vinf(True, 0), 'a2': vinf(True, 1), 'a3': vinf(True, 2), 'a4': vinf(True, 3), 'a5': vinf(True, 4), 'a[6]': vinf(True, 5), 'a7': vinf(True, 6), 'a8': vinf(True, 7)}, []))
+        self.assertEqual('select_except(record_a, [0,1,2,3,4,5,6,7])', rbql_engine.translate_except_expression(except_part, {'a1': vinf(True, 0), 'a2': vinf(True, 1), 'a3': vinf(True, 2), 'a4': vinf(True, 3), 'a5': vinf(True, 4), 'a[6]': vinf(True, 5), 'a7': vinf(True, 6), 'a8': vinf(True, 7)}, []))
 
         except_part = 'a[1] ,  a2,a3, a4,a5, a6 ,   a[7]  , a8  '
-        self.assertEqual('select_except(record_a, [0,1,2,3,4,5,6,7])', rbql.translate_except_expression(except_part, {'a[1]': vinf(True, 0), 'a2': vinf(True, 1), 'a3': vinf(True, 2), 'a4': vinf(True, 3), 'a5': vinf(True, 4), 'a6': vinf(True, 5), 'a[7]': vinf(True, 6), 'a8': vinf(True, 7)}, []))
+        self.assertEqual('select_except(record_a, [0,1,2,3,4,5,6,7])', rbql_engine.translate_except_expression(except_part, {'a[1]': vinf(True, 0), 'a2': vinf(True, 1), 'a3': vinf(True, 2), 'a4': vinf(True, 3), 'a5': vinf(True, 4), 'a6': vinf(True, 5), 'a[7]': vinf(True, 6), 'a8': vinf(True, 7)}, []))
 
         except_part = 'a1'
-        self.assertEqual('select_except(record_a, [0])', rbql.translate_except_expression(except_part, {'a1': vinf(True, 0), 'a2': vinf(True, 1), 'a3': vinf(True, 2), 'a4': vinf(True, 3), 'a5': vinf(True, 4), 'a[6]': vinf(True, 5), 'a7': vinf(True, 6), 'a8': vinf(True, 7)}, []))
+        self.assertEqual('select_except(record_a, [0])', rbql_engine.translate_except_expression(except_part, {'a1': vinf(True, 0), 'a2': vinf(True, 1), 'a3': vinf(True, 2), 'a4': vinf(True, 3), 'a5': vinf(True, 4), 'a[6]': vinf(True, 5), 'a7': vinf(True, 6), 'a8': vinf(True, 7)}, []))
 
 
     def test_join_parsing(self):
         join_part = '/path/to/the/file.tsv on a1 == b3'
-        self.assertEqual(('/path/to/the/file.tsv', 'a1', 'b3'), rbql.parse_join_expression(join_part))
+        self.assertEqual(('/path/to/the/file.tsv', 'a1', 'b3'), rbql_engine.parse_join_expression(join_part))
 
         join_part = ' file.tsv on b[20]== a.name  '
-        self.assertEqual(('file.tsv', 'b[20]', 'a.name'), rbql.parse_join_expression(join_part))
+        self.assertEqual(('file.tsv', 'b[20]', 'a.name'), rbql_engine.parse_join_expression(join_part))
 
         join_part = ' Bon b1 == a.age '
         with self.assertRaises(Exception) as cm:
-            rbql.parse_join_expression(join_part)
+            rbql_engine.parse_join_expression(join_part)
         e = cm.exception
         self.assertTrue(str(e).find('Invalid join syntax') != -1)
 
-        self.assertEqual(('safe_join_get(record_a, 0)', 1), rbql.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'a1', 'b2', []))
+        self.assertEqual(('safe_join_get(record_a, 0)', 1), rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'a1', 'b2', []))
 
         with self.assertRaises(Exception) as cm:
-            rbql.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'a1', 'b.name', [])
+            rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'a1', 'b.name', [])
         e = cm.exception
         self.assertTrue(str(e).find('Unable to parse JOIN expression: Join table does not have field "b.name"') != -1)
 
         with self.assertRaises(Exception) as cm:
-            rbql.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'a1', 'b["foo bar"]', [])
+            rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'a1', 'b["foo bar"]', [])
         e = cm.exception
         self.assertTrue(str(e).find('Unable to parse JOIN expression: Join table does not have field "b["foo bar"]"') != -1)
 
         with self.assertRaises(Exception) as cm:
-            rbql.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'b1', 'b2', [])
+            rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'b1', 'b2', [])
         e = cm.exception
         self.assertTrue(str(e).find('Unable to parse JOIN expression: Input table does not have field "b1"') != -1)
 
@@ -108,84 +110,84 @@ class TestRBQLQueryParsing(unittest.TestCase):
 
     def test_update_translation(self):
         rbql_src = '  a[1] =  a2  + b3, a2=a4  if b3 == a2 else a8, a8=   ###RBQL_STRING_LITERAL0###, a30  =200/3 + 1  '
-        test_dst = rbql.translate_update_expression(rbql_src, {'a[1]': vinf(1, 0), 'a2': vinf(1, 1), 'a4': vinf(1, 3), 'a8': vinf(1, 7), 'a30': vinf(1, 29)}, ['"100 200"'], '    ')
+        test_dst = rbql_engine.translate_update_expression(rbql_src, {'a[1]': vinf(1, 0), 'a2': vinf(1, 1), 'a4': vinf(1, 3), 'a8': vinf(1, 7), 'a30': vinf(1, 29)}, ['"100 200"'])
         expected_dst = list()
         expected_dst.append('safe_set(up_fields, 0, a2  + b3)')
-        expected_dst.append('    safe_set(up_fields, 1, a4  if b3 == a2 else a8)')
-        expected_dst.append('    safe_set(up_fields, 7, "100 200")')
-        expected_dst.append('    safe_set(up_fields, 29, 200/3 + 1)')
+        expected_dst.append('safe_set(up_fields, 1, a4  if b3 == a2 else a8)')
+        expected_dst.append('safe_set(up_fields, 7, "100 200")')
+        expected_dst.append('safe_set(up_fields, 29, 200/3 + 1)')
         expected_dst = '\n'.join(expected_dst)
         self.assertEqual(expected_dst, test_dst)
 
 
         rbql_src = '  a.name =  a2  + b3, a2=a4  if b3 == a2 else a8, a8=   ###RBQL_STRING_LITERAL0###, a[###RBQL_STRING_LITERAL1###]  =200/3 + 1  '
-        test_dst = rbql.translate_update_expression(rbql_src, {'a.name': vinf(1, 0), 'a2': vinf(1, 1), 'a4': vinf(1, 3), 'a8': vinf(1, 7), 'a["foo bar"]': vinf(1, 29), 'a["not used = should not fail"]': vinf(0, 32)}, ['"100 200"', '"foo bar"'], '    ')
+        test_dst = rbql_engine.translate_update_expression(rbql_src, {'a.name': vinf(1, 0), 'a2': vinf(1, 1), 'a4': vinf(1, 3), 'a8': vinf(1, 7), 'a["foo bar"]': vinf(1, 29), 'a["not used = should not fail"]': vinf(0, 32)}, ['"100 200"', '"foo bar"'])
         expected_dst = list()
         expected_dst.append('safe_set(up_fields, 0, a2  + b3)')
-        expected_dst.append('    safe_set(up_fields, 1, a4  if b3 == a2 else a8)')
-        expected_dst.append('    safe_set(up_fields, 7, "100 200")')
-        expected_dst.append('    safe_set(up_fields, 29, 200/3 + 1)')
+        expected_dst.append('safe_set(up_fields, 1, a4  if b3 == a2 else a8)')
+        expected_dst.append('safe_set(up_fields, 7, "100 200")')
+        expected_dst.append('safe_set(up_fields, 29, 200/3 + 1)')
         self.assertEqual(expected_dst, test_dst.split('\n'))
 
 
         rbql_src = '  a.name =  a2  + b3, a[###RBQL_STRING_LITERAL1###]=a4  if b3 == a2 else a8, a8=   ###RBQL_STRING_LITERAL0###, a[###RBQL_STRING_LITERAL2###]  =200/3 + 1  '
-        test_dst = rbql.translate_update_expression(rbql_src, {'a.name': vinf(1, 0), 'a[\'a.foo = 100, a2 = a3, a["foobar"] = 10 \']': vinf(0, 1), 'a4': vinf(1, 3), 'a8': vinf(1, 7), 'a["foo bar"]': vinf(1, 29), 'a["not used = should not fail"]': vinf(0, 32)}, ['"100 200"', '\'a.foo = 100, a2 = a3, a["foobar"] = 10 \'', '"foo bar"'], '    ')
+        test_dst = rbql_engine.translate_update_expression(rbql_src, {'a.name': vinf(1, 0), 'a[\'a.foo = 100, a2 = a3, a["foobar"] = 10 \']': vinf(0, 1), 'a4': vinf(1, 3), 'a8': vinf(1, 7), 'a["foo bar"]': vinf(1, 29), 'a["not used = should not fail"]': vinf(0, 32)}, ['"100 200"', '\'a.foo = 100, a2 = a3, a["foobar"] = 10 \'', '"foo bar"'])
         expected_dst = list()
         expected_dst.append('safe_set(up_fields, 0, a2  + b3)')
-        expected_dst.append('    safe_set(up_fields, 1, a4  if b3 == a2 else a8)')
-        expected_dst.append('    safe_set(up_fields, 7, "100 200")')
-        expected_dst.append('    safe_set(up_fields, 29, 200/3 + 1)')
+        expected_dst.append('safe_set(up_fields, 1, a4  if b3 == a2 else a8)')
+        expected_dst.append('safe_set(up_fields, 7, "100 200")')
+        expected_dst.append('safe_set(up_fields, 29, 200/3 + 1)')
         expected_dst = '\n'.join(expected_dst)
         self.assertEqual(expected_dst, test_dst)
 
 
         rbql_src = '  "this will fail", a2=a4  if b3 == a2 else a8, a8=   ###RBQL_STRING_LITERAL0###, a[###RBQL_STRING_LITERAL1###]  =200/3 + 1  '
         with self.assertRaises(Exception) as cm:
-            test_dst = rbql.translate_update_expression(rbql_src, {'a.name': vinf(1, 0), 'a2': vinf(1, 1), 'a4': vinf(1, 3), 'a8': vinf(1, 7), 'a["foo bar"]': vinf(1, 29)}, ['"100 200"', '"foo bar"'], '    ')
+            test_dst = rbql_engine.translate_update_expression(rbql_src, {'a.name': vinf(1, 0), 'a2': vinf(1, 1), 'a4': vinf(1, 3), 'a8': vinf(1, 7), 'a["foo bar"]': vinf(1, 29)}, ['"100 200"', '"foo bar"'])
         e = cm.exception
         self.assertEqual(str(e), '''Unable to parse "UPDATE" expression: the expression must start with assignment, but ""this will fail", a2" does not look like an assignable field name''')
 
         rbql_src = 'a.mysterious_field=a4  if b3 == a2 else a8, a8=   ###RBQL_STRING_LITERAL0###, a[###RBQL_STRING_LITERAL1###]  =200/3 + 1  '
         with self.assertRaises(Exception) as cm:
-            test_dst = rbql.translate_update_expression(rbql_src, {'a.name': vinf(1, 0), 'a2': vinf(1, 1), 'a4': vinf(1, 3), 'a8': vinf(1, 7), 'a["foo bar"]': vinf(1, 29)}, ['"100 200"', '"foo bar"'], '    ')
+            test_dst = rbql_engine.translate_update_expression(rbql_src, {'a.name': vinf(1, 0), 'a2': vinf(1, 1), 'a4': vinf(1, 3), 'a8': vinf(1, 7), 'a["foo bar"]': vinf(1, 29)}, ['"100 200"', '"foo bar"'])
         e = cm.exception
         self.assertEqual(str(e), '''Unable to parse "UPDATE" expression: Unknown field name: "a.mysterious_field"''')
 
 
     def test_select_translation(self):
         rbql_src = ' *, a1,  a2,a1,*,*,b1, * ,   * '
-        test_dst = rbql.translate_select_expression_py(rbql_src)
+        test_dst = rbql_engine.translate_select_expression_py(rbql_src)
         expected_dst = '[] + star_fields + [ a1,  a2,a1] + star_fields + [] + star_fields + [b1] + star_fields + [] + star_fields + []'
         self.assertEqual(expected_dst, test_dst)
 
         rbql_src = ' *, a1,  a2,a1,*,*,*,b1, * ,   * '
-        test_dst = rbql.translate_select_expression_py(rbql_src)
+        test_dst = rbql_engine.translate_select_expression_py(rbql_src)
         expected_dst = '[] + star_fields + [ a1,  a2,a1] + star_fields + [] + star_fields + [] + star_fields + [b1] + star_fields + [] + star_fields + []'
         self.assertEqual(expected_dst, test_dst)
 
         rbql_src = ' * '
-        test_dst = rbql.translate_select_expression_py(rbql_src)
+        test_dst = rbql_engine.translate_select_expression_py(rbql_src)
         expected_dst = '[] + star_fields + []'
         self.assertEqual(expected_dst, test_dst)
 
         rbql_src = ' *,* '
-        test_dst = rbql.translate_select_expression_py(rbql_src)
+        test_dst = rbql_engine.translate_select_expression_py(rbql_src)
         expected_dst = '[] + star_fields + [] + star_fields + []'
         self.assertEqual(expected_dst, test_dst)
 
         rbql_src = ' *,*, * '
-        test_dst = rbql.translate_select_expression_py(rbql_src)
+        test_dst = rbql_engine.translate_select_expression_py(rbql_src)
         expected_dst = '[] + star_fields + [] + star_fields + [] + star_fields + []'
         self.assertEqual(expected_dst, test_dst)
 
         rbql_src = ' *,*, * , *'
-        test_dst = rbql.translate_select_expression_py(rbql_src)
+        test_dst = rbql_engine.translate_select_expression_py(rbql_src)
         expected_dst = '[] + star_fields + [] + star_fields + [] + star_fields + [] + star_fields + []'
         self.assertEqual(expected_dst, test_dst)
 
         rbql_src = '   '
         with self.assertRaises(Exception) as cm:
-            rbql.translate_select_expression_py(rbql_src)
+            rbql_engine.translate_select_expression_py(rbql_src)
         e = cm.exception
         self.assertEqual(str(e), '''"SELECT" expression is empty''')
 
@@ -220,8 +222,8 @@ class TestTableRun(unittest.TestCase):
         query = 'select a2 // 10, "name " + a1 order by a2'
         expected_output_table = [[-56, 'name Confucius'], [176, 'name Napoleon'], [185, 'name Roosevelt']]
         output_table = []
-        error_info, warnings = rbql.table_run(query, input_table, output_table)
-        self.assertEqual(error_info, None)
+        warnings = []
+        rbql.query_table(query, input_table, output_table, warnings)
         self.assertEqual(warnings, [])
         self.assertEqual(expected_output_table, output_table)
 
@@ -233,8 +235,8 @@ class TestTableRun(unittest.TestCase):
         expected_output_table = [[-56, 1386, 'name Confucius'], [176, 67, 'name Napoleon'], [185, 327, 'name Roosevelt']]
         output_table = []
         #rbql.set_debug_mode()
-        error_info, warnings = rbql.table_run(query, input_table, output_table, join_table)
-        self.assertEqual(error_info, None)
+        warnings = []
+        rbql.query_table(query, input_table, output_table, warnings, join_table)
         self.assertEqual(warnings, [])
         self.assertEqual(expected_output_table, output_table)
 
@@ -258,6 +260,9 @@ class TestJsonTables(unittest.TestCase):
             query = randomly_replace_column_variable_style(query)
         input_table = test_case['input_table']
         join_table = test_case.get('join_table', None)
+        input_column_names = test_case.get('input_column_names', None)
+        join_column_names = test_case.get('join_column_names', None)
+        normalize_column_names = test_case.get('normalize_column_names', True)
         user_init_code = test_case.get('python_init_code', '')
         expected_output_table = test_case.get('expected_output_table', None)
         expected_error_type = test_case.get('expected_error_type', None)
@@ -274,25 +279,32 @@ class TestJsonTables(unittest.TestCase):
         output_table = []
 
         if debug_mode:
-            rbql.set_debug_mode()
-        error_info, warnings = rbql.table_run(query, input_table, output_table, join_table, user_init_code=user_init_code)
+            rbql_engine.set_debug_mode()
+        warnings = []
+        error_type, error_msg = None, None
+        try:
+            rbql.query_table(query, input_table, output_table, warnings, join_table, input_column_names, join_column_names, normalize_column_names, user_init_code)
+        except Exception as e:
+            if debug_mode:
+                raise
+            error_type, error_msg = rbql.exception_to_error_info(e)
 
-        warnings = sorted(normalize_warnings(warnings))
-        expected_warnings = sorted(expected_warnings)
-        self.assertEqual(expected_warnings, warnings, 'Inside json test: {}. Expected warnings: {}; Actual warnings: {}'.format(test_name, ','.join(expected_warnings), ','.join(warnings)))
-        self.assertTrue((expected_error is not None) == (error_info is not None), 'Inside json test: {}. expected_error: {}, error_info: {}'.format(test_name, expected_error, error_info))
+        self.assertTrue((expected_error is not None) == (error_type is not None), 'Inside json test: "{}". Expected error: {}, error_type: {}, error_msg: {}'.format(test_name, expected_error, error_type, error_msg))
         if expected_error_type is not None:
-            self.assertTrue(error_info['type'] == expected_error_type, 'Inside json test: {}'.format(test_name))
+            self.assertTrue(error_type == expected_error_type, 'Inside json test: {}'.format(test_name))
         if expected_error is not None:
             if expected_error_exact:
-                #self.assertEqual(expected_error, error_info['message'], 'Inside json test: {}'.format(test_name))
-                self.assertEqual(expected_error, error_info['message'])
+                self.assertEqual(expected_error, error_msg, 'Inside json test: {}'.format(test_name))
             else:
-                self.assertTrue(error_info['message'].find(expected_error) != -1, 'Inside json test: {}'.format(test_name))
+                self.assertTrue(error_msg.find(expected_error) != -1, 'Inside json test: {}'.format(test_name))
         else:
             round_floats(expected_output_table)
             round_floats(output_table)
             self.assertEqual(expected_output_table, output_table, 'Inside json test: {}'.format(test_name))
+
+            warnings = sorted(normalize_warnings(warnings))
+            expected_warnings = sorted(expected_warnings)
+            self.assertEqual(expected_warnings, warnings, 'Inside json test: {}. Expected warnings: {}; Actual warnings: {}'.format(test_name, ','.join(expected_warnings), ','.join(warnings)))
 
 
     def test_json_tables(self):
