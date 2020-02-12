@@ -229,7 +229,7 @@ Rainbow csv allows you to create a special "header" file for any of your spreads
 
 # RBQL (Rainbow Query Language) Description
 
-RBQL is a technology which provides SQL-like language that supports _SELECT_ and _UPDATE_ queries with Python or JavaScript expressions.  
+RBQL is a technology for (not only) CSV files processing. It provides SQL-like language that supports SELECT queries with Python or JavaScript expressions.  
 RBQL is distributed with CLI apps, text editor plugins, Python and JS libraries and can work in web browsers.  
 RBQL core module is very generic and can process all kind of objects and record formats, but most popular RBQL implementation works with CSV files.  
 
@@ -241,7 +241,7 @@ RBQL core module is very generic and can process all kind of objects and record 
 * Result set of any query immediately becomes a first-class table on it's own
 * Supports input tables with inconsistent number of fields per record
 * Output records appear in the same order as in input unless _ORDER BY_ is provided
-* Each record has a unique NR (line number) identifier
+* Each record has a unique NR (record number) identifier
 * Supports all main SQL keywords
 * Supports aggregate functions and GROUP BY queries
 * Provides some new useful query modes which traditional SQL engines do not have
@@ -283,11 +283,11 @@ RBQL for CSV files provides the following variables which you can use in your qu
    Description: Record number (1-based)  
 * _NF_  
    Variable type: **integer**  
-   Description: Number of fields in the current line  
-* _a.name_, _b.Person_age_, ... _a.{good_alphanumeric_column_name}_  
+   Description: Number of fields in the current record  
+* _a.name_, _b.Person_age_, ... _a.{Good_alphanumeric_column_name}_  
    Variable type: **string**  
    Description: Value of the field referenced by it's "name". You can use this notation if the field in the first (header) CSV line has a "good" alphanumeric name  
-* _a["object id"]_, _a['9.12341234']_, _b["%$ !! 10 20"]_ ... _a["arbitrary column name!"]_  
+* _a["object id"]_, _a['9.12341234']_, _b["%$ !! 10 20"]_ ... _a["Arbitrary column name!"]_  
    Variable type: **string**  
    Description: Value of the field referenced by it's "name". You can use this notation to reference fields by arbitrary values in the first (header) CSV line, even when there is no header at all  
 
@@ -350,10 +350,11 @@ You can define custom functions and/or import libraries in two special files:
 * `select * order by random.random() where NR > 1` - skip header record and random sort
 * `select len(a.vehicle_price) / 10, a2 where NR > 1 and a['Vehicle type'] in ["car", "plane", "boat"] limit 20` - referencing columns by names from header record, skipping the header and using Python's "in" to emulate SQL's "in"
 * `update set a3 = 'NPC' where a3.find('Non-playable character') != -1`
-* `select NR, *` - enumerate lines, NR is 1-based
+* `select NR, *` - enumerate records, NR is 1-based
 * `select * where re.match(".*ab.*", a1) is not None` - select entries where first column has "ab" pattern
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - example of join query
 * `select MAX(a1), MIN(a1) where a.Name != 'John' group by a2, a3` - example of aggregate query
+* `select *a1.split(':')` - Using Python3 unpack operator to split one column into many. Do not try this with other SQL engines!
 
 #### With JavaScript expressions
 
@@ -361,9 +362,10 @@ You can define custom functions and/or import libraries in two special files:
 * `select * order by Math.random() where NR > 1` - skip header record and random sort
 * `select top 20 a.vehicle_price.length / 10, a2 where NR > 1 and ["car", "plane", "boat"].indexOf(a['Vehicle type']) > -1 limit 20` - referencing columns by names from header record and skipping the header
 * `update set a3 = 'NPC' where a3.indexOf('Non-playable character') != -1`
-* `select NR, *` - enumerate lines, NR is 1-based
+* `select NR, *` - enumerate records, NR is 1-based
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - example of join query
 * `select MAX(a1), MIN(a1) where a.Name != 'John' group by a2, a3` - example of aggregate query
+* `select ...a1.split(':')` - Using JS "destructuring assignment" syntax to split one column into many. Do not try this with other SQL engines!
 
 
 ### FAQ
@@ -378,7 +380,7 @@ And if you are doing math operation you can modify your query like this, example
 
 #### How does RBQL work?
 
-RBQL parses SQL-like user query, creates a new python or javascript worker module, then imports and executes it.  
+RBQL parses SQL-like user query, generates new Python or JavaScript code and executes it.  
 
 Explanation of simplified Python version of RBQL algorithm by example.
 1. User enters the following query, which is stored as a string _Q_:
@@ -414,7 +416,7 @@ Explanation of simplified Python version of RBQL algorithm by example.
             print ','.join([str(v) for v in out_fields])
 ```
 
-6. RBQL runs the patched script against user's data file: 
+6. RBQL runs the patched script against user's data file (real RBQL implementation calls "exec" in Python or "eval" in JS): 
 ```
     ./tmp_script.py < data.tsv > result.tsv
 ```
