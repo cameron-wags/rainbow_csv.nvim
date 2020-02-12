@@ -51,7 +51,8 @@ function main() {
     let query = fs.readFileSync(query_file, 'utf-8');
     var tmp_dir = os.tmpdir();
     let output_path = path.join(tmp_dir, path.basename(input_path) + '.txt');
-    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, encoding).then(warnings => handle_worker_success(warnings, output_path)).catch(e => handle_worker_error(e));
+    let warnings = [];
+    rbql_csv.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, encoding, warnings).then(() => handle_worker_success(warnings, output_path)).catch(e => handle_worker_error(e));
 }
 
 

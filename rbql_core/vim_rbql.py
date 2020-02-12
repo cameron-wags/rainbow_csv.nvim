@@ -55,15 +55,15 @@ def get_random_suffix():
 
 def execute_python(src_table_path, rb_script_path, encoding, input_delim, input_policy, out_delim, out_policy, dst_table_path):
     query = codecs.open(rb_script_path, encoding=encoding).read()
-    error_info, warnings = rbql_csv.csv_run(query, src_table_path, input_delim, input_policy, dst_table_path, out_delim, out_policy, encoding)
-
-    if error_info is None:
+    warnings = []
+    try:
+        rbql.query_csv(query, src_table_path, input_delim, input_policy, dst_table_path, out_delim, out_policy, encoding, warnings)
         warning_report = '\n'.join(warnings)
         vim_interface.set_vim_variable('psv_warning_report', warning_report)
         vim_interface.set_vim_variable('psv_query_status', 'OK')
-    else:
-        vim_interface.report_error_to_vim(error_info['type'], error_info['message'])
-
+    except Exception as e:
+        error_type, error_msg = rbql.exception_to_error_info(e)
+        vim_interface.report_error_to_vim(error_type, error_msg)
 
 
 def converged_execute(src_table_path, rb_script_path, encoding, input_delim, input_policy, out_delim, out_policy):
