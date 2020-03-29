@@ -31,7 +31,7 @@ The core functionality of the plugin is written in pure vimscript, no additional
 ### Demonstration of rainbow_csv highlighting and RBQL queries 
 
 
-![demo_screencast](https://i.imgur.com/Tnk9KZv.gif)
+![demo_screencast](https://i.imgur.com/4PIVvjc.gifv)
 
 
 In this demo python expressions were used, but JavaScript is also available.
