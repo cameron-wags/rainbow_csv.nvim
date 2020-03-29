@@ -37,7 +37,14 @@ function random_choice(values) {
 function test_comment_strip() {
     let a = ` // a comment  `;
     let a_strp = rbql.strip_comments(a);
-    test_common.assert(a_strp === '');
+    test_common.assert_equal(a_strp, '');
+}
+
+
+function test_like_to_regex_conversion() {
+    let a = '%hello_world.foo.*bar%';
+    let b = rbql.like_to_regex(a); // This won't work until template and builder are merged into a single module just like in Python version
+    test_common.assert_equal('^.*hello.world\\.foo\\.\\*bar.*$', b);
 }
 
 
@@ -83,12 +90,15 @@ function test_except_parsing() {
 
 function test_join_parsing() {
     let join_part = '/path/to/the/file.tsv on a1 == b3';
-    test_common.assert_arrays_are_equal(['/path/to/the/file.tsv', 'a1', 'b3'], rbql.parse_join_expression(join_part));
+    test_common.assert_arrays_are_equal(['/path/to/the/file.tsv', [['a1', 'b3']]], rbql.parse_join_expression(join_part));
 
     join_part = ' file.tsv on b[20]== a.name  ';
-    test_common.assert_arrays_are_equal(['file.tsv', 'b[20]', 'a.name'], rbql.parse_join_expression(join_part));
+    test_common.assert_arrays_are_equal(['file.tsv', [['b[20]', 'a.name']]], rbql.parse_join_expression(join_part));
 
-    join_part = ' Bon b1 == a.age ';
+    join_part = ' file.tsv on b[20]== a.name and   a1  ==b3 '
+    test_common.assert_arrays_are_equal(['file.tsv', [['b[20]', 'a.name'], ['a1', 'b3']]], rbql.parse_join_expression(join_part));
+
+    join_part = ' file.tsv on b[20]== a.name and   a1  ==b3 and ';
     let catched = false;
     try {
         rbql.parse_join_expression(join_part);
@@ -98,12 +108,32 @@ function test_join_parsing() {
     }
     test_common.assert(catched);
 
-    test_common.assert_arrays_are_equal(['safe_join_get(record_a, 0)', 1], rbql.resolve_join_variables({'a1': vinf(true, 0), 'a2': vinf(true, 1)}, {'b1': vinf(true, 0), 'b2': vinf(true, 1)}, 'a1', 'b2', []));
+    join_part = ' file.tsv on b[20]== a.name and   a1  ==b3 + "foo" ';
+    catched = false;
+    try {
+        rbql.parse_join_expression(join_part);
+    } catch (e) {
+        catched = true;
+        test_common.assert(e.toString().indexOf('Invalid join syntax') != -1);
+    }
+    test_common.assert(catched);
+
+    join_part = ' Bon b1 == a.age ';
+    catched = false;
+    try {
+        rbql.parse_join_expression(join_part);
+    } catch (e) {
+        catched = true;
+        test_common.assert(e.toString().indexOf('Invalid join syntax') != -1);
+    }
+    test_common.assert(catched);
+
+    test_common.assert_arrays_are_equal([['safe_join_get(record_a, 0)'], [1]], rbql.resolve_join_variables({'a1': vinf(true, 0), 'a2': vinf(true, 1)}, {'b1': vinf(true, 0), 'b2': vinf(true, 1)}, [['a1', 'b2']], []));
 
     catched = false;
     try {
         rbql.parse_join_expression(join_part);
-        rbql.resolve_join_variables({'a1': vinf(true, 0), 'a2': vinf(true, 1)}, {'b1': vinf(true, 0), 'b2': vinf(true, 1)}, 'a1', 'a2', []);
+        rbql.resolve_join_variables({'a1': vinf(true, 0), 'a2': vinf(true, 1)}, {'b1': vinf(true, 0), 'b2': vinf(true, 1)}, [['a1', 'a2']], []);
     } catch (e) {
         catched = true;
         test_common.assert(e.toString().indexOf('Invalid join syntax') != -1);
@@ -113,7 +143,7 @@ function test_join_parsing() {
     catched = false;
     try {
         rbql.parse_join_expression(join_part);
-        rbql.resolve_join_variables({'a1': vinf(true, 0), 'a2': vinf(true, 1)}, {'b1': vinf(true, 0), 'b2': vinf(true, 1)}, 'a1', 'b10', []);
+        rbql.resolve_join_variables({'a1': vinf(true, 0), 'a2': vinf(true, 1)}, {'b1': vinf(true, 0), 'b2': vinf(true, 1)}, [['a1', 'b10']], []);
     } catch (e) {
         catched = true;
         test_common.assert(e.toString().indexOf('Invalid join syntax') != -1);
@@ -123,7 +153,7 @@ function test_join_parsing() {
     catched = false;
     try {
         rbql.parse_join_expression(join_part);
-        rbql.resolve_join_variables({'a1': vinf(true, 0), 'a2': vinf(true, 1)}, {'b1': vinf(true, 0), 'b2': vinf(true, 1)}, 'b1', 'b2', []);
+        rbql.resolve_join_variables({'a1': vinf(true, 0), 'a2': vinf(true, 1)}, {'b1': vinf(true, 0), 'b2': vinf(true, 1)}, [['b1', 'b2']], []);
     } catch (e) {
         catched = true;
         test_common.assert(e.toString().indexOf('Invalid join syntax') != -1);
@@ -161,6 +191,12 @@ function test_select_translation() {
     test_dst = rbql.translate_select_expression_js(rbql_src);
     canonic_dst = '[].concat([]).concat(star_fields).concat([ a1,  a2,a1]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([b1]).concat(star_fields).concat([]).concat(star_fields).concat([])';
     test_common.assert(canonic_dst === test_dst, 'translation 2');
+
+
+    rbql_src = ' *, a1,  a2,a1,*,a.* ,b.* , a.*  , *,*,b1, * ,   * ';
+    test_dst = rbql.translate_select_expression_js(rbql_src);
+    canonic_dst = '[].concat([]).concat(star_fields).concat([ a1,  a2,a1]).concat(star_fields).concat([]).concat(record_a).concat([]).concat(record_b).concat([]).concat(record_a).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([b1]).concat(star_fields).concat([]).concat(star_fields).concat([])';
+    test_common.assert_equal(canonic_dst, test_dst);
 
     rbql_src = ' * ';
     test_dst = rbql.translate_select_expression_js(rbql_src);
@@ -278,6 +314,7 @@ async function test_direct_table_queries() {
 async function test_everything() {
     test_test_common();
     test_comment_strip();
+    //test_like_to_regex_conversion(); // TODO enable this test after builder.js and template.js are merged into a single module just like in Python version
     test_string_literals_separation();
     test_separate_actions();
     test_except_parsing();

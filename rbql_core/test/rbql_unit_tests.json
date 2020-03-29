@@ -1,5 +1,20 @@
 [
     {
+        "test_name": "valid FROM",
+        "input_table": [
+            ["5", "alpha", "beta"],
+            ["-20", "alpha", "gamma"],
+            ["50", "alpha", "delta"],
+            ["20", "alpha", ""]
+        ],
+        "expected_output_table": [
+            [3, "50", 5],
+            [4, "20", 0]
+        ],
+        "query_python": "select NR, a1, len(a3) FROM a where int(a1) > 5",
+        "query_js": "select NR, a1, a3.length FROM a where a1 > 5"
+    },
+    {
         "test_name": "test1",
         "input_table": [
             ["5", "alpha", "beta"],
@@ -13,6 +28,18 @@
         ],
         "query_python": "select NR, a1, len(a3) where int(a1) > 5",
         "query_js": "select NR, a1, a3.length where a1 > 5"
+    },
+    {
+        "test_name": "Invalid FROM",
+        "input_table": [
+            ["5", "alpha", "beta"],
+            ["-20", "alpha", "gamma"],
+            ["50", "alpha", "delta"],
+            ["20", "alpha", ""]
+        ],
+        "expected_error": "RBQL doesn't use \"FROM\" keyword, e.g. you can query 'SELECT *' without FROM",
+        "query_python": "select * from some_table.txt",
+        "query_js": "select * from some_table.txt"
     },
     {
         "test_name": "unknown function",
@@ -184,6 +211,35 @@
         "query_js": "select NR, * inner join B on a2 == b1 where   b2 !=  \"alpha\" &&  a1 > -100 &&  b2.length >  1 order by a2, parseInt(a1)"
     },
     {
+        "test_name": "simple join - a-star, b-star",
+        "input_table": [
+            ["5", "car", "lada"],
+            ["-20", "car", "Ferrari"],
+            ["50", "plane", "tu-134"],
+            ["20", "boat", "destroyer"],
+            ["10", "boat", "yacht "],
+            ["200", "plane", "boeing 737"],
+            ["80", "train", "Thomas"]
+        ],
+        "join_table": [
+            ["bicycle", "legs"],
+            ["car", "gas "],
+            ["plane", "wings  "],
+            ["boat", "wind"],
+            ["rocket", "some stuff"]
+        ],
+        "expected_output_table": [
+            [5, "10", "boat", "yacht ", "====", "boat", "wind"],
+            [4, "20", "boat", "destroyer", "====", "boat", "wind"],
+            [2, "-20", "car", "Ferrari", "====", "car", "gas "],
+            [1, "5", "car", "lada", "====", "car", "gas "],
+            [3, "50", "plane", "tu-134", "====", "plane", "wings  "],
+            [6, "200", "plane", "boeing 737", "====", "plane", "wings  "]
+        ],
+        "query_python": "select NR, a.*, '====', b.* inner join B on a2 == b1 where b2 != \"alpha\" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)",
+        "query_js": "select NR, a.*, '====', b.* inner join B on a2 == b1 where   b2 !=  \"alpha\" &&  a1 > -100 &&  b2.length >  1 order by a2, parseInt(a1)"
+    },
+    {
         "test_name": "join with emptiness error",
         "input_table": [
             ["5", "car", "lada"],
@@ -218,7 +274,7 @@
             ["rocket", "some stuff"]
         ],
         "expected_error_exact": true,
-        "expected_error": "Invalid join syntax. Must be: \"<JOIN> /path/to/B/table on a... == b...\"",
+        "expected_error": "Invalid join syntax. Valid syntax: <JOIN> /path/to/B/table on a... == b... [and a... == b... [and ... ]]",
         "query_python": "select NR, * inner join B on: a2 == b1 where b2 != \"alpha\" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)",
         "query_js": "select NR, * inner join B on: a2 == b1 where   b2 !=  \"alpha\" &&  a1 > -100 &&  b2.length >  1 order by a2, parseInt(a1)"
     },
@@ -256,7 +312,7 @@
         ],
         "randomly_replace_var_names": false,
         "expected_error_exact": true,
-        "expected_error": "Unable to parse JOIN expression: Input table does not have field \"b2\"",
+        "expected_error": "Unable to parse JOIN expression: Input table does not have field \"b2\"\nValid JOIN syntax: <JOIN> /path/to/B/table on a... == b... [and a... == b... [and ... ]]",
         "query_python": "select NR, * inner join B on b2 == b1 where b2 != \"alpha\" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)",
         "query_js": "select NR, * inner join B on b2 == b1 where   b2 !=  \"alpha\" &&  a1 > -100 &&  b2.length >  1 order by a2, parseInt(a1)"
     },
@@ -280,7 +336,7 @@
         ],
         "randomly_replace_var_names": false,
         "expected_error_exact": true,
-        "expected_error": "Unable to parse JOIN expression: Join table does not have field \"b.vehicle\"",
+        "expected_error": "Unable to parse JOIN expression: Join table does not have field \"b.vehicle\"\nValid JOIN syntax: <JOIN> /path/to/B/table on a... == b... [and a... == b... [and ... ]]",
         "query_python": "select NR, * inner join B on a2 == b.vehicle where b2 != \"alpha\" and int(a1) > -100 and len(b2) > 1 order by a2, int(a1)",
         "query_js": "select NR, * inner join B on a2 == b.vehicle where   b2 !=  \"alpha\" &&  a1 > -100 &&  b2.length >  1 order by a2, parseInt(a1)"
     },
@@ -351,7 +407,7 @@
         "query_js": "select b1,b2,   a1 strict left join B on a2 == b1 where b2 != \"wings\""
     },
     {
-        "test_name": "test9",
+        "test_name": "strict left join with single equal char comparison",
         "input_table": [
             ["5", "car", "lada"],
             ["-20", "car", "ferrari"],
@@ -370,8 +426,8 @@
             [5, "plane"],
             [5, "plane"]
         ],
-        "query_python": "select len(b1), a2 strict left join B on a2 == b1",
-        "query_js": "select b1.length,  a2 strict left join B on a2 == b1"
+        "query_python": "select len(b1), a2 strict left join B on a2 = b1",
+        "query_js": "select b1.length,  a2 strict left join B on a2 = b1"
     },
     {
         "test_name": "test_OR",
@@ -1281,7 +1337,7 @@
             ["20", "alpha", ""]
         ],
         "expected_output_table": [
-            ["0.15.0"]
+            ["0.16.0"]
         ],
         "query_python": "select top 1 RBQL_VERSION",
         "query_js": "select top 1 RBQL_VERSION"
@@ -1440,5 +1496,118 @@
         "minimal_python_version": "3.5",
         "query_python": "select *a2.split('|')",
         "query_js": "select ...a2.split('|')"
+    },
+    {
+        "test_name": "user-friendly syntax error report",
+        "input_table": [
+            ["5", "alpha", "beta"],
+            ["-20", "alpha", "gamma"],
+            ["50", "alpha", "delta"],
+            ["20", "alpha", ""]
+        ],
+        "randomly_replace_var_names": false,
+        "expected_error_exact": true,
+        "expected_error_py": "\n    out_fields = [a1{, a2]\n                    ^\nSyntaxError: invalid syntax",
+        "query_python": "select a1{, a2"
+    },
+    {
+        "test_name": "like function",
+        "input_table": [
+            ["5", "alpha", ".be.*ta"],
+            ["-20", "alpha", "gamma"],
+            ["50", "alpha", ".del.*ta"],
+            ["5", "alpha", "bbe.*ta"],
+            ["50", "alpha", "del..ta"],
+            ["20", "alpha", ""]
+        ],
+        "expected_output_table": [
+            ["5", "alpha", ".be.*ta"],
+            ["50", "alpha", ".del.*ta"]
+        ],
+        "query_python": "select * where LIKE(a3, '.%.*ta')",
+        "query_js": "select * where LIKE(a3, '.%.*ta')"
+    },
+    {
+        "test_name": "two key join simple",
+        "input_table": [
+            ["Russia", "Moscow", "1147", "100"],
+            ["Russia", "Moscow", "2019", "10000000"],
+            ["Russia", "Moscow", "1811", "270000"],
+            ["Japan", "Tokio", "2019", "9000000"],
+            ["United Kingdom", "London", "1992", "7000000"],
+            ["USA", "New York", "2010", "8000000"],
+            ["USA", "New York", "980", "0"]
+        ],
+        "join_table": [
+            ["Red Square", "Russia", "Moscow"],
+            ["Statue of Lenin", "Russia", "Moscow"],
+            ["BMSTU", "Russia", "Moscow"],
+            ["McDonalds", "Russia", "Moscow"],
+            ["Trafalgar Square", "United Kingdom", "London"],
+            ["Big Ben", "United Kingdom", "London"],
+            ["Eiffel Tower", "France", "Paris"],
+            ["Statue Of Liberty", "USA", "New York"]
+        ],
+        "expected_output_table": [
+            ["Russia", "Moscow", "1147", "100", "Red Square"],
+            ["Russia", "Moscow", "1147", "100", "Statue of Lenin"],
+            ["Russia", "Moscow", "1147", "100", "BMSTU"],
+            ["Russia", "Moscow", "2019", "10000000", "Red Square"],
+            ["Russia", "Moscow", "2019", "10000000", "Statue of Lenin"],
+            ["Russia", "Moscow", "2019", "10000000", "BMSTU"],
+            ["United Kingdom", "London", "1992", "7000000", "Trafalgar Square"],
+            ["United Kingdom", "London", "1992", "7000000", "Big Ben"],
+            ["USA", "New York", "2010", "8000000", "Statue Of Liberty"],
+            ["USA", "New York", "980", "0", "Statue Of Liberty"]
+        ],
+        "query_python": "select a1, a2, a3, a4, b1 join B on a1 == b2 and a2 == b3 where b1 != 'McDonalds' and a3 != '1811'",
+        "query_js": "select a1, a2, a3, a4, b1 join B on a1 == b2 and a2 == b3 where b1 != 'McDonalds' && a3 != '1811'"
+    },
+    {
+        "test_name": "three key join simple",
+        "input_table": [
+            ["alpha", 100, true, 0.123],
+            ["alpha", 100, false, 0.133],
+            ["alpha", 200, false, 8.3],
+            ["beta", 100, true, 12.3],
+            ["beta", 100, true, 18.3],
+            ["gamma", 300, true, 20.3],
+            ["delta", 300, true, 20.3],
+            ["delta", 300, false, 20.3]
+        ],
+        "join_table": [
+            ["alpha", 100, true, "foo"],
+            ["alpha", 100, false, "bar"],
+            ["alpha", 200, false, "foo"],
+            ["beta", 100, true, "foo"],
+            ["beta", 100, true, "bar"],
+            ["gamma", 300, true, "foo"],
+            ["epsilon", 300, true, "foo"],
+            ["epsilon", 300, false, "foo"]
+        ],
+        "expected_output_table": [
+            ["alpha", 100, true, 0.123, "alpha", 100, true, "foo"],
+            ["alpha", 100, false, 0.133, "alpha", 100, false, "bar"],
+            ["alpha", 200, false, 8.3, "alpha", 200, false, "foo"],
+            ["beta", 100, true, 12.3, "beta", 100, true, "foo"],
+            ["beta", 100, true, 12.3, "beta", 100, true, "bar"],
+            ["beta", 100, true, 18.3, "beta", 100, true, "foo"],
+            ["beta", 100, true, 18.3, "beta", 100, true, "bar"],
+            ["gamma", 300, true, 20.3, "gamma", 300, true, "foo"]
+        ],
+        "query_python": "select * join B on a1 == b1 and a2 == b2 AND a3 == b3",
+        "query_js": "select * join B on a1 == b1 && a2 == b2 AND a3 == b3"
+    },
+    {
+        "test_name": "invalid like operator usage",
+        "input_table": [
+            ["5", "alpha", "beta"],
+            ["-20", "alpha", "gamma"],
+            ["50", "alpha", "delta"],
+            ["20", "alpha", ""]
+        ],
+        "expected_error": "RBQL doesn't support LIKE operator, use like() function instead e.g. ... WHERE like(a1, 'foo%bar') ...",
+        "query_python": "select * where a1 LIKE '%ta'",
+        "query_js": "select * where a1 LIKE '%ta'"
     }
 ]

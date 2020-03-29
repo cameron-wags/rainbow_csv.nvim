@@ -42,6 +42,12 @@ class TestRBQLQueryParsing(unittest.TestCase):
         self.assertEqual(a_strp, '')
 
 
+    def test_like_to_regex_conversion(self):
+        a = '%hello_world.foo.*bar%'
+        b = rbql_engine.like_to_regex(a)
+        self.assertEqual(r'^.*hello.world\.foo\.\*bar.*$', b)
+
+
     def test_string_literals_separation(self):
         #TODO generate some random examples: Generate some strings randomly and then parse them
         test_cases = list()
@@ -78,10 +84,25 @@ class TestRBQLQueryParsing(unittest.TestCase):
 
     def test_join_parsing(self):
         join_part = '/path/to/the/file.tsv on a1 == b3'
-        self.assertEqual(('/path/to/the/file.tsv', 'a1', 'b3'), rbql_engine.parse_join_expression(join_part))
+        self.assertEqual(('/path/to/the/file.tsv', [('a1', 'b3')]), rbql_engine.parse_join_expression(join_part))
 
         join_part = ' file.tsv on b[20]== a.name  '
-        self.assertEqual(('file.tsv', 'b[20]', 'a.name'), rbql_engine.parse_join_expression(join_part))
+        self.assertEqual(('file.tsv', [('b[20]', 'a.name')]), rbql_engine.parse_join_expression(join_part))
+
+        join_part = ' file.tsv on b[20]== a.name and   a1  ==b3 '
+        self.assertEqual(('file.tsv', [('b[20]', 'a.name'), ('a1', 'b3')]), rbql_engine.parse_join_expression(join_part))
+
+        join_part = ' file.tsv on b[20]== a.name and   a1  ==b3 and '
+        with self.assertRaises(Exception) as cm:
+            rbql_engine.parse_join_expression(join_part)
+        e = cm.exception
+        self.assertTrue(str(e).find('Invalid join syntax') != -1)
+
+        join_part = ' file.tsv on b[20]== a.name and   a1  ==b3 + "foo" '
+        with self.assertRaises(Exception) as cm:
+            rbql_engine.parse_join_expression(join_part)
+        e = cm.exception
+        self.assertTrue(str(e).find('Invalid join syntax') != -1)
 
         join_part = ' Bon b1 == a.age '
         with self.assertRaises(Exception) as cm:
@@ -89,20 +110,20 @@ class TestRBQLQueryParsing(unittest.TestCase):
         e = cm.exception
         self.assertTrue(str(e).find('Invalid join syntax') != -1)
 
-        self.assertEqual(('safe_join_get(record_a, 0)', 1), rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'a1', 'b2', []))
+        self.assertEqual((['safe_join_get(record_a, 0)'], [1]), rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, [('a1', 'b2')], []))
 
         with self.assertRaises(Exception) as cm:
-            rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'a1', 'b.name', [])
+            rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, [('a1', 'b.name')], [])
         e = cm.exception
         self.assertTrue(str(e).find('Unable to parse JOIN expression: Join table does not have field "b.name"') != -1)
 
         with self.assertRaises(Exception) as cm:
-            rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'a1', 'b["foo bar"]', [])
+            rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, [('a1', 'b["foo bar"]')], [])
         e = cm.exception
         self.assertTrue(str(e).find('Unable to parse JOIN expression: Join table does not have field "b["foo bar"]"') != -1)
 
         with self.assertRaises(Exception) as cm:
-            rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, 'b1', 'b2', [])
+            rbql_engine.resolve_join_variables({'a1': vinf(True, 0), 'a2': vinf(True, 1)}, {'b1': vinf(True, 0), 'b2': vinf(True, 1)}, [('b1', 'b2')], [])
         e = cm.exception
         self.assertTrue(str(e).find('Unable to parse JOIN expression: Input table does not have field "b1"') != -1)
 
@@ -163,6 +184,11 @@ class TestRBQLQueryParsing(unittest.TestCase):
         rbql_src = ' *, a1,  a2,a1,*,*,*,b1, * ,   * '
         test_dst = rbql_engine.translate_select_expression_py(rbql_src)
         expected_dst = '[] + star_fields + [ a1,  a2,a1] + star_fields + [] + star_fields + [] + star_fields + [b1] + star_fields + [] + star_fields + []'
+        self.assertEqual(expected_dst, test_dst)
+
+        rbql_src = ' *, a1,  a2,a1,*,a.* ,b.* , a.*  , *,*,b1, * ,   * '
+        test_dst = rbql_engine.translate_select_expression_py(rbql_src)
+        expected_dst = '[] + star_fields + [ a1,  a2,a1] + star_fields + [] + record_a + [] + record_b + [] + record_a + [] + star_fields + [] + star_fields + [b1] + star_fields + [] + star_fields + []'
         self.assertEqual(expected_dst, test_dst)
 
         rbql_src = ' * '
@@ -294,7 +320,7 @@ class TestJsonTables(unittest.TestCase):
             self.assertTrue(error_type == expected_error_type, 'Inside json test: {}'.format(test_name))
         if expected_error is not None:
             if expected_error_exact:
-                self.assertEqual(expected_error, error_msg, 'Inside json test: {}'.format(test_name))
+                self.assertEqual(expected_error, error_msg, 'Inside json test: {}. Expected error: {}, Actual error: {}'.format(test_name, expected_error, error_msg))
             else:
                 self.assertTrue(error_msg.find(expected_error) != -1, 'Inside json test: {}'.format(test_name))
         else:
