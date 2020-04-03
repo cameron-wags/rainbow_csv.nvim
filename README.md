@@ -464,8 +464,9 @@ Adding support of TOP/LIMIT keywords is trivial and to support "ORDER BY" we can
 
 #### RBQL
 
-* rbql-js library and CLI App for [JavaScript](https://www.npmjs.com/package/rbql)  
-* rbql-py library and CLI App for [Python](https://pypi.org/project/rbql/)  
+* RBQL website [RBQL](https://rbql.org/)
+* Library and CLI App for JavaScript [RBQL](https://www.npmjs.com/package/rbql)  
+* Library and CLI App for Python [RBQL](https://pypi.org/project/rbql/)  
 
 #### Related vim plugins:
 Rainbow CSV name and original implementation was significantly influenced by [rainbow_parentheses](https://github.com/kien/rainbow_parentheses.vim) Vim plugin.  
