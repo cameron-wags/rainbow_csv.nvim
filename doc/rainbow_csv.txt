@@ -82,6 +82,7 @@ Syntax highlighting for rfc_csv and rfc_semicolon dialects can go out of sync wi
 Key 		Action
 <F5>		Start query editing for the current csv file
 <F5>		Execute currently edited query
+<F7>		Copy query result set to the parent buffer
 
 
 
