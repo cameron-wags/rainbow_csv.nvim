@@ -1,10 +1,7 @@
 const fs = require('fs');
-const build_engine = require('../rbql-js/build_engine.js');
 const cli_parser = require('../rbql-js/cli_parser.js');
 const test_common = require('./test_common.js');
 var rbql = null;
-var debug_mode = false;
-
 
 
 function test_test_common() {
@@ -43,7 +40,7 @@ function test_comment_strip() {
 
 function test_like_to_regex_conversion() {
     let a = '%hello_world.foo.*bar%';
-    let b = rbql.like_to_regex(a); // This won't work until template and builder are merged into a single module just like in Python version
+    let b = rbql.like_to_regex(a);
     test_common.assert_equal('^.*hello.world\\.foo\\.\\*bar.*$', b);
 }
 
@@ -59,7 +56,7 @@ function test_string_literals_separation() {
         let test_case = test_cases[i];
         let query = test_case[0];
         let expected_literals = test_case[1];
-        let [format_expression, string_literals] = rbql.separate_string_literals_js(query);
+        let [format_expression, string_literals] = rbql.separate_string_literals(query);
         test_common.assert_arrays_are_equal(expected_literals, string_literals);
         test_common.assert(query == rbql.combine_string_literals(format_expression, string_literals));
     }
@@ -183,38 +180,38 @@ function test_select_translation() {
     let canonic_dst = null;
 
     rbql_src = ' *, a1,  a2,a1,*,*,b1, * ,   * ';
-    test_dst = rbql.translate_select_expression_js(rbql_src);
+    test_dst = rbql.translate_select_expression(rbql_src);
     canonic_dst = '[].concat([]).concat(star_fields).concat([ a1,  a2,a1]).concat(star_fields).concat([]).concat(star_fields).concat([b1]).concat(star_fields).concat([]).concat(star_fields).concat([])';
     test_common.assert(canonic_dst === test_dst, 'translation 1');
 
     rbql_src = ' *, a1,  a2,a1,*,*,*,b1, * ,   * ';
-    test_dst = rbql.translate_select_expression_js(rbql_src);
+    test_dst = rbql.translate_select_expression(rbql_src);
     canonic_dst = '[].concat([]).concat(star_fields).concat([ a1,  a2,a1]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([b1]).concat(star_fields).concat([]).concat(star_fields).concat([])';
     test_common.assert(canonic_dst === test_dst, 'translation 2');
 
 
     rbql_src = ' *, a1,  a2,a1,*,a.* ,b.* , a.*  , *,*,b1, * ,   * ';
-    test_dst = rbql.translate_select_expression_js(rbql_src);
+    test_dst = rbql.translate_select_expression(rbql_src);
     canonic_dst = '[].concat([]).concat(star_fields).concat([ a1,  a2,a1]).concat(star_fields).concat([]).concat(record_a).concat([]).concat(record_b).concat([]).concat(record_a).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([b1]).concat(star_fields).concat([]).concat(star_fields).concat([])';
     test_common.assert_equal(canonic_dst, test_dst);
 
     rbql_src = ' * ';
-    test_dst = rbql.translate_select_expression_js(rbql_src);
+    test_dst = rbql.translate_select_expression(rbql_src);
     canonic_dst = '[].concat([]).concat(star_fields).concat([])';
     test_common.assert(canonic_dst === test_dst);
 
     rbql_src = ' *,* ';
-    test_dst = rbql.translate_select_expression_js(rbql_src);
+    test_dst = rbql.translate_select_expression(rbql_src);
     canonic_dst = '[].concat([]).concat(star_fields).concat([]).concat(star_fields).concat([])';
     test_common.assert(canonic_dst === test_dst);
 
     rbql_src = ' *,*, * ';
-    test_dst = rbql.translate_select_expression_js(rbql_src);
+    test_dst = rbql.translate_select_expression(rbql_src);
     canonic_dst = '[].concat([]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([])';
     test_common.assert(canonic_dst === test_dst);
 
     rbql_src = ' *,*, * , *';
-    test_dst = rbql.translate_select_expression_js(rbql_src);
+    test_dst = rbql.translate_select_expression(rbql_src);
     canonic_dst = '[].concat([]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([]).concat(star_fields).concat([])';
     test_common.assert(canonic_dst === test_dst);
 }
@@ -314,7 +311,7 @@ async function test_direct_table_queries() {
 async function test_everything() {
     test_test_common();
     test_comment_strip();
-    //test_like_to_regex_conversion(); // TODO enable this test after builder.js and template.js are merged into a single module just like in Python version
+    test_like_to_regex_conversion();
     test_string_literals_separation();
     test_separate_actions();
     test_except_parsing();
@@ -328,29 +325,7 @@ async function test_everything() {
 
 function main() {
     console.log('Starting JS unit tests');
-
-    var scheme = {
-        '--auto-rebuild-engine': {'boolean': true, 'help': 'Auto rebuild engine'},
-        '--dbg': {'boolean': true, 'help': 'Run tests in debug mode (require worker template from a tmp module file)'}
-    };
-    var args = cli_parser.parse_cmd_args(process.argv, scheme);
-
-    if (args['auto-rebuild-engine']) {
-        build_engine.build_engine();
-    }
-
-    debug_mode = args['dbg'];
-
-    let engine_text_current = build_engine.read_engine_text();
-    let engine_text_expected = build_engine.build_engine_text();
-    if (engine_text_current != engine_text_expected) {
-        test_common.die("rbql.js must be rebuild from template.js and builder.js");
-    }
-
     rbql = require('../rbql-js/rbql.js')
-    if (debug_mode)
-        rbql.set_debug_mode();
-
     test_everything().then(v => { console.log('Finished JS unit tests'); }).catch(error_info => { console.log('JS tests failed:' + JSON.stringify(error_info)); console.log(error_info.stack); });
 }
 

@@ -125,7 +125,6 @@ if [ $run_unit_tests == "yes" ]; then
     PYTHONPATH=".:$PYTHONPATH" python test/test_csv_utils.py --create_random_csv_table random_tmp_table.txt
 
     if [ "$run_node_tests" == "yes" ]; then
-        node rbql-js/build_engine.js
         js_rbql_version=$( node rbql-js/cli_rbql.js --version )
         if [ "$py_rbql_version" != "$js_rbql_version" ]; then
             echo "Error: version missmatch between rbql.py ($py_rbql_version) and rbql.js ($js_rbql_version)"  1>&2
@@ -295,7 +294,7 @@ fi
 # Testing skip-header / named columns in CLI
 md5sum_canonic=($( md5sum test/csv_files/canonic_result_14.csv ))
 if [ "$run_python_tests" == "yes" ]; then
-    md5sum_test=($($random_python_interpreter -m rbql --input ~/wsl_share/rainbow_tables/countries.csv --query "select top 5 a.Country, a['GDP per capita'] order by int(a['GDP per capita']) desc" --delim , --skip-header | md5sum))
+    md5sum_test=($($random_python_interpreter -m rbql --input test/csv_files/countries.csv --query "select top 5 a.country, a['GDP per capita'] order by int(a['GDP per capita']) desc" --delim , --skip-header | md5sum))
     if [ "$md5sum_canonic" != "$md5sum_test" ]; then
         echo "CLI Python skip-header test FAIL!"  1>&2
         exit 1
@@ -305,7 +304,7 @@ fi
 
 if [ "$run_node_tests" == "yes" ]; then
     # Using `NaN || 1000 * 1000` trick below to return 1M on NaN and make sure that --skip-header works. Otherwise the header line would be the max
-    md5sum_test=($( node ./rbql-js/cli_rbql.js --input ~/wsl_share/rainbow_tables/countries.csv --query "select top 5 a.Country, a['GDP per capita'] order by parseInt(a['GDP per capita']) || 1000 * 1000 desc" --delim , --skip-header | md5sum))
+    md5sum_test=($( node ./rbql-js/cli_rbql.js --input test/csv_files/countries.csv --query "select top 5 a.country, a['GDP per capita'] order by parseInt(a['GDP per capita']) || 1000 * 1000 desc" --delim , --skip-header | md5sum))
     if [ "$md5sum_canonic" != "$md5sum_test" ]; then
         echo "CLI JS skip-header test FAIL!"  1>&2
         exit 1
@@ -347,6 +346,14 @@ fi
 
 
 # Testing performance
+if [ "$run_python_tests" == "yes" ]; then
+    start_tm=$(date +%s.%N)
+    PYTHONPATH=".:$PYTHONPATH" python test/test_csv_utils.py --dummy_csv_speedtest speed_test.csv > /dev/null
+    end_tm=$(date +%s.%N)
+    elapsed=$( echo "$start_tm,$end_tm" | python -m rbql --delim , --query 'select float(a2) - float(a1)' )
+    echo "Python reference split test took $elapsed seconds"
+fi
+
 if [ "$run_python_tests" == "yes" ]; then
     start_tm=$(date +%s.%N)
     python3 -m rbql --input speed_test.csv --delim , --policy quoted --query 'select a2, a1, a2, NR where int(a1) % 2 == 0' > /dev/null
