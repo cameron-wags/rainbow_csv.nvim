@@ -1603,6 +1603,10 @@ func! rainbow_csv#handle_buffer_enter()
     endif
 
     if exists("b:current_syntax")
+        " This is actually problematic for files with first comment line with # comment prefix e.g. this file: RBQL/test/csv_files/university_ranking_with_comments.csv
+        " Because this check happens before index search the decision to highlight as rainbow will not be remembered on file reopen
+        " On the other hand this improves performance - we don't have to read the index file on each buffer enter.
+        " We can actually do a hybrid approach - set a flag on buffer that it has already been checked + keep the cached version of the index file in Vim's memory
         return
     endif
 
@@ -1628,6 +1632,7 @@ endfunc
 func! rainbow_csv#handle_filetype_change()
     let [delim, policy] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
+        " FIXME we also need to delete the entry from the index file
         call rainbow_csv#buffer_disable_rainbow_features()
         return
     endif
