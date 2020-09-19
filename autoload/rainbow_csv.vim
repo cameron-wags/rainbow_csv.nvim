@@ -260,7 +260,7 @@ func! rainbow_csv#is_rainbow_table()
 endfunc
 
 
-func! rainbow_csv#was_and_maybe_still_rainbow_table()
+func! rainbow_csv#is_rainbow_table_or_was_just_disabled()
     return (exists("b:rainbow_features_enabled") && b:rainbow_features_enabled == 1)
 endfunc
 
@@ -1477,7 +1477,7 @@ endfunc
 
 
 func! rainbow_csv#buffer_enable_rainbow_features(delim, policy)
-    if rainbow_csv#was_and_maybe_still_rainbow_table()
+    if rainbow_csv#is_rainbow_table_or_was_just_disabled()
         call rainbow_csv#buffer_disable_rainbow_features()
     endif
 
@@ -1634,10 +1634,11 @@ endfunc
 
 
 func! rainbow_csv#handle_filetype_change()
+    " FIXME we should also handle syntax switch e.g. set syntax=..., see https://vim.fandom.com/wiki/Forcing_Syntax_Coloring_for_files_with_odd_extensions
     let [delim, policy] = rainbow_csv#get_current_dialect()
     " If the new filetype is not longer rainbow:
     if policy == 'monocolumn'
-        if rainbow_csv#was_and_maybe_still_rainbow_table()
+        if rainbow_csv#is_rainbow_table_or_was_just_disabled()
             call rainbow_csv#buffer_disable_rainbow_features()
             let table_path = resolve(expand("%:p"))
             call s:update_table_record(table_path, '', 'monocolumn')
