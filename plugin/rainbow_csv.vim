@@ -7,7 +7,7 @@
 
 augroup RainbowInitAuGrp
     autocmd!
-    autocmd FileType * call rainbow_csv#handle_filetype_change()
+    autocmd Syntax * call rainbow_csv#handle_syntax_change()
     autocmd BufEnter * call rainbow_csv#handle_buffer_enter()
 augroup END
 

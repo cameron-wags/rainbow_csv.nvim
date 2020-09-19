@@ -22,6 +22,9 @@ let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted
 let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : ["\t", ",", ";", "|"]
 
 
+" Vim has 2 different variables: filetype and syntax. syntax is a subset of filetype
+" We need to use both of them.
+
 
 " XXX Use :syntax command to list all syntax groups
 
@@ -249,7 +252,8 @@ endfunc
 
 
 func! rainbow_csv#get_current_dialect()
-    let current_ft = &ft
+    " Using &syntax instead of &ft here because they can have different value i.e. after manual syntax assignment set syntax = ...
+    let current_ft = &syntax
     return rainbow_csv#ft_to_dialect(current_ft)
 endfunc
 
@@ -1237,7 +1241,7 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
         return 0
     endif
 
-    let table_filetype = getbufvar(a:table_buf_number, "&ft")
+    let table_filetype = getbufvar(a:table_buf_number, "&syntax")
     let input_dialect = rainbow_csv#ft_to_dialect(table_filetype)
     if !len(input_dialect)
         echoerr "File is not a rainbow table"
@@ -1566,7 +1570,7 @@ endfunc
 func! rainbow_csv#manual_disable()
     if rainbow_csv#is_rainbow_table()
         let original_filetype = exists("b:originial_ft") ? b:originial_ft : ''
-        " The command below: set ft =...  will implicitly trigger rainbow_csv#handle_filetype_change() -> rainbow_csv#buffer_disable_rainbow_features()
+        " The command below: set ft =...  will implicitly trigger syntax update -> rainbow_csv#handle_syntax_change() -> rainbow_csv#buffer_disable_rainbow_features()
         execute "set ft=" . original_filetype
     endif
 endfunc
@@ -1598,6 +1602,7 @@ func! rainbow_csv#handle_buffer_enter()
             " From the other hand it can discard highlight ":hi ... " rules from user config, so let's disable this for now
             " syntax enable
             " another hack instead of `syntax enable` which is kind of global
+            " Maybe it is better to power-cycle syntax instead of ft?
             let ft_power_cycle = &ft
             execute "set ft=" . ft_power_cycle
         endif
@@ -1609,7 +1614,7 @@ func! rainbow_csv#handle_buffer_enter()
         " Because this check happens before index search the decision to highlight as rainbow will not be remembered on file reopen
         " On the other hand this improves performance - we don't have to read the index file on each buffer enter.
         " We can actually do a hybrid approach - set a flag on buffer that it has already been checked + keep the cached version of the index file in Vim's memory
-        " TODO do this ^
+        " TODO consider doing this ^
         return
     endif
 
@@ -1633,11 +1638,9 @@ func! rainbow_csv#handle_buffer_enter()
 endfunc
 
 
-func! rainbow_csv#handle_filetype_change()
-    " FIXME we should also handle syntax switch e.g. set syntax=..., see https://vim.fandom.com/wiki/Forcing_Syntax_Coloring_for_files_with_odd_extensions
+func! rainbow_csv#handle_syntax_change()
     let [delim, policy] = rainbow_csv#get_current_dialect()
-    " If the new filetype is not longer rainbow:
-    if policy == 'monocolumn'
+    if policy == 'monocolumn' " If the new filetype is no longer rainbow:
         if rainbow_csv#is_rainbow_table_or_was_just_disabled()
             call rainbow_csv#buffer_disable_rainbow_features()
             let table_path = resolve(expand("%:p"))
