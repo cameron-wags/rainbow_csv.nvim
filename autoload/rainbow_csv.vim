@@ -260,6 +260,11 @@ func! rainbow_csv#is_rainbow_table()
 endfunc
 
 
+func! rainbow_csv#was_and_maybe_still_rainbow_table()
+    return (exists("b:rainbow_features_enabled") && b:rainbow_features_enabled == 1)
+endfunc
+
+
 func! s:get_meta_language()
     let lang_lw = 'python'
     if exists("g:rbql_meta_language")
@@ -1461,11 +1466,7 @@ endfunc
 
 
 func! rainbow_csv#buffer_disable_rainbow_features()
-    if (!exists("b:rainbow_features_enabled") || b:rainbow_features_enabled == 0)
-        return
-    endif
     let b:rainbow_features_enabled = 0
-
     augroup RainbowHintGrp
         autocmd! CursorMoved <buffer>
     augroup END
@@ -1476,7 +1477,9 @@ endfunc
 
 
 func! rainbow_csv#buffer_enable_rainbow_features(delim, policy)
-    call rainbow_csv#buffer_disable_rainbow_features()
+    if rainbow_csv#was_and_maybe_still_rainbow_table()
+        call rainbow_csv#buffer_disable_rainbow_features()
+    endif
 
     let b:rainbow_features_enabled = 1
 
@@ -1563,9 +1566,8 @@ endfunc
 func! rainbow_csv#manual_disable()
     if rainbow_csv#is_rainbow_table()
         let original_filetype = exists("b:originial_ft") ? b:originial_ft : ''
+        " The command below: set ft =...  will implicitly trigger rainbow_csv#handle_filetype_change() -> rainbow_csv#buffer_disable_rainbow_features()
         execute "set ft=" . original_filetype
-        let table_path = resolve(expand("%:p"))
-        call s:update_table_record(table_path, '', 'disabled')
     endif
 endfunc
 
@@ -1607,12 +1609,14 @@ func! rainbow_csv#handle_buffer_enter()
         " Because this check happens before index search the decision to highlight as rainbow will not be remembered on file reopen
         " On the other hand this improves performance - we don't have to read the index file on each buffer enter.
         " We can actually do a hybrid approach - set a flag on buffer that it has already been checked + keep the cached version of the index file in Vim's memory
+        " TODO do this ^
         return
     endif
 
     let table_path = resolve(expand("%:p"))
     let table_params = s:get_table_record(table_path)
     if len(table_params)
+        " 'disabled' is just for backward compatibility, it is an alias to 'monocolumn'
         if table_params[1] == 'disabled' || table_params[1] == 'monocolumn'
             let b:rainbow_features_enabled = 0
         else
@@ -1631,10 +1635,17 @@ endfunc
 
 func! rainbow_csv#handle_filetype_change()
     let [delim, policy] = rainbow_csv#get_current_dialect()
+    " If the new filetype is not longer rainbow:
     if policy == 'monocolumn'
-        " FIXME we also need to delete the entry from the index file
-        call rainbow_csv#buffer_disable_rainbow_features()
+        if rainbow_csv#was_and_maybe_still_rainbow_table()
+            call rainbow_csv#buffer_disable_rainbow_features()
+            let table_path = resolve(expand("%:p"))
+            call s:update_table_record(table_path, '', 'monocolumn')
+        endif
         return
     endif
+    " We don't want to update_table_record() here because ft change could have been triggered by autodetection
+    " Even if it is manual, Vim itself doesn't save manual ft=<lang> selections, so if this plugin does it but only for csv, this could be a little inconsistent
+    " But we can actually do this: in autodetection set a special flag and immediately unset it here. If the flag is not set, than it was manual switch and we need to remember the choice
     call rainbow_csv#buffer_enable_rainbow_features(delim, policy)
 endfunc
