@@ -17,7 +17,7 @@ let s:system_python_interpreter = ''
 
 let s:magic_chars = '^*$.~/[]\'
 
-let s:named_syntax_map = {'csv': [',', 'quoted'], 'csv_semicolon': [';', 'quoted'], 'tsv': ["\t", 'simple'], 'csv_pipe': ['|', 'simple'], 'csv_whitespace': [" ", 'whitespace'], 'rfc_csv': [',', 'quoted_rfc'], 'rfc_semicolon': [';', 'quoted_rfc']}
+let s:named_syntax_map = {'csv': [',', 'quoted', ''], 'csv_semicolon': [';', 'quoted', ''], 'tsv': ["\t", 'simple', ''], 'csv_pipe': ['|', 'simple', ''], 'csv_whitespace': [" ", 'whitespace', ''], 'rfc_csv': [',', 'quoted_rfc', ''], 'rfc_semicolon': [';', 'quoted_rfc', '']}
 
 let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : ["\t", ",", ";", "|"]
 
@@ -170,19 +170,27 @@ func! s:index_decode_delim(encoded_delim)
 endfunc
 
 
-func! s:update_table_record(table_path, delim, policy)
+func! s:update_table_record(table_path, delim, policy, comment_prefix)
     if !len(a:table_path)
         " For tmp buffers e.g. `cat table.csv | vim -`
         return
     endif
+    if stridx(a:comment_prefix, "\t") != -1
+        return " Failsafe to preserve index structure. No one will use comment prefix with tab anyway
+    endif
     let encoded_delim = s:index_encode_delim(a:delim)
-    let new_record = [a:table_path, encoded_delim, a:policy]
+    let new_record = [a:table_path, encoded_delim, a:policy, a:comment_prefix]
     let records = s:try_read_index(s:rainbow_table_index)
     let records = s:update_records(records, a:table_path, new_record)
     if len(records) > 100
         call remove(records, 0)
     endif
     call s:write_index(records, s:rainbow_table_index)
+endfunc
+
+
+func! s:get_auto_comment_prefix()
+    return exists('g:rainbow_comment_prefix') ? g:rainbow_comment_prefix : ''
 endfunc
 
 
@@ -195,7 +203,11 @@ func! s:get_table_record(table_path)
         if len(record) >= 3 && record[0] == a:table_path
             let delim = s:index_decode_delim(record[1])
             let policy = record[2]
-            return [delim, policy]
+            let comment_prefix = len(record) > 3 ? record[3] : s:get_auto_comment_prefix()
+            if comment_prefix == '@auto_comment_prefix@'
+                let comment_prefix = s:get_auto_comment_prefix()
+            endif
+            return [delim, policy, comment_prefix]
         endif
     endfor
     return []
@@ -222,13 +234,13 @@ func! s:hex_to_string(src)
 endfunc
 
 
-func! rainbow_csv#dialect_to_ft(delim, policy)
+func! rainbow_csv#dialect_to_ft(delim, policy, comment_prefix)
     for [ft, delim_policy] in items(s:named_syntax_map)
-        if a:delim == delim_policy[0] && a:policy == delim_policy[1]
+        if a:delim == delim_policy[0] && a:policy == delim_policy[1] && a:comment_prefix == delim_policy[2]
             return ft
         endif
     endfor
-    return join(['rcsv', s:string_to_hex(a:delim), a:policy], '_')
+    return join(['rcsv', s:string_to_hex(a:delim), a:policy, s:string_to_hex(a:comment_prefix)], '_')
 endfunc
 
 
@@ -237,16 +249,36 @@ func! rainbow_csv#ft_to_dialect(ft_val)
         return s:named_syntax_map[a:ft_val]
     endif
     let ft_parts = split(a:ft_val, '_')
-    if len(ft_parts) != 3 || ft_parts[0] != 'rcsv'
-        return ['', 'monocolumn']
+    if len(ft_parts) < 3 || ft_parts[0] != 'rcsv'
+        return ['', 'monocolumn', '']
     endif
-    return [s:hex_to_string(ft_parts[1]), ft_parts[2]]
+    let comment_prefix = len(ft_parts) == 4 ? s:hex_to_string(ft_parts[3]) : ''
+    return [s:hex_to_string(ft_parts[1]), ft_parts[2], comment_prefix]
 endfunc
 
 
-func! rainbow_csv#generate_named_dialects()
+func! rainbow_csv#ensure_syntax_exists(rainbow_ft, delim, policy, comment_prefix)
+    " FIXME handle comment_prefix!
+    let syntax_code = ""
+    if a:policy == 'quoted'
+        let syntax_lines = rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
+    elseif a:policy == 'quoted_rfc'
+        let syntax_lines = rainbow_csv#generate_escaped_rfc_rainbow_syntax(a:delim)
+    elseif a:policy == 'simple'
+        let syntax_lines = rainbow_csv#generate_rainbow_syntax(a:delim)
+    elseif a:policy == 'whitespace'
+        let syntax_lines = rainbow_csv#generate_whitespace_syntax()
+    else
+        echoerr 'bad delim policy: ' . a:policy
+    endif
+    let syntax_file_path = s:script_folder_path . '/syntax/' . a:rainbow_ft . '.vim'
+    call writefile(syntax_lines, syntax_file_path)
+endfunc
+
+
+func! rainbow_csv#generate_named_dialects() " This is an externally-invoked function which is used to pre-generate well-known syntax files
     for [ft, delim_policy] in items(s:named_syntax_map)
-        call rainbow_csv#ensure_syntax_exists(ft, delim_policy[0], delim_policy[1])
+        call rainbow_csv#ensure_syntax_exists(ft, delim_policy[0], delim_policy[1], '')
     endfor
 endfunc
 
@@ -259,7 +291,7 @@ endfunc
 
 
 func! rainbow_csv#is_rainbow_table()
-    let [delim, policy] = rainbow_csv#get_current_dialect()
+    let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
     return policy != 'monocolumn'
 endfunc
 
@@ -580,7 +612,8 @@ endfunc
 
 
 func! rainbow_csv#csv_lint()
-    let [delim, policy] = rainbow_csv#get_current_dialect()
+    let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
+    " FIXME handle comment_prefix
     if policy == 'monocolumn'
         echoerr "CSVLint is available only for highlighted CSV files"
         return
@@ -634,7 +667,8 @@ endfunc
 
 
 func! rainbow_csv#csv_align()
-    let [delim, policy] = rainbow_csv#get_current_dialect()
+    let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
+    " FIXME handle comment_prefix
     if policy == 'monocolumn'
         echoerr "RainbowAlign is available only for highlighted CSV files"
         return
@@ -681,7 +715,8 @@ endfunc
 
 
 func! rainbow_csv#csv_shrink()
-    let [delim, policy] = rainbow_csv#get_current_dialect()
+    let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
+    " FIXME handle comment_prefix
     if policy == 'monocolumn'
         echoerr "RainbowShrink is available only for highlighted CSV files"
         return
@@ -840,7 +875,8 @@ endfunc
 
 
 func! rainbow_csv#provide_column_info_on_hover()
-    let [delim, policy] = rainbow_csv#get_current_dialect()
+    let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
+    " FIXME handle comment_prefix
     if policy == 'monocolumn'
         return
     endif
@@ -1007,7 +1043,8 @@ endfunc
 
 
 func! rainbow_csv#set_statusline_columns()
-    let [delim, policy] = rainbow_csv#get_current_dialect()
+    let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
+    " FIXME handle comment_prefix
     if !exists("b:statusline_before")
         let b:statusline_before = &statusline 
     endif
@@ -1112,7 +1149,8 @@ endfunc
 
 
 func! rainbow_csv#select_from_file()
-    let [delim, policy] = rainbow_csv#get_current_dialect()
+    let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
+    " FIXME handle comment_prefix
 
     let meta_language = s:get_meta_language()
 
@@ -1249,6 +1287,8 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     endif
     let input_delim = input_dialect[0]
     let input_policy = input_dialect[1]
+    let input_comment_prefix = input_dialect[2]
+    " FIXME handle input_comment_prefix
 
     let table_path = expand("#" . a:table_buf_number . ":p")
     if table_path == ""
@@ -1302,9 +1342,9 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     endif
 
     if index(split(psv_warning_report, "\n"), 'Output has multiple fields: using "CSV" output format instead of "Monocolumn"') == -1
-        call s:update_table_record(psv_dst_table_path, out_delim, out_policy)
+        call s:update_table_record(psv_dst_table_path, out_delim, out_policy, '@auto_comment_prefix@')
     else
-        call s:update_table_record(psv_dst_table_path, ',', 'quoted')
+        call s:update_table_record(psv_dst_table_path, ',', 'quoted', '@auto_comment_prefix@')
     endif
     execute "e " . fnameescape(psv_dst_table_path)
 
@@ -1436,34 +1476,16 @@ func! rainbow_csv#generate_whitespace_syntax()
 endfunc
 
 
-func! rainbow_csv#ensure_syntax_exists(rainbow_ft, delim, policy)
-    let syntax_code = ""
-    if a:policy == 'quoted'
-        let syntax_lines = rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
-    elseif a:policy == 'quoted_rfc'
-        let syntax_lines = rainbow_csv#generate_escaped_rfc_rainbow_syntax(a:delim)
-    elseif a:policy == 'simple'
-        let syntax_lines = rainbow_csv#generate_rainbow_syntax(a:delim)
-    elseif a:policy == 'whitespace'
-        let syntax_lines = rainbow_csv#generate_whitespace_syntax()
-    else
-        echoerr 'bad delim policy: ' . a:policy
-    endif
-    let syntax_file_path = s:script_folder_path . '/syntax/' . a:rainbow_ft . '.vim'
-    call writefile(syntax_lines, syntax_file_path)
-endfunc
-
-
 func! rainbow_csv#do_set_rainbow_filetype(rainbow_ft)
     let b:originial_ft = &ft
     execute "set ft=" . a:rainbow_ft
 endfunc
 
 
-func! rainbow_csv#set_rainbow_filetype(delim, policy)
-    let rainbow_ft = rainbow_csv#dialect_to_ft(a:delim, a:policy)
+func! rainbow_csv#set_rainbow_filetype(delim, policy, comment_prefix)
+    let rainbow_ft = rainbow_csv#dialect_to_ft(a:delim, a:policy, a:comment_prefix)
     if match(rainbow_ft, 'rcsv') == 0
-        call rainbow_csv#ensure_syntax_exists(rainbow_ft, a:delim, a:policy)
+        call rainbow_csv#ensure_syntax_exists(rainbow_ft, a:delim, a:policy, a:comment_prefix)
     endif
     call rainbow_csv#do_set_rainbow_filetype(rainbow_ft)
 endfunc
@@ -1539,7 +1561,7 @@ func! rainbow_csv#manual_set(arg_policy, is_multidelim)
     if a:is_multidelim
         let delim = rainbow_csv#get_visual_selection()
         let policy = 'simple'
-        let max_delim_len = exists('g:max_multichar_delim_len') ? g:max_multichar_delim_len : 5
+        let max_delim_len = exists('g:max_multichar_delim_len') ? g:max_multichar_delim_len : 10
         if len(delim) > max_delim_len
             echoerr 'Multicharater delimiter is too long. Adjust g:max_multichar_delim_len or use a different separator'
             return
@@ -1561,9 +1583,9 @@ func! rainbow_csv#manual_set(arg_policy, is_multidelim)
         echoerr 'Double quote delimiter is incompatible with "quoted" policy'
         return
     endif
-    call rainbow_csv#set_rainbow_filetype(delim, policy)
+    call rainbow_csv#set_rainbow_filetype(delim, policy, s:get_auto_comment_prefix())
     let table_path = resolve(expand("%:p"))
-    call s:update_table_record(table_path, delim, policy)
+    call s:update_table_record(table_path, delim, policy, '@auto_comment_prefix@')
 endfunc
 
 
@@ -1573,6 +1595,36 @@ func! rainbow_csv#manual_disable()
         " The command below: set ft =...  will implicitly trigger syntax update -> rainbow_csv#handle_syntax_change() -> rainbow_csv#buffer_disable_rainbow_features()
         execute "set ft=" . original_filetype
     endif
+endfunc
+
+
+func! rainbow_csv#manual_set_comment_prefix(is_multi_comment_prefix)
+    if a:is_multi_comment_prefix
+        let comment_prefix = rainbow_csv#get_visual_selection()
+        let max_prefix_len = exists('g:max_comment_prefix_len') ? g:max_comment_prefix_len : 5
+        if len(comment_prefix) > max_prefix_len
+            echoerr 'Multicharater comment prefix is too long. Adjust g:max_comment_prefix_len or use a different comment prefix'
+            return
+        endif
+    else
+        let comment_prefix = getline('.')[col('.') - 1]  
+    endif
+    if len(comment_prefix) <= 0
+        echoerr 'Comment prefix can not be empty'
+        return
+    endif
+    "let b:rainbow_comment_prefix_local = comment_prefix
+    call rainbow_csv#set_rainbow_filetype(delim, policy, comment_prefix)
+    let table_path = resolve(expand("%:p"))
+    call s:update_table_record(table_path, delim, policy, comment_prefix)
+endfunc
+
+
+func! rainbow_csv#manual_disable_comment_prefix()
+    "unlet b:rainbow_comment_prefix_local
+    call rainbow_csv#set_rainbow_filetype(delim, policy, '')
+    let table_path = resolve(expand("%:p"))
+    call s:update_table_record(table_path, delim, policy, '')
 endfunc
 
 
@@ -1591,7 +1643,7 @@ func! rainbow_csv#handle_new_file()
         let b:rainbow_features_enabled = 0
         return
     endif
-    call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1])
+    call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1], s:get_auto_comment_prefix())
 endfunc
 
 
@@ -1625,7 +1677,7 @@ func! rainbow_csv#handle_buffer_enter()
         if table_params[1] == 'disabled' || table_params[1] == 'monocolumn'
             let b:rainbow_features_enabled = 0
         else
-            call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1])
+            call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1], table_params[2])
         endif
         return
     endif
@@ -1639,12 +1691,12 @@ endfunc
 
 
 func! rainbow_csv#handle_syntax_change()
-    let [delim, policy] = rainbow_csv#get_current_dialect()
+    let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn' " If the new filetype is no longer rainbow:
         if rainbow_csv#is_rainbow_table_or_was_just_disabled()
             call rainbow_csv#buffer_disable_rainbow_features()
             let table_path = resolve(expand("%:p"))
-            call s:update_table_record(table_path, '', 'monocolumn')
+            call s:update_table_record(table_path, '', 'monocolumn', '')
         endif
         return
     endif

@@ -18,6 +18,10 @@ command! RainbowMultiDelim call rainbow_csv#manual_set('simple', 1)
 command! NoRainbowDelim call rainbow_csv#manual_disable()
 command! RainbowNoDelim call rainbow_csv#manual_disable()
 
+command! RainbowComment call rainbow_csv#manual_set_comment_prefix(0)
+command! RainbowCommentMulti call rainbow_csv#manual_set_comment_prefix(1)
+command! NoRainbowComment call rainbow_csv#manual_disable_comment_prefix()
+
 command! RainbowLint call rainbow_csv#csv_lint()
 command! CSVLint call rainbow_csv#csv_lint()
 command! RainbowAlign call rainbow_csv#csv_align()
