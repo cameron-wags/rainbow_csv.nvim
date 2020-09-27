@@ -1,5 +1,6 @@
 value1,value2,value3
 foo11,bar12,foo13
+>> foo11,bar12,foo13
 "foo11, ""bar11"",
 foo11, bar11, foo11
 ","foo12, ""foo12"",
@@ -12,6 +13,7 @@ foo31,bar32,"
 foo41,bar42,foo43
 foo41,bar42,foo43
 foo41,bar42,foo43
+>> foo41,bar42,"foo43
 foo41,bar42,foo43
 foo41,bar42,foo43
 foo31,bar32,"
@@ -19,3 +21,4 @@ bar33, foo33,
 "
 foo41,bar42,foo43
 foo41,bar42,foo43
+>> foo41,bar42",foo43

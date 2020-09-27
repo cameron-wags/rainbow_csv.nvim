@@ -149,9 +149,44 @@ def find_in_table(table, token):
     return False
 
 
-def table_to_csv_string_random(table, delim, policy):
+def make_random_comment_lines(num_lines, comment_prefix, delim_to_test):
+    lines = []
+    str_pool = ['""', '"', delim_to_test, comment_prefix, 'aaa', 'b', '#', ',', '\t', '\\']
+    for l in range(num_lines):
+        num_sampled = natural_random(0, 10)
+        line = []
+        while len(line) < num_sampled:
+            line.append(random.choice(str_pool))
+        lines.append(comment_prefix + ''.join(line))
+    return lines
+
+
+def random_merge_lines(llines, rlines):
+    merged = list()
+    l = 0
+    r = 0
+    while l + r < len(llines) + len(rlines):
+        lleft = len(llines) - l
+        rleft = len(rlines) - r
+        v = random.randint(0, lleft + rleft - 1)
+        if v < lleft:
+            merged.append(llines[l])
+            l += 1
+        else:
+            merged.append(rlines[r])
+            r += 1
+    assert len(merged) == len(llines) + len(rlines)
+    return merged
+
+
+def table_to_csv_string_random(table, delim, policy, comment_prefix=None):
+    lines = [random_smart_join(row, delim, policy) for row in table]
+    if comment_prefix is not None:
+        num_comment_lines = random.randint(0, len(table) * 2)
+        comment_lines = make_random_comment_lines(num_comment_lines, comment_prefix, delim)
+        lines = random_merge_lines(lines, comment_lines)
     line_separator = random.choice(line_separators)
-    result = line_separator.join([random_smart_join(row, delim, policy) for row in table])
+    result = line_separator.join(lines)
     if random.choice([True, False]):
         result += line_separator
     return result
@@ -202,7 +237,7 @@ def make_random_decoded_binary_csv_entry(min_len, max_len, restricted_chars):
 def generate_random_decoded_binary_table(max_num_rows, max_num_cols, restricted_chars):
     num_rows = natural_random(1, max_num_rows)
     num_cols = natural_random(1, max_num_cols)
-    good_keys = ['Hello', 'Avada Kedavra ', ' ??????', '128', '3q295 fa#(@*$*)', ' abc defg ', 'NR', 'a1', 'a2']
+    good_keys = ['Hello', 'Avada Kedavra ', '>> ??????', '128', '#3q295 fa#(@*$*)', ' abc defg ', 'NR', 'a1', 'a2']
     result = list()
     good_column = random.randint(0, num_cols - 1)
     for r in xrange6(num_rows):
@@ -290,6 +325,13 @@ def randomly_replace_columns_dictionary_style(query):
             quote_style = "'" if random.randint(0, 1) else '"'
             adjusted_query = adjusted_query.replace('{}.{}'.format(prefix, column_name), '{}[{}{}{}]'.format(prefix, quote_style, column_name, quote_style))
     return adjusted_query
+
+
+def table_has_records_with_comment_prefix(table, comment_prefix):
+    for r in table:
+        if r[0].startswith(comment_prefix):
+            return True
+    return False
 
 
 class TestHeaderParsing(unittest.TestCase):
@@ -485,6 +527,28 @@ class TestRecordIterator(unittest.TestCase):
             stream, encoding = string_to_randomly_encoded_stream(csv_data)
 
             record_iterator = rbql_csv.CSVRecordIterator(stream, encoding, delim=delim, policy=policy)
+            parsed_table = record_iterator.get_all_records()
+            stream.close()
+            self.assertEqual(table, parsed_table)
+
+            parsed_table = write_and_parse_back(table, encoding, delim, policy)
+            self.assertEqual(table, parsed_table)
+
+
+    def test_iterator_rfc_comments(self):
+        for _test_num in xrange6(200):
+            table = generate_random_decoded_binary_table(10, 10, None)
+            comment_prefix = random.choice(['#', '>>'])
+            if table_has_records_with_comment_prefix(table, comment_prefix):
+                continue # Instead of complicating the generation procedure just skip the tables which were generated "incorrectly"
+            delims = ['\t', ',', ';', '|']
+            delim = random.choice(delims)
+            policy = 'quoted_rfc'
+            csv_data = table_to_csv_string_random(table, delim, policy, comment_prefix=comment_prefix)
+            normalize_newlines_in_fields(table) # XXX normalizing '\r' -> '\n' because record iterator doesn't preserve original separators
+            stream, encoding = string_to_randomly_encoded_stream(csv_data)
+
+            record_iterator = rbql_csv.CSVRecordIterator(stream, encoding, delim=delim, policy=policy, comment_prefix=comment_prefix)
             parsed_table = record_iterator.get_all_records()
             stream.close()
             self.assertEqual(table, parsed_table)
@@ -816,6 +880,7 @@ class TestRBQLWithCSV(unittest.TestCase):
         delim = test_case['csv_separator']
         policy = test_case['csv_policy']
         encoding = test_case['csv_encoding']
+        comment_prefix = test_case.get('comment_prefix', None)
         output_format = test_case.get('output_format', 'input')
 
         out_delim, out_policy = (delim, policy) if output_format == 'input' else rbql_csv.interpret_named_csv_format(output_format)
@@ -824,7 +889,7 @@ class TestRBQLWithCSV(unittest.TestCase):
         warnings = []
         error_type, error_msg = None, None
         try:
-            rbql_csv.query_csv(query, input_table_path, delim, policy, actual_output_table_path, out_delim, out_policy, encoding, warnings, skip_headers)
+            rbql_csv.query_csv(query, input_table_path, delim, policy, actual_output_table_path, out_delim, out_policy, encoding, warnings, skip_headers, comment_prefix)
         except Exception as e:
             if debug_mode:
                 raise
@@ -881,7 +946,7 @@ def main():
             for line in src:
                 fields = line.rstrip().split(',')
                 num_fields += len(fields)
-                print(len(fields))
+                #print(len(fields))
         print(num_fields)
         return
 
