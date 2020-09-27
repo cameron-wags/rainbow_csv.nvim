@@ -258,16 +258,19 @@ endfunc
 
 
 func! rainbow_csv#ensure_syntax_exists(rainbow_ft, delim, policy, comment_prefix)
-    " FIXME handle comment_prefix!
-    let syntax_code = ""
+    let syntax_lines = []
+    if comment_prefix != ''
+        let regex_comment_prefix = escape(comment_prefix, s:magic_chars)
+        call add(syntax_lines, 'syntax match Comment /^' . regex_comment_prefix . '.*$/')
+    endif
     if a:policy == 'quoted'
-        let syntax_lines = rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
+        let syntax_lines += rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
     elseif a:policy == 'quoted_rfc'
-        let syntax_lines = rainbow_csv#generate_escaped_rfc_rainbow_syntax(a:delim)
+        let syntax_lines += rainbow_csv#generate_escaped_rfc_rainbow_syntax(a:delim)
     elseif a:policy == 'simple'
-        let syntax_lines = rainbow_csv#generate_rainbow_syntax(a:delim)
+        let syntax_lines += rainbow_csv#generate_rainbow_syntax(a:delim)
     elseif a:policy == 'whitespace'
-        let syntax_lines = rainbow_csv#generate_whitespace_syntax()
+        let syntax_lines += rainbow_csv#generate_whitespace_syntax()
     else
         echoerr 'bad delim policy: ' . a:policy
     endif
@@ -613,7 +616,6 @@ endfunc
 
 func! rainbow_csv#csv_lint()
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
-    " FIXME handle comment_prefix
     if policy == 'monocolumn'
         echoerr "CSVLint is available only for highlighted CSV files"
         return
@@ -627,6 +629,9 @@ func! rainbow_csv#csv_lint()
     let num_fields = 0
     for linenum in range(1, lastLineNo)
         let line = getline(linenum)
+        if a:comment_prefix != '' && stridx(line, a:comment_prefix) == 0 " Using stridx is less efficient than using 'startswith', since we try to match at every position, but vimscript doesn't have 'startswith'
+            continue
+        endif
         let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, delim, policy)
         if has_warning
             echoerr printf("Line %s has formatting error: double quote chars are not consistent", linenum)
@@ -645,12 +650,15 @@ func! rainbow_csv#csv_lint()
 endfunc
 
 
-func! s:calc_column_sizes(delim, policy)
+func! s:calc_column_sizes(delim, policy, comment_prefix)
     let result = []
     let lastLineNo = line("$")
     for linenum in range(1, lastLineNo)
         let line = getline(linenum)
         let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, a:delim, a:policy)
+        if a:comment_prefix != '' && stridx(line, a:comment_prefix) == 0
+            continue
+        endif
         if has_warning
             return [result, linenum]
         endif
@@ -668,7 +676,6 @@ endfunc
 
 func! rainbow_csv#csv_align()
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
-    " FIXME handle comment_prefix
     if policy == 'monocolumn'
         echoerr "RainbowAlign is available only for highlighted CSV files"
         return
@@ -677,7 +684,7 @@ func! rainbow_csv#csv_align()
         echoerr 'RainbowAlign not available for "rfc_csv" filetypes, consider using "csv" instead'
         return
     endif
-    let [column_sizes, first_failed_line] = s:calc_column_sizes(delim, policy)
+    let [column_sizes, first_failed_line] = s:calc_column_sizes(delim, policy, comment_prefix)
     if first_failed_line != 0
         echoerr 'Unable to allign: Inconsistent double quotes at line ' . first_failed_line
         return
@@ -687,6 +694,9 @@ func! rainbow_csv#csv_align()
     for linenum in range(1, lastLineNo)
         let has_line_edit = 0
         let line = getline(linenum)
+        if comment_prefix != '' && stridx(line, comment_prefix) == 0
+            continue
+        endif
         let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
         for fnum in range(len(fields))
             if fnum >= len(column_sizes)
@@ -716,7 +726,6 @@ endfunc
 
 func! rainbow_csv#csv_shrink()
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
-    " FIXME handle comment_prefix
     if policy == 'monocolumn'
         echoerr "RainbowShrink is available only for highlighted CSV files"
         return
@@ -730,6 +739,9 @@ func! rainbow_csv#csv_shrink()
     for linenum in range(1, lastLineNo)
         let has_line_edit = 0
         let line = getline(linenum)
+        if comment_prefix != '' && stridx(line, comment_prefix) == 0
+            continue
+        endif
         let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, delim, policy)
         if has_warning
             echoerr 'Unable to shrink: Inconsistent double quotes at line ' . linenum
@@ -876,11 +888,14 @@ endfunc
 
 func! rainbow_csv#provide_column_info_on_hover()
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
-    " FIXME handle comment_prefix
     if policy == 'monocolumn'
         return
     endif
     let line = getline('.')
+
+    if comment_prefix != '' && stridx(line, comment_prefix) == 0
+        echo ""
+    endif
 
     let header = rainbow_csv#get_csv_header(delim, policy)
     let fields = []
@@ -1044,7 +1059,6 @@ endfunc
 
 func! rainbow_csv#set_statusline_columns()
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
-    " FIXME handle comment_prefix
     if !exists("b:statusline_before")
         let b:statusline_before = &statusline 
     endif
@@ -1055,6 +1069,11 @@ func! rainbow_csv#set_statusline_columns()
         let indent = ' NR' . repeat(' ', indent_len - 3)
     endif
     let cur_line = policy == 'quoted_rfc' ? getline(1) : getline(line('.'))
+
+    if comment_prefix != '' && stridx(cur_line, comment_prefix) == 0
+        return
+    endif
+
     let cur_fields = rainbow_csv#preserving_smart_split(cur_line, delim, policy)[0]
     let status_labels = []
     if delim == "\t"
@@ -1149,8 +1168,7 @@ endfunc
 
 
 func! rainbow_csv#select_from_file()
-    let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
-    " FIXME handle comment_prefix
+    let [delim, policy, unused_comment_prefix] = rainbow_csv#get_current_dialect()
 
     let meta_language = s:get_meta_language()
 
@@ -1288,7 +1306,7 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let input_delim = input_dialect[0]
     let input_policy = input_dialect[1]
     let input_comment_prefix = input_dialect[2]
-    " FIXME handle input_comment_prefix
+    " FIXME handle input_comment_prefix in vim_rbql.py and vim_rbql.js
 
     let table_path = expand("#" . a:table_buf_number . ":p")
     if table_path == ""
@@ -1313,13 +1331,13 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let py_call = 'vim_rbql.run_execute("' . table_path_esc . '", "' . rb_script_path_esc . '", "' . rbql_encoding . '", "' . input_delim_escaped . '", "' . input_policy . '", "' . out_delim_escaped . '", "' . out_policy . '")'
     if meta_language == "js"
         let rbql_executable_path = s:script_folder_path . '/rbql_core/vim_rbql.js'
-        let cmd_args = ['node', shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), rbql_encoding, shellescape(input_delim), input_policy, shellescape(out_delim), out_policy]
+        let cmd_args = ['node', shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), rbql_encoding, shellescape(input_delim), input_policy, shellescape(input_comment_prefix), shellescape(out_delim), out_policy]
         let cmd = join(cmd_args, ' ')
         let report_content = system(cmd)
         let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)
     elseif s:system_python_interpreter != ""
         let rbql_executable_path = s:script_folder_path . '/rbql_core/vim_rbql.py'
-        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), rbql_encoding, shellescape(input_delim), input_policy, shellescape(out_delim), out_policy]
+        let cmd_args = [s:system_python_interpreter, shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), rbql_encoding, shellescape(input_delim), input_policy, shellescape(input_comment_prefix), shellescape(out_delim), out_policy]
         let cmd = join(cmd_args, ' ')
         let report_content = system(cmd)
         let [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path] = rainbow_csv#parse_report(report_content)
