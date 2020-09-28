@@ -41,6 +41,17 @@ let s:autodetection_delims = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : [
 " TODO implement csv_lint for "rfc_csv" dialect
 
 
+func! s:get_auto_policy_for_delim(delim)
+    if a:delim == ',' || a:delim == ';'
+        return 'quoted'
+    elseif a:delim == ' '
+        return 'whitespace'
+    else
+        return 'simple'
+    endif
+endfunc
+
+
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
     for gi in range(len(link_groups))
@@ -331,6 +342,7 @@ endfunc
 
 
 func! s:read_virtual_header(delim, policy)
+    " TODO rename and refactor into try_set_virtual_header() - without parameters, get delim and policy from the current filetype
     let table_path = resolve(expand("%:p"))
     let headerName = table_path . '.header'
     if (!filereadable(headerName))
@@ -944,8 +956,8 @@ func! s:get_num_columns_if_delimited(delim, policy)
     let num_lines_tested = 0
     for linenum in range(1, lastLineNo)
         let line = getline(linenum)
-        " FIXME if comment_line_prefix is set compare with it instead of the default '#' prefix
-        if len(line) && line[0] == '#'
+        let comment_prefix = s:get_auto_comment_prefix()
+        if comment_prefix != '' && stridx(line, comment_prefix) == 0
             continue
         endif
         let num_lines_tested += 1
@@ -968,7 +980,7 @@ func! s:guess_table_params_from_content()
     let best_dialect = []
     let best_score = 1
     for delim in s:autodetection_delims
-        let policy = (delim == ',' || delim == ';') ? 'quoted' : 'simple'
+        let policy = s:get_auto_policy_for_delim(delim)
         let score = s:get_num_columns_if_delimited(delim, policy)
         if score > best_score
             let best_dialect = [delim, policy]
@@ -1328,7 +1340,7 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let [out_delim, out_policy] = s:get_output_format_params(input_delim, input_policy)
     let out_delim_escaped = s:py_source_escape(out_delim)
     let comment_prefix_escaped = s:py_source_escape(input_comment_prefix)
-    let py_call = 'vim_rbql.run_execute("' . table_path_esc . '", "' . rb_script_path_esc . '", "' . rbql_encoding . '", "' . input_delim_escaped . '", "' . input_policy . '", "' . input_comment_prefix . '", "' . out_delim_escaped . '", "' . out_policy . '")'
+    let py_call = 'vim_rbql.run_execute("' . table_path_esc . '", "' . rb_script_path_esc . '", "' . rbql_encoding . '", "' . input_delim_escaped . '", "' . input_policy . '", "' . comment_prefix_escaped . '", "' . out_delim_escaped . '", "' . out_policy . '")'
     if meta_language == "js"
         let rbql_executable_path = s:script_folder_path . '/rbql_core/vim_rbql.js'
         let cmd_args = ['node', shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), rbql_encoding, shellescape(input_delim), input_policy, shellescape(input_comment_prefix), shellescape(out_delim), out_policy]
@@ -1520,7 +1532,7 @@ func! rainbow_csv#buffer_disable_rainbow_features()
 endfunc
 
 
-func! rainbow_csv#buffer_enable_rainbow_features(delim, policy)
+func! rainbow_csv#buffer_enable_rainbow_features()
     if rainbow_csv#is_rainbow_table_or_was_just_disabled()
         call rainbow_csv#buffer_disable_rainbow_features()
     endif
@@ -1539,8 +1551,6 @@ func! rainbow_csv#buffer_enable_rainbow_features(delim, policy)
     if !exists("g:disable_rainbow_key_mappings")
         nnoremap <buffer> <F5> :RbSelect<cr>
     endif
-
-    let b:cached_virtual_header = s:read_virtual_header(a:delim, a:policy)
 
     highlight status_line_default_hl ctermbg=black guibg=black
 
@@ -1589,13 +1599,7 @@ func! rainbow_csv#manual_set(arg_policy, is_multidelim)
         let policy = a:arg_policy
     endif
     if policy == 'auto'
-        if delim == ',' || delim == ';'
-            let policy = 'quoted'
-        elseif delim == ' '
-            let policy = 'whitespace'
-        else
-            let policy = 'simple'
-        endif
+        let policy = s:get_auto_policy_for_delim(delim)
     endif
     if delim == '"' && policy == 'quoted'
         echoerr 'Double quote delimiter is incompatible with "quoted" policy'
@@ -1721,5 +1725,6 @@ func! rainbow_csv#handle_syntax_change()
     " We don't want to update_table_record() here because ft change could have been triggered by autodetection
     " Even if it is manual, Vim itself doesn't save manual ft=<lang> selections, so if this plugin does it but only for csv, this could be a little inconsistent
     " But we can actually do this: in autodetection set a special flag and immediately unset it here. If the flag is not set, than it was manual switch and we need to remember the choice
-    call rainbow_csv#buffer_enable_rainbow_features(delim, policy)
+    call rainbow_csv#buffer_enable_rainbow_features()
+    let b:cached_virtual_header = s:read_virtual_header(delim, policy)
 endfunc
