@@ -19,7 +19,7 @@ let s:magic_chars = '^*$.~/[]\'
 
 let s:named_syntax_map = {'csv': [',', 'quoted', ''], 'csv_semicolon': [';', 'quoted', ''], 'tsv': ["\t", 'simple', ''], 'csv_pipe': ['|', 'simple', ''], 'csv_whitespace': [" ", 'whitespace', ''], 'rfc_csv': [',', 'quoted_rfc', ''], 'rfc_semicolon': [';', 'quoted_rfc', '']}
 
-let s:delimiters = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : ["\t", ",", ";", "|"]
+let s:autodetection_delims = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : ["\t", ",", ";", "|"]
 
 
 " Vim has 2 different variables: filetype and syntax. syntax is a subset of filetype
@@ -259,8 +259,8 @@ endfunc
 
 func! rainbow_csv#ensure_syntax_exists(rainbow_ft, delim, policy, comment_prefix)
     let syntax_lines = []
-    if comment_prefix != ''
-        let regex_comment_prefix = escape(comment_prefix, s:magic_chars)
+    if a:comment_prefix != ''
+        let regex_comment_prefix = escape(a:comment_prefix, s:magic_chars)
         call add(syntax_lines, 'syntax match Comment /^' . regex_comment_prefix . '.*$/')
     endif
     if a:policy == 'quoted'
@@ -281,7 +281,7 @@ endfunc
 
 func! rainbow_csv#generate_named_dialects() " This is an externally-invoked function which is used to pre-generate well-known syntax files
     for [ft, delim_policy] in items(s:named_syntax_map)
-        call rainbow_csv#ensure_syntax_exists(ft, delim_policy[0], delim_policy[1], '')
+        call rainbow_csv#ensure_syntax_exists(ft, delim_policy[0], delim_policy[1], delim_policy[2])
     endfor
 endfunc
 
@@ -294,8 +294,7 @@ endfunc
 
 
 func! rainbow_csv#is_rainbow_table()
-    let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
-    return policy != 'monocolumn'
+    return rainbow_csv#get_current_dialect()[1] != 'monocolumn'
 endfunc
 
 
@@ -945,6 +944,7 @@ func! s:get_num_columns_if_delimited(delim, policy)
     let num_lines_tested = 0
     for linenum in range(1, lastLineNo)
         let line = getline(linenum)
+        " FIXME if comment_line_prefix is set compare with it instead of the default '#' prefix
         if len(line) && line[0] == '#'
             continue
         endif
@@ -967,7 +967,7 @@ endfunc
 func! s:guess_table_params_from_content()
     let best_dialect = []
     let best_score = 1
-    for delim in s:delimiters
+    for delim in s:autodetection_delims
         let policy = (delim == ',' || delim == ';') ? 'quoted' : 'simple'
         let score = s:get_num_columns_if_delimited(delim, policy)
         if score > best_score
@@ -986,7 +986,7 @@ func! s:guess_table_params_from_content_frequency_based()
     let best_delim = ','
     let best_score = 0
     let lastLineNo = min([line("$"), 50])
-    for delim in s:delimiters
+    for delim in s:autodetection_delims
         let regex_delim = escape(delim, s:magic_chars)
         let score = 0
         for linenum in range(1, lastLineNo)
@@ -1306,7 +1306,6 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let input_delim = input_dialect[0]
     let input_policy = input_dialect[1]
     let input_comment_prefix = input_dialect[2]
-    " FIXME handle input_comment_prefix in vim_rbql.py and vim_rbql.js
 
     let table_path = expand("#" . a:table_buf_number . ":p")
     if table_path == ""
@@ -1328,7 +1327,8 @@ func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
     let input_delim_escaped = s:py_source_escape(input_delim)
     let [out_delim, out_policy] = s:get_output_format_params(input_delim, input_policy)
     let out_delim_escaped = s:py_source_escape(out_delim)
-    let py_call = 'vim_rbql.run_execute("' . table_path_esc . '", "' . rb_script_path_esc . '", "' . rbql_encoding . '", "' . input_delim_escaped . '", "' . input_policy . '", "' . out_delim_escaped . '", "' . out_policy . '")'
+    let comment_prefix_escaped = s:py_source_escape(input_comment_prefix)
+    let py_call = 'vim_rbql.run_execute("' . table_path_esc . '", "' . rb_script_path_esc . '", "' . rbql_encoding . '", "' . input_delim_escaped . '", "' . input_policy . '", "' . input_comment_prefix . '", "' . out_delim_escaped . '", "' . out_policy . '")'
     if meta_language == "js"
         let rbql_executable_path = s:script_folder_path . '/rbql_core/vim_rbql.js'
         let cmd_args = ['node', shellescape(rbql_executable_path), shellescape(table_path), shellescape(a:rb_script_path), rbql_encoding, shellescape(input_delim), input_policy, shellescape(input_comment_prefix), shellescape(out_delim), out_policy]

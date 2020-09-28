@@ -221,12 +221,12 @@ To use JavaScript add "let g:rbql_backend_language = 'js'" to .vimrc
 
 
 *g:rcsv_delimiters*
-Default: ["\t", ","]
+Default: ["\t", ",", ";", "|"]
 
-By default plugin checks only TAB and comma characters during autodetection stage.
-You can override this variable to autodetect tables with other separators. 
+List of separators to try for content-based autodetection
+You can add or remove values from the list.
 Example: >
-  let g:rcsv_delimiters = ["\t", ",", ";"]
+  let g:rcsv_delimiters = ["\t", ",", "^", "~#~"]
 <
 
 *g:disable_rainbow_csv_autodetect*

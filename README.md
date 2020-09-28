@@ -160,6 +160,14 @@ Example:
 let g:disable_rainbow_hover = 1
 ```
 
+#### g:rcsv_delimiters
+Default: _["\t", ",", ";", "|"]_
+List of separators to try for content-based autodetection  
+You can add or remove values from the list. Example:
+```
+let g:rcsv_delimiters = ["\t", ",", "^", "~#~"]
+```
+
 #### g:disable_rainbow_csv_autodetect
 Set to `1` to disable CSV autodetection mechanism  
 Example:  
