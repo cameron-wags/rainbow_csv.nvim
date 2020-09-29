@@ -71,7 +71,7 @@
 
 :e ../rbql_core/test/csv_files/movies_multichar_separator.txt
 :sleep 1
-:call rainbow_csv#set_rainbow_filetype('~#~', 'simple')
+:call rainbow_csv#set_rainbow_filetype('~#~', 'simple', '')
 :sleep 1
 :Select a2, COUNT(*) GROUP BY a2
 :sleep 1
@@ -88,6 +88,20 @@
 :sleep 1
 :let file_size = getfsize(expand(@%))
 :let log_msg = (file_size == 544) ? 'OK' : 'FAIL'
+:call add(g:rbql_test_log_records, log_msg)
+
+
+:e ../rbql_core/test/csv_files/university_ranking_with_comments.csv
+:sleep 1
+:set ft=csv
+:sleep 1
+:call cursor(1, 1)
+:RainbowComment
+:sleep 1
+:Select a.world_rank, a.university_name
+:sleep 1
+:let num_lines = line('$')
+:let log_msg = (num_lines == 201) ? 'OK' : 'FAIL'
 :call add(g:rbql_test_log_records, log_msg)
 
 
