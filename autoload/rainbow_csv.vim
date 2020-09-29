@@ -1705,6 +1705,8 @@ func! rainbow_csv#handle_buffer_enter()
         " On the other hand this improves performance - we don't have to read the index file on each buffer enter.
         " We can actually do a hybrid approach - set a flag on buffer that it has already been checked + keep the cached version of the index file in Vim's memory
         " TODO consider doing this ^
+        "
+        " Actually it is desirable to handle this even on the very first file open. For some reason Vim treats files with non - .txt extension and '#' as the first character as 'conf' files
         return
     endif
 
