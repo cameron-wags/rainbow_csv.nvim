@@ -776,11 +776,19 @@ func! rainbow_csv#csv_shrink()
 endfunc
 
 
-func! rainbow_csv#get_csv_header(delim, policy)
+func! rainbow_csv#get_csv_header(delim, policy, comment_prefix)
     if exists("b:cached_virtual_header") && len(b:cached_virtual_header)
         return b:cached_virtual_header
     endif
-    return rainbow_csv#smart_split(getline(1), a:delim, a:policy)
+    let max_lines_to_check = min([line("$"), 20])
+    for linenum in range(1, max_lines_to_check)
+        let line = getline(linenum)
+        if a:comment_prefix != '' && stridx(line, a:comment_prefix) == 0
+            continue
+        endif
+        return rainbow_csv#smart_split(line, a:delim, a:policy)
+    endfor
+    return []
 endfunc
 
 
@@ -905,9 +913,13 @@ func! rainbow_csv#provide_column_info_on_hover()
 
     if comment_prefix != '' && stridx(line, comment_prefix) == 0
         echo ""
+        return
     endif
 
-    let header = rainbow_csv#get_csv_header(delim, policy)
+    let header = rainbow_csv#get_csv_header(delim, policy, comment_prefix)
+    if !len(header)
+        return
+    endif
     let fields = []
     let col_num = 0
     if policy == 'quoted_rfc'
