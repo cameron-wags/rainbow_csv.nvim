@@ -269,21 +269,20 @@ endfunc
 
 
 func! rainbow_csv#ensure_syntax_exists(rainbow_ft, delim, policy, comment_prefix)
-    let syntax_lines = []
+    if a:policy == 'quoted'
+        let syntax_lines = rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
+    elseif a:policy == 'quoted_rfc'
+        let syntax_lines = rainbow_csv#generate_escaped_rfc_rainbow_syntax(a:delim)
+    elseif a:policy == 'simple'
+        let syntax_lines = rainbow_csv#generate_rainbow_syntax(a:delim)
+    elseif a:policy == 'whitespace'
+        let syntax_lines = rainbow_csv#generate_whitespace_syntax()
+    else
+        echoerr 'bad delim policy: ' . a:policy
+    endif
     if a:comment_prefix != ''
         let regex_comment_prefix = escape(a:comment_prefix, s:magic_chars)
         call add(syntax_lines, 'syntax match Comment /^' . regex_comment_prefix . '.*$/')
-    endif
-    if a:policy == 'quoted'
-        let syntax_lines += rainbow_csv#generate_escaped_rainbow_syntax(a:delim)
-    elseif a:policy == 'quoted_rfc'
-        let syntax_lines += rainbow_csv#generate_escaped_rfc_rainbow_syntax(a:delim)
-    elseif a:policy == 'simple'
-        let syntax_lines += rainbow_csv#generate_rainbow_syntax(a:delim)
-    elseif a:policy == 'whitespace'
-        let syntax_lines += rainbow_csv#generate_whitespace_syntax()
-    else
-        echoerr 'bad delim policy: ' . a:policy
     endif
     let syntax_file_path = s:script_folder_path . '/syntax/' . a:rainbow_ft . '.vim'
     call writefile(syntax_lines, syntax_file_path)
@@ -1621,6 +1620,12 @@ endfunc
 
 
 func! rainbow_csv#manual_set_comment_prefix(is_multi_comment_prefix)
+    let [delim, policy, _comment_prefix_old] = rainbow_csv#get_current_dialect()
+    if policy == 'monocolumn'
+        echoerr "Rainbow comment prefix can only be set for highlighted CSV files"
+        return
+    endif
+
     if a:is_multi_comment_prefix
         let comment_prefix = rainbow_csv#get_visual_selection()
         let max_prefix_len = exists('g:max_comment_prefix_len') ? g:max_comment_prefix_len : 5
@@ -1635,7 +1640,6 @@ func! rainbow_csv#manual_set_comment_prefix(is_multi_comment_prefix)
         echoerr 'Comment prefix can not be empty'
         return
     endif
-    "let b:rainbow_comment_prefix_local = comment_prefix
     call rainbow_csv#set_rainbow_filetype(delim, policy, comment_prefix)
     let table_path = resolve(expand("%:p"))
     call s:update_table_record(table_path, delim, policy, comment_prefix)
@@ -1643,7 +1647,7 @@ endfunc
 
 
 func! rainbow_csv#manual_disable_comment_prefix()
-    "unlet b:rainbow_comment_prefix_local
+    let [delim, policy, _comment_prefix_old] = rainbow_csv#get_current_dialect()
     call rainbow_csv#set_rainbow_filetype(delim, policy, '')
     let table_path = resolve(expand("%:p"))
     call s:update_table_record(table_path, delim, policy, '')
