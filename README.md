@@ -189,7 +189,7 @@ Manual delimiter selection would still be possible.
 You can also manually associate specific file extensions with 'csv' or 'tsv' filetypes  
 
 #### g:rainbow_comment_prefix
-Default: _''_
+Default: _''_  
 A string to use as a comment prefix for all CSV files you open in Vim.  
 This setting is helpful if you are dealing with lots of CSV files which consistently use the same comment prefix e.g. `'#'` or `'>>'`  
 If you want to enable comments on file-by-file basis, use the `:RainbowComment/:RainbowCommentMulti` commands instead.  
