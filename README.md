@@ -114,6 +114,17 @@ Visually select the multicharacter separator (e.g. `~#~`) and run _:RainbowMulti
 
 Disable rainbow columns highlighting for the current file.
 
+
+#### :RainbowComment
+Mark the character under the cursor as the comment prefix, e.g. `#`. By default Rainbow CSV doesn't highlight comments in CSV files.  
+You can also use `:RainbowCommentMulti` to mark a visual selection as a multicharacter comment prefix  
+
+
+#### :NoRainbowComment
+Disable all comments for the current CSV file.  
+This command is especially useful when you have set `g:rainbow_comment_prefix` variable and want to exclude just one particular file.  
+
+
 #### :CSVLint
 
 The linter checks the following:  
@@ -176,6 +187,14 @@ let g:disable_rainbow_csv_autodetect = 1
 ```
 Manual delimiter selection would still be possible. 
 You can also manually associate specific file extensions with 'csv' or 'tsv' filetypes  
+
+#### g:rainbow_comment_prefix
+Default: _''_
+A string to use as a comment prefix for all CSV files you open in Vim.  
+This setting is helpful if you are dealing with lots of CSV files which consistently use the same comment prefix e.g. `'#'` or `'>>'`  
+If you want to enable comments on file-by-file basis, use the `:RainbowComment/:RainbowCommentMulti` commands instead.  
+To cancel the effect of `g:rainbow_comment_prefix` just for the current file use `:NoRainbowComment` command.  
+
 
 #### g:rcsv_max_columns
 Default: _30_
