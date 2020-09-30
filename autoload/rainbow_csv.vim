@@ -804,7 +804,7 @@ func! s:get_col_num_single_line(fields, delim, offset)
 endfunc
 
 
-func s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
+func! s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
     let record_lines = getline(a:start_line, a:end_line)
     let record_str = join(record_lines, "\n")
     let [fields, has_warning] = rainbow_csv#preserving_smart_split(record_str, a:delim, 'quoted_rfc')
@@ -842,7 +842,7 @@ func s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_
 endfunc
 
 
-func s:find_unbalanced_lines_around(cur_line)
+func! s:find_unbalanced_lines_around(cur_line)
     let start_line = -1
     let end_line = -1
     let multiline_search_range = exists('g:multiline_search_range') ? g:multiline_search_range : 10
@@ -864,7 +864,7 @@ func s:find_unbalanced_lines_around(cur_line)
 endfunc
 
 
-func s:get_col_num_rfc_basic_even_case(line, delim, expected_num_fields)
+func! s:get_col_num_rfc_basic_even_case(line, delim, expected_num_fields)
     let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted_rfc')
     if !has_warning && len(fields) == a:expected_num_fields
         let col_num = s:get_col_num_single_line(fields, a:delim, 0)
@@ -874,7 +874,7 @@ func s:get_col_num_rfc_basic_even_case(line, delim, expected_num_fields)
 endfunc
 
 
-func s:get_col_num_rfc_lines(line, delim, expected_num_fields)
+func! s:get_col_num_rfc_lines(line, delim, expected_num_fields)
     let cur_line = line('.')
     let [start_line, end_line] = s:find_unbalanced_lines_around(cur_line)
     let even_number_of_dquotes = len(split(a:line, '"', 1)) % 2 == 1
