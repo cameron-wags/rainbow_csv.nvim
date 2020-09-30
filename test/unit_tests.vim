@@ -76,7 +76,7 @@
 :Select a2, COUNT(*) GROUP BY a2
 :sleep 1
 :let num_lines = line('$')
-:let log_msg = (num_lines == 5) ? 'OK' : 'FAIL'
+:let log_msg = (num_lines == 5) ? 'OK' : 'FAIL: movies_multichar_separator.txt'
 :call add(g:rbql_test_log_records, log_msg)
 
 
@@ -87,7 +87,7 @@
 :Select a3, a2, a2 + ' adjusted', a1
 :sleep 1
 :let file_size = getfsize(expand(@%))
-:let log_msg = (file_size == 544) ? 'OK' : 'FAIL'
+:let log_msg = (file_size == 547) ? 'OK' : 'FAIL: synthetic_rfc_newline_data.csv'
 :call add(g:rbql_test_log_records, log_msg)
 
 
@@ -101,7 +101,7 @@
 :Select a.world_rank, a.university_name
 :sleep 1
 :let num_lines = line('$')
-:let log_msg = (num_lines == 201) ? 'OK' : 'FAIL'
+:let log_msg = (num_lines == 201) ? 'OK' : 'FAIL: university_ranking_with_comments.csv'
 :call add(g:rbql_test_log_records, log_msg)
 
 
