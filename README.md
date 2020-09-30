@@ -192,7 +192,7 @@ You can also manually associate specific file extensions with 'csv' or 'tsv' fil
 Default: _''_  
 A string to use as a comment prefix for all CSV files you open in Vim.  
 This setting is helpful if you are dealing with lots of CSV files which consistently use the same comment prefix e.g. `'#'` or `'>>'`  
-If you want to enable comments on file-by-file basis, use the `:RainbowComment/:RainbowCommentMulti` commands instead.  
+If you want to enable comments on file-by-file basis, use the `:RainbowComment` or `:RainbowCommentMulti` commands instead.  
 To cancel the effect of `g:rainbow_comment_prefix` just for the current file use `:NoRainbowComment` command.  
 
 
