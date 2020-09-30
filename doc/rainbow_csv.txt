@@ -247,7 +247,7 @@ csv autodetection mechanism can be disabled by setting this variable value to 1.
 Manual delimiter selection would still be possible.
 
 *g:rainbow_comment_prefix*
-Default: ''
+Default: ''  
 
 A string to use as a comment prefix for all CSV files you open in Vim.
 This setting is helpful if you are dealing with lots of CSV files which consistently use the same comment prefix e.g. `'#'` or `'>>'`
