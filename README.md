@@ -444,3 +444,7 @@ Rainbow CSV name and original implementation was significantly influenced by [ra
 
 There also exists an old vim syntax file [csv_color](https://vim.sourceforge.io/scripts/script.php?script_id=518) which, despite it's name, can highlight only *.tsv files.  
 And, of course, there is [csv.vim](https://github.com/chrisbra/csv.vim)
+
+#### Support the project
+
+[![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=mechatroner%40yandex.ru&item_name=Development+of+Rainbow+CSV+and+RBQL&currency_code=USD&source=url)
