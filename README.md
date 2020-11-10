@@ -1,3 +1,7 @@
+# Rainbow CSV
+[![Buy me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Donate-yellow.svg)](https://www.buymeacoffee.com/mechatroner)
+[![PayPal](https://img.shields.io/badge/PayPal-Donate-yellow)](https://www.paypal.com/paypalme/mechatroner)  
+
 ![rainbow_csv](https://i.imgur.com/EhV2niB.png)
 
 ## Installation
