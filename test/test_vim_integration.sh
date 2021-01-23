@@ -89,7 +89,7 @@ if [ "$md5sum_movies_csv_canon" != "$md5sum_movies_csv_test" ] || [ "$md5sum_mov
     exit 1
 fi
 
-if [ "$md5sum_update" != "fcc44cf2080ec88b56062472bbd89c3b" ] ; then
+if [ "$md5sum_update" != "d2681d3b6e4701c2e7d22ffddd299aaa" ] ; then
     echo "FAIL! Update integration tests failed: md5sums"  1>&2
     exit 1
 fi

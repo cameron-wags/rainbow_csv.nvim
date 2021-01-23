@@ -37,7 +37,7 @@
 :let g:rbql_output_format='tsv'
 
 :let g:rbql_backend_language = 'python'
-:e ./university_ranking.csv
+:e ../rbql_core/test/csv_files/university_ranking.csv
 :RbSelect
 :%delete
 :call setline(1, "Update set a3 = 'United States' where a3.find('of America') != -1")
