@@ -38,14 +38,18 @@ from ._version import __version__
 
 # TODO support custom (virtual) headers for CSV version
 
-# TODO support RBQL variable "NL" - line number. when header is skipped it would be "2" for the first record. Also it is not equal to NR for multiline records
-
-# TODO support option to skip comment lines (lines starting with the specified prefix)
+# TODO allow to use NL in RBQL queries for CSV version
 
 # TODO add "inconsistent number of fields in output table" warning. Useful for queries like this: `*a1.split("|")` or `...a1.split("|")`, where num of fields in a1 is variable
 
+# TODO refactor this module in sync with the JS version. There wasn't any cleanup after the last redesign
 
-# FIXME refactor this module in sync with the JS version. There wasn't any cleanup after the last redesign
+
+# TODO add RBQL iterators for json lines ( https://jsonlines.org/ ) and xml-by-line files
+# TODO add RBQL file-system iterator to be able to query files like fselect does
+
+
+# FIXME use proper interface base classes, see: https://stackoverflow.com/questions/44315961/when-to-use-raise-notimplementederror
 
 
 GROUP_BY = 'GROUP BY'
@@ -1039,6 +1043,7 @@ def ensure_no_ambiguous_variables(query_text, input_column_names, join_column_na
 def generate_common_init_code(query_text, variable_prefix):
     assert variable_prefix in ['a', 'b']
     result = list()
+    # TODO [PERFORMANCE] do not initialize RBQLRecord if we don't have `a.` or `a[` prefix in the query
     result.append('{} = RBQLRecord()'.format(variable_prefix))
     base_var = 'NR' if variable_prefix == 'a' else 'bNR'
     attr_var = '{}.NR'.format(variable_prefix)
@@ -1344,7 +1349,7 @@ def shallow_parse_input_query(query_text, input_iterator, join_tables_registry, 
 
     if WHERE in rb_actions:
         where_expression = rb_actions[WHERE]['text']
-        if re.search(r'[^!=]=[^=]', where_expression) is not None:
+        if re.search(r'[^><!=]=[^=]', where_expression) is not None:
             raise RbqlParsingError('Assignments "=" are not allowed in "WHERE" expressions. For equality test use "=="') # UT JSON
         query_context.where_expression = combine_string_literals(where_expression, string_literals)
 
@@ -1395,7 +1400,40 @@ def query(query_text, input_iterator, output_writer, output_warnings, join_table
     output_warnings.extend(output_writer.get_warnings())
 
 
-class TableIterator:
+class RBQLInputIterator:
+    def get_variables_map(self, query_text):
+        raise NotImplementedError('Unable to call the interface method')
+
+    def get_record(self):
+        raise NotImplementedError('Unable to call the interface method')
+
+    def get_warnings(self):
+        return [] # Reimplement if your class can produce warnings
+
+
+class RBQLOutputWriter:
+    def write(self, fields):
+        raise NotImplementedError('Unable to call the interface method')
+
+    def finish(self):
+        pass # Reimplement if your class needs to do something on finish e.g. cleanup
+
+    def get_warnings(self):
+        return [] # Reimplement if your class can produce warnings
+
+
+class RBQLTableRegistry:
+    def get_iterator_by_table_id(self, table_id):
+        raise NotImplementedError('Unable to call the interface method')
+
+    def finish(self):
+        pass # Reimplement if your class needs to do something on finish e.g. cleanup
+
+    def get_warnings(self):
+        return [] # Reimplement if your class can produce warnings
+
+
+class TableIterator(RBQLInputIterator):
     def __init__(self, table, column_names=None, normalize_column_names=True, variable_prefix='a'):
         self.table = table
         self.column_names = column_names
@@ -1434,7 +1472,7 @@ class TableIterator:
         return []
 
 
-class TableWriter:
+class TableWriter(RBQLOutputWriter):
     def __init__(self, external_table):
         self.table = external_table
 
@@ -1449,7 +1487,7 @@ class TableWriter:
         return []
 
 
-class SingleTableRegistry:
+class SingleTableRegistry(RBQLTableRegistry):
     def __init__(self, table, column_names=None, normalize_column_names=True, table_name='b'):
         self.table = table
         self.column_names = column_names

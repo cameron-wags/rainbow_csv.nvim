@@ -70,7 +70,7 @@ var query_context = null; // Needs to be global for MIN(), MAX(), etc functions
 
 
 const wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside JavaScript expressions is not allowed, see the docs';
-const RBQL_VERSION = '0.18.0';
+const RBQL_VERSION = '0.19.0';
 
 
 function stable_compare(a, b) {
@@ -860,13 +860,22 @@ async function compile_and_run(query_context) {
         if (e instanceof SyntaxError) {
             // SyntaxError's from eval() function do not contain detailed explanation of what has caused the syntax error, so to guess what was wrong we can only use the original query
             // v8 issue to fix eval: https://bugs.chromium.org/p/v8/issues/detail?id=2589
-            if (query_context.query_text.toLowerCase().indexOf(' having ') != -1)
+            let lower_case_query = query_context.query_text.toLowerCase();
+            if (lower_case_query.indexOf(' having ') != -1)
                 throw new SyntaxError(e.message + "\nRBQL doesn't support \"HAVING\" keyword");
-            if (query_context.query_text.toLowerCase().indexOf(' like ') != -1)
+            if (lower_case_query.indexOf(' like ') != -1)
                 throw new SyntaxError(e.message + "\nRBQL doesn't support \"LIKE\" operator, use like() function instead e.g. ... WHERE like(a1, 'foo%bar') ... "); // UT JSON
-            if (query_context.query_text.toLowerCase().indexOf(' from ') != -1)
+            if (lower_case_query.indexOf(' from ') != -1)
                 throw new SyntaxError(e.message + "\nRBQL doesn't use \"FROM\" keyword, e.g. you can query 'SELECT *' without FROM"); // UT JSON
+            if (e && e.message && String(e.message).toLowerCase().indexOf('unexpected identifier') != -1) {
+                if (lower_case_query.indexOf(' and ') != -1)
+                    throw new SyntaxError(e.message + "\nDid you use 'and' keyword in your query?\nJavaScript backend doesn't support 'and' keyword, use '&&' operator instead!");
+                if (lower_case_query.indexOf(' or ') != -1)
+                    throw new SyntaxError(e.message + "\nDid you use 'or' keyword in your query?\nJavaScript backend doesn't support 'or' keyword, use '||' operator instead!");
+            }
         }
+        if (e && e.message && e.message.indexOf('Received an instance of RBQLAggregationToken') != -1)
+            throw new RbqlParsingError(wrong_aggregation_usage_error);
         throw e;
     }
 }
@@ -1448,8 +1457,56 @@ function make_inconsistent_num_fields_warning(table_name, inconsistent_records_i
 }
 
 
-class TableIterator {
+class RBQLInputIterator {
+    constructor(){}
+    stop() {
+        throw new Error("Unable to call the interface method");
+    }
+    async get_variables_map(query_text) {
+        throw new Error("Unable to call the interface method");
+    }
+    async get_record() {
+        throw new Error("Unable to call the interface method");
+    }
+    get_warnings() {
+        return []; // Reimplement if your class can produce warnings
+    }
+}
+
+
+class RBQLOutputWriter {
+    constructor(){}
+
+    write(fields) {
+        throw new Error("Unable to call the interface method");
+    }
+
+    async finish() {
+        // Reimplement if your class needs to do something on finish e.g. cleanup
+    };
+
+    get_warnings() {
+        return []; // Reimplement if your class can produce warnings
+    };
+}
+
+
+class RBQLTableRegistry {
+    constructor(){}
+
+    get_iterator_by_table_id(table_id) {
+        throw new Error("Unable to call the interface method");
+    }
+
+    get_warnings() {
+        return []; // Reimplement if your class can produce warnings
+    };
+}
+
+
+class TableIterator extends RBQLInputIterator {
     constructor(table, column_names=null, normalize_column_names=true, variable_prefix='a') {
+        super();
         this.table = table;
         this.column_names = column_names;
         this.normalize_column_names = normalize_column_names;
@@ -1504,8 +1561,9 @@ class TableIterator {
 }
 
 
-class TableWriter {
+class TableWriter extends RBQLOutputWriter {
     constructor(external_table) {
+        super();
         this.table = external_table;
     }
 
@@ -1513,17 +1571,12 @@ class TableWriter {
         this.table.push(fields);
         return true;
     };
-
-    get_warnings() {
-        return [];
-    };
-
-    async finish() {};
 }
 
 
-class SingleTableRegistry {
+class SingleTableRegistry extends RBQLTableRegistry {
     constructor(table, column_names=null, normalize_column_names=true, table_id='b') {
+        super();
         this.table = table;
         this.table_id = table_id;
         this.column_names = column_names;
@@ -1576,7 +1629,7 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
 
     if (rb_actions.hasOwnProperty(WHERE)) {
         var where_expression = rb_actions[WHERE]['text'];
-        if (/[^!=]=[^=]/.exec(where_expression))
+        if (/[^><!=]=[^=]/.exec(where_expression))
             throw new RbqlParsingError('Assignments "=" are not allowed in "WHERE" expressions. For equality test use "==" or "==="');
         query_context.where_expression = combine_string_literals(where_expression, string_literals);
     }
@@ -1651,6 +1704,9 @@ function exception_to_error_info(e) {
 
 exports.query = query;
 exports.query_table = query_table;
+exports.RBQLInputIterator = RBQLInputIterator;
+exports.RBQLOutputWriter = RBQLOutputWriter;
+exports.RBQLTableRegistry = RBQLTableRegistry;
 
 exports.version = RBQL_VERSION;
 exports.TableIterator = TableIterator;

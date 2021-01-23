@@ -1,24 +1,34 @@
-# RBQL (Rainbow Query Language) Description
+# RBQL: Rainbow Query Language
 
-RBQL is a technology for (not only) CSV file processing. It provides SQL-like language that supports SELECT queries with Python or JavaScript expressions.  
-RBQL is distributed with CLI apps, text editor plugins, Python and JS libraries and can work in web browsers.  
-RBQL core module is very generic and can process all kinds of objects and record formats, but the most popular RBQL implementation works with CSV files.  
+RBQL is an eval-based SQL-like query engine for (not only) CSV file processing. It provides SQL-like language that supports SELECT queries with Python or JavaScript expressions.  
+RBQL is best suited for data transformation, data cleaning, and analytical queries.  
+RBQL is distributed with CLI apps, text editor plugins, Python and JS libraries.  
 
 [Official Site](https://rbql.org/)
+
+#### Supported formats
+
+Matrix of data formats that RBQL supports out of the box. R=Read, W=Write  
+
+|Data Format            | Python   | JS      |
+|-----------------------|----------|---------|
+|CSV, TSV, etc          | **RW**   | **RW**  |
+|Sqlite databases       | **R**    |         |
+|Native 2D arrays/lists | **RW**   | **RW**  |
+
+If you use RBQL as a library you can write implementation for a couple of classes to support additional formats.  
 
 ### Main Features
 
 * Use Python or JavaScript expressions inside _SELECT_, _UPDATE_, _WHERE_ and _ORDER BY_ statements
+* Supports multiple input formats
 * Result set of any query immediately becomes a first-class table on its own
-* Supports input tables with an inconsistent number of fields per record
-* Output records appear in the same order as in input unless _ORDER BY_ is provided
-* Each record has a unique NR (record number) identifier
+* No need to provide FROM statement in the query - input table is defined by the current context
 * Supports all main SQL keywords
 * Supports aggregate functions and GROUP BY queries
-* Provides some new useful query modes which traditional SQL engines do not have
-* Supports both _TOP_ and _LIMIT_ keywords
 * Supports user-defined functions (UDF)
-* Works out of the box, no external dependencies
+* Provides some new useful query modes which traditional SQL engines do not have
+* Lightweight, dependency-free, works out of the box
 
 #### Limitations:
 
@@ -136,7 +146,7 @@ You can define custom functions and/or import libraries in two special files:
 
 * `select top 100 a1, a2 * 10, a4.length where a1 == "Buy" order by parseInt(a2) desc`
 * `select * order by Math.random() where NR > 1` - skip header record and random sort
-* `select top 20 a.vehicle_price.length / 10, a2 where NR > 1 and ["car", "plane", "boat"].indexOf(a['Vehicle type']) > -1 limit 20` - referencing columns by names from header record and skipping the header
+* `select top 20 a.vehicle_price.length / 10, a2 where NR > 1 && ["car", "plane", "boat"].indexOf(a['Vehicle type']) > -1 limit 20` - referencing columns by names from header record and skipping the header
 * `update set a3 = 'NPC' where a3.indexOf('Non-playable character') != -1`
 * `select NR, *` - enumerate records, NR is 1-based
 * `select a1, b1, b2 inner join ./countries.txt on a2 == b1 order by a1, a3` - example of join query
@@ -144,7 +154,7 @@ You can define custom functions and/or import libraries in two special files:
 * `select ...a1.split(':')` - Using JS "destructuring assignment" syntax to split one column into many. Do not try this with other SQL engines!
 
 
-### RBQL design principles and architecture
+## RBQL design principles and architecture
 RBQL core idea is based on dynamic code generation and execution with [exec](https://docs.python.org/3/library/functions.html#exec) and [eval](https://www.w3schools.com/jsref/jsref_eval.asp) functions.
 Here are the main steps that RBQL engine performs when processing a query:
 1. Shallow parsing: split the query into logical expressions such as "SELECT", "WHERE", "ORDER BY", etc.
@@ -155,6 +165,30 @@ Here you can find a very basic working script (only 15 lines of Python code) whi
 
 The diagram below gives an overview of the main RBQL components and data flow:
 ![RBQL Diagram](https://i.imgur.com/KDQHoVM.png)
+
+
+### Advantages of RBQL over traditional SQL engines
+* Provides power and flexibility of general purpose Python and JS languages in relational expressions (including regexp, math, file system, json, xml, random and many other libraries that these languages provide)
+* Can work with different data sources including CSV files, sqlite tables, native 2D arrays/lists (traditional SQL engines are usually tightly coupled with their databases)
+* Result set of any query immediately becomes a first-class table on its own
+* Supports both TOP and LIMIT keywords
+* Provides additional NR (record number) variable which is especially useful for input sources where record order is well defined (such as CSV files)
+* Supports input tables with inconsistent number of fields per record
+* Allows to generate result sets with variable number of fields per record e.g. by using split() function and unpack operator (Python) / destructuring assignment (JS)
+* UPDATE is a special case of SELECT query - this prevents accidental data loss
+* No need to use FROM statement - the table name is defined by the context. This improves query typing speed and allows immediate autocomplete for variables inside SELECT statement (in traditional SQL engines autocomplete will not work until you write FROM statement, which goes after SELECT statement)
+* SELECT, WHERE, ORDER BY, and other statements can be rearranged in any way you like
+* Supports EXCEPT statement
+* Provides a fully-functional client-side browser demo application
+* Almost nonexistent entry barrier both for SQL users and JS/Python users
+* Integration with popular text editors (VSCode, Vim, Sublime Text, Atom)
+* Small, maintainable, dependency-free, eco-friendly and hackable code base: RBQL engine fits into a single file with less than 2000 LOC
+
+### Disadvantages of RBQL compared to traditional SQL engines
+* Not suitable for transactional workload
+* RBQL doesn't support nested queries, but they can be emulated with consecutive queries
+* Number of tables in all JOIN queries is always 2 (input table and join table), use consecutive queries to join 3 or more tables
+* Does not support HAVING statement
 
 
 ### FAQ
