@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+node_version=$( node --version 2> /dev/null )
+rc=$?
+if [ "$rc" != 0 ] || [ -z "$node_version" ] ; then
+    echo "WARNING! Node.js was not found. Skipping integration tests"  1>&2
+    # FIXME run reduced tests without node in this case
+    exit 1
+fi
+
 
 cleanup_tmp_files() {
     rm random_ut.csv 2> /dev/null
@@ -16,7 +24,6 @@ cleanup_tmp_files() {
 
 
 vim=vim
-skip_rbql_tests="False"
 
 while test ${#} -gt 0
 do
@@ -24,27 +31,12 @@ do
       shift
       vim=$1
       shift
-  elif [ $1 == "--skip_rbql_tests" ]; then
-      shift
-      skip_rbql_tests="True"
   else
       echo "Error. Unknown parameter: $1" 1>&2
       shift
       exit 1
   fi
 done
-
-
-if [ $skip_rbql_tests == "False" ]; then
-    echo "Starting RBQL unit tests"
-    cd ../rbql_core
-    ./test_all.sh
-    cd ../test
-    echo "Finished RBQL unit tests"
-else
-    echo "Skipping RBQL unit tests"
-fi
-
 
 
 echo "Starting vim integration tests"
@@ -54,22 +46,8 @@ cleanup_tmp_files
 # We need random_ut.csv file in vim unit tests
 PYTHONPATH="../rbql_core:$PYTHONPATH" python ../rbql_core/test/test_csv_utils.py --create_random_csv_table random_ut.csv
 
-has_node="yes"
+$vim -s unit_tests.vim -V0vim_debug.log -u test_vimrc
 
-node_version=$( node --version 2> /dev/null )
-rc=$?
-if [ "$rc" != 0 ] || [ -z "$node_version" ] ; then
-    echo "WARNING! Node.js was not found. Skipping node vim tests"  1>&2
-    has_node="no"
-fi
-
-if [ "$has_node" == "yes" ] ; then
-    $vim -s unit_tests.vim -V0vim_debug.log -u test_vimrc
-else
-    $vim -s unit_tests_py_only.vim -V0vim_debug.log -u test_vimrc
-    cp movies.tsv.py.rs movies.tsv.js.rs 2> /dev/null
-    cp movies.tsv.system_py.py.rs movies.tsv.system_py.js.rs 2> /dev/null
-fi
 errors=$( cat vim_debug.log | grep '^E[0-9][0-9]*' | wc -l )
 total=$( cat vim_unit_tests.log | wc -l )
 started=$( cat vim_unit_tests.log | grep 'Starting' | wc -l )
