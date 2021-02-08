@@ -477,6 +477,11 @@ function! rainbow_csv#strip_spaces(input_string)
 endfunction
 
 
+function! rainbow_csv#strip_spaces_left(input_string)
+    substitute(a:input_string,  '^ *\(.*\)', '\1', '')
+endfunction
+
+
 func! rainbow_csv#unescape_quoted_fields(src)
     let res = a:src
     for nt in range(len(res))
@@ -660,26 +665,67 @@ func! rainbow_csv#csv_lint()
 endfunc
 
 
+" This is written similar to RBQL parsing code
+"func! s:get_row_simple(linenum)
+"    return getline(a:linenum)
+"endfunc
+
+
+" This is written similar to RBQL parsing code
+func! s:get_row_rfc(start_line, comment_prefix, lastLineNo)
+    let first_row = getline(a:start_line)
+    if a:comment_prefix != '' && stridx(first_row, a:comment_prefix) == 0
+        return [first_row, a:start_line + 1]
+    endif
+    if count(first_row, '"') % 2 == 0
+        return [first_row, a:start_line + 1]
+    endif
+    let rows_buffer = [first_row]
+    for linenum in range(a:start_line + 1, a:lastLineNo)
+        let row = getline(linenum)
+        call add(rows_buffer, row)
+        if count(row, '"') % 2 == 1
+            break
+        endif
+    endfor
+    return [join(rows_buffer, "\n"), linenum + 1]
+endfunc
+
+
 func! s:calc_column_sizes(delim, policy, comment_prefix)
     let result = []
     let lastLineNo = line("$")
-    for linenum in range(1, lastLineNo)
-        let line = getline(linenum)
-        let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, a:delim, a:policy)
+    let linenum = 1
+    while linenum <= lastLineNo
+        if policy == 'quoted_rfc'
+            let [line, linenum_next] = get_row_rfc(linenum, a:comment_prefix, lastLineNo)
+        else
+            let line = getline(linenum)
+            let linenum_next = linenum + 1
+        endif
         if a:comment_prefix != '' && stridx(line, a:comment_prefix) == 0
             continue
         endif
+        let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, a:delim, a:policy)
         if has_warning
             return [result, linenum]
         endif
+        let linenum = linenum_next
         for fnum in range(len(fields))
-            let field = rainbow_csv#strip_spaces(fields[fnum])
             if len(result) <= fnum
                 call add(result, 0)
             endif
+            let field = fields[fnum]
+            let nl_pos = stridx(field, "\n")
+            if nl_pos == -1
+                let field = rainbow_csv#strip_spaces(field)
+            else
+                let field = nl_pos == 0 ? '' : field[:nl_pos - 1]
+                let field = rainbow_csv#strip_spaces_left(field)
+            endif
             let result[fnum] = max([result[fnum], strdisplaywidth(field)])
         endfor
-    endfor
+    endwhile
     return [result, 0]
 endfunc
 
