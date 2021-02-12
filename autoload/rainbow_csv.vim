@@ -666,12 +666,6 @@ endfunc
 
 
 " This is written similar to RBQL parsing code
-"func! s:get_row_simple(linenum)
-"    return getline(a:linenum)
-"endfunc
-
-
-" This is written similar to RBQL parsing code
 func! s:get_row_rfc(start_line, comment_prefix, lastLineNo)
     let first_row = getline(a:start_line)
     if a:comment_prefix != '' && stridx(first_row, a:comment_prefix) == 0
@@ -692,17 +686,22 @@ func! s:get_row_rfc(start_line, comment_prefix, lastLineNo)
 endfunc
 
 
+
+func! s:smart_get_line(policy, linenum, comment_prefix, lastLineNo)
+    if a:policy == 'quoted_rfc'
+        return get_row_rfc(a:linenum, a:comment_prefix, a:lastLineNo)
+    else
+        return [getline(a:linenum), a:linenum + 1]
+    endif
+endfunc
+
+
 func! s:calc_column_sizes(delim, policy, comment_prefix)
     let result = []
     let lastLineNo = line("$")
     let linenum = 1
     while linenum <= lastLineNo
-        if policy == 'quoted_rfc'
-            let [line, linenum_next] = get_row_rfc(linenum, a:comment_prefix, lastLineNo)
-        else
-            let line = getline(linenum)
-            let linenum_next = linenum + 1
-        endif
+        let [line, linenum_next] = smart_get_line(policy, linenum, a:comment_prefix, lastLineNo)
         if a:comment_prefix != '' && stridx(line, a:comment_prefix) == 0
             continue
         endif
@@ -747,12 +746,14 @@ func! rainbow_csv#csv_align()
     endif
     let lastLineNo = line("$")
     let has_edit = 0
-    for linenum in range(1, lastLineNo)
-        let has_line_edit = 0
-        let line = getline(linenum)
+    let linenum = 1
+    while linenum <= lastLineNo
+        let has_row_edit = 0
+        let [line, linenum_next] = smart_get_line(policy, linenum, a:comment_prefix, lastLineNo)
         if comment_prefix != '' && stridx(line, comment_prefix) == 0
             continue
         endif
+        " FIXME fix the rest
         let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
         for fnum in range(len(fields))
             if fnum >= len(column_sizes)
@@ -765,15 +766,16 @@ func! rainbow_csv#csv_align()
             endif
             if fields[fnum] != field
                 let fields[fnum] = field
-                let has_line_edit = 1
+                let has_row_edit = 1
             endif
         endfor
-        if has_line_edit
+        if has_row_edit
             let updated_line = join(fields, delim)
             call setline(linenum, updated_line)
             let has_edit = 1
         endif
-    endfor
+        let linenum = linenum_next
+    endwhile
     if !has_edit
         echoerr "File is already aligned"
     endif
