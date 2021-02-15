@@ -6,9 +6,9 @@
 "==============================================================================
 
 let s:max_columns = exists('g:rcsv_max_columns') ? g:rcsv_max_columns : 30
-let s:rb_storage_dir = $HOME . '/.rainbow_csv_storage'
-let s:table_names_settings = $HOME . '/.rbql_table_names'
-let s:rainbow_table_index = $HOME . '/.rbql_table_index'
+let s:rb_storage_dir = exists('g:rb_storage_dir') ? g:rb_storage_dir : $HOME . '/.rainbow_csv_storage'
+let s:table_names_settings = exists('g:table_names_settings') ? g:table_names_settings : $HOME . '/.rbql_table_names'
+let s:rainbow_table_index = exists('g:rainbow_table_index') ? g:rainbow_table_index : $HOME . '/.rbql_table_index'
 
 let s:script_folder_path = expand('<sfile>:p:h:h')
 let s:python_env_initialized = 0
