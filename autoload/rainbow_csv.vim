@@ -630,7 +630,7 @@ func! rainbow_csv#csv_lint()
         echoerr "CSVLint is available only for highlighted CSV files"
         return
     endif
-    if policy == 'rfc_csv'
+    if policy == 'quoted_rfc'
         " TODO implement
         echoerr "CSVLint is not implemented yet for rfc_csv"
         return
@@ -690,7 +690,7 @@ func! rainbow_csv#csv_align()
         echoerr "RainbowAlign is available only for highlighted CSV files"
         return
     endif
-    if policy == 'rfc_csv'
+    if policy == 'quoted_rfc'
         echoerr 'RainbowAlign not available for "rfc_csv" filetypes, consider using "csv" instead'
         return
     endif
@@ -740,7 +740,7 @@ func! rainbow_csv#csv_shrink()
         echoerr "RainbowShrink is available only for highlighted CSV files"
         return
     endif
-    if policy == 'rfc_csv'
+    if policy == 'quoted_rfc'
         echoerr 'RainbowShrink not available for "rfc_csv" filetypes, consider using "csv" instead'
         return
     endif
