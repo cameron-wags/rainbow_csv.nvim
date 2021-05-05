@@ -250,6 +250,9 @@ This setting for example can be used to convert files between tsv and csv format
 * To convert _csv_ to _tsv_: **1.** open csv file. **2.** `:let g:rbql_output_format='tsv'` **3.** `:Select *`
 * To convert _tsv_ to _csv_: **1.** open tsv file. **2.** `:let g:rbql_output_format='csv'` **3.** `:Select *`
 
+#### g:rbql_use_system_python
+Set to `1` to use system python interpreter for RBQL queries instead of the python interpreter built into your vim/neovim editor.
+
 
 ### Optional "Header" file feature
 

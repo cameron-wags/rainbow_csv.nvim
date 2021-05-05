@@ -73,6 +73,11 @@ func! s:has_custom_colors()
 endfunc
 
 
+func! s:use_system_python()
+    return exists('g:rbql_use_system_python') ? g:rbql_use_system_python : 0
+endfunc
+
+
 func! s:init_groups_from_colors()
     let pairs = [['red', 'red'], ['green', 'green'], ['blue', 'blue'], ['magenta', 'magenta'], ['NONE', 'NONE'], ['darkred', 'darkred'], ['darkblue', 'darkblue'], ['darkgreen', 'darkgreen'], ['darkmagenta', 'darkmagenta'], ['darkcyan', 'darkcyan']]
     if s:has_custom_colors()
@@ -432,12 +437,12 @@ function! s:EnsurePythonInitialization()
     endif
     let py_home_dir = s:script_folder_path . '/rbql_core'
     let py_home_dir = s:py_source_escape(py_home_dir)
-    if has("python3") && !s:test_coverage()
+    if has("python3") && !s:use_system_python() && !s:test_coverage()
         py3 import sys
         py3 import vim
         exe 'python3 sys.path.insert(0, "' . py_home_dir . '")'
         py3 import vim_rbql
-    elseif s:has_python_27() && !s:test_coverage()
+    elseif s:has_python_27() && !s:use_system_python() && !s:test_coverage()
         py import sys
         py import vim
         exe 'python sys.path.insert(0, "' . py_home_dir . '")'

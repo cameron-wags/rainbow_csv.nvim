@@ -261,6 +261,8 @@ Default: 30
 Autodetection will fail if buffer has more than |g:rcsv_max_columns| columns.
 You can increase or decrease this limit.
 
+*g:rbql_use_system_python*
+Set to `1` to use system python interpreter for RBQL queries instead of the python interpreter built into your vim/neovim editor.
 
 ==============================================================================
 5. Tips                                                      *rainbow_csv-tips*
