@@ -3,6 +3,7 @@
 
 // "a1", "a2", etc are column names.
 // You can use them in JavaScript expressions, e.g. "a1 * 20 + a2.length * Math.random()"
+// If your file has header line set `let g:rbql_with_headers = 1` or add `WITH (header)` at the end of your query.
 // To run the query press F5.
 // For more info visit https://github.com/mechatroner/rainbow_csv
 
