@@ -264,6 +264,10 @@ You can increase or decrease this limit.
 *g:rbql_use_system_python*
 Set to `1` to use system python interpreter for RBQL queries instead of the python interpreter built into your vim/neovim editor.
 
+*g:rbql_with_headers*
+If most of the CSV files that you work with have headers, you can set this value to 1. In this case RBQL will treat first records in files as headers by default.
+You can also adjust (or override) this setting by adding "WITH (header)" or "WITH (noheader)" to the end of your RBQL queries.
+
 ==============================================================================
 5. Tips                                                      *rainbow_csv-tips*
 

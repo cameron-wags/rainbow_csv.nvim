@@ -53,11 +53,11 @@ def get_random_suffix():
     return str(time.time()).split('.')[0]
 
 
-def execute_python(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy, dst_table_path):
+def execute_python(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy, dst_table_path, with_headers):
     query = codecs.open(rb_script_path, encoding=encoding).read()
     warnings = []
     try:
-        rbql.query_csv(query, src_table_path, input_delim, input_policy, dst_table_path, out_delim, out_policy, encoding, warnings, comment_prefix=input_comment_prefix)
+        rbql.query_csv(query, src_table_path, input_delim, input_policy, dst_table_path, out_delim, out_policy, encoding, warnings, with_headers, comment_prefix=input_comment_prefix)
         warning_report = '\n'.join(warnings)
         vim_interface.set_vim_variable('psv_warning_report', warning_report)
         vim_interface.set_vim_variable('psv_query_status', 'OK')
@@ -66,7 +66,7 @@ def execute_python(src_table_path, rb_script_path, encoding, input_delim, input_
         vim_interface.report_error_to_vim(error_type, error_msg)
 
 
-def converged_execute(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy):
+def converged_execute(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy, with_headers):
     try:
         input_delim = rbql_csv.normalize_delim(input_delim)
         out_delim = rbql_csv.normalize_delim(out_delim)
@@ -75,21 +75,21 @@ def converged_execute(src_table_path, rb_script_path, encoding, input_delim, inp
         dst_table_name = '{}.txt'.format(table_name)
         dst_table_path = os.path.join(tmp_dir, dst_table_name)
         vim_interface.set_vim_variable('psv_dst_table_path', dst_table_path)
-        execute_python(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy, dst_table_path)
+        execute_python(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy, dst_table_path, with_headers)
     except Exception as e:
         vim_interface.report_error_to_vim('Execution Error', str(e))
 
 
-def run_execute(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy):
+def run_execute(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy, with_headers):
     global vim_interface
     vim_interface = VimInterface()
-    converged_execute(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy)
+    converged_execute(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy, with_headers)
 
 
-def run_execute_cli(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy):
+def run_execute_cli(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy, with_headers):
     global vim_interface
     vim_interface = CLIVimMediator()
-    converged_execute(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy)
+    converged_execute(src_table_path, rb_script_path, encoding, input_delim, input_policy, input_comment_prefix, out_delim, out_policy, with_headers)
     vim_interface.save_report(sys.stdout)
 
 
@@ -104,8 +104,12 @@ def main():
     parser.add_argument('input_comment_prefix', metavar='PREFIX', help='Input comment prefix')
     parser.add_argument('out_delim', metavar='DELIM', help='Output delimiter')
     parser.add_argument('out_policy', metavar='POLICY', help='Output policy')
+    parser.add_argument('with_headers', metavar='WITH_HEADERS', help='With headers')
     args = parser.parse_args()
-    run_execute_cli(args.input_table_path, args.query_file, args.encoding, args.input_delim, args.input_policy, args.input_comment_prefix, args.out_delim, args.out_policy)
+
+    with_headers = {'True': True, 'False': False}[args.with_headers]
+
+    run_execute_cli(args.input_table_path, args.query_file, args.encoding, args.input_delim, args.input_policy, args.input_comment_prefix, args.out_delim, args.out_policy, with_headers)
 
 
 if __name__ == '__main__':

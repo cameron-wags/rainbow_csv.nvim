@@ -250,13 +250,15 @@ This setting for example can be used to convert files between tsv and csv format
 * To convert _csv_ to _tsv_: **1.** open csv file. **2.** `:let g:rbql_output_format='tsv'` **3.** `:Select *`
 * To convert _tsv_ to _csv_: **1.** open tsv file. **2.** `:let g:rbql_output_format='csv'` **3.** `:Select *`
 
+
 #### g:rbql_use_system_python
 Set to `1` to use system python interpreter for RBQL queries instead of the python interpreter built into your vim/neovim editor.
 
 
-### Optional "Header" file feature
-
-Rainbow csv allows you to create a special "header" file for any of your spreadsheet table files. It must have the same name as the table file but with ".header" suffix (e.g. for "table.tsv" table the header file is "table.tsv.header"). The only purpose of header file is to provide csv column names.
+#### g:rbql_with_headers
+If most of the CSV files that you work with have headers, you can set this value to 1. In this case RBQL will treat first records in files as headers by default.  
+Example: `:let g:rbql_with_headers = 1`  
+You can also adjust (or override) this setting by adding `WITH (header)` or `WITH (noheader)` to the end of your RBQL queries.
 
 
 # RBQL (Rainbow Query Language) Description
