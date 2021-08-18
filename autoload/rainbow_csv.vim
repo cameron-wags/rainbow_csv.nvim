@@ -26,7 +26,8 @@ let s:autodetection_delims = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : [
 " We need to use both of them.
 
 
-" XXX Use :syntax command to list all syntax groups
+" XXX Use :syntax command to list all current syntax groups
+" XXX Use :highlight command to list all current highlight groups
 
 
 " TODO fix update -> Update switch it also occures with this `:echo "update "` -> `:echo "Update "` scenario. but only with csv files!
@@ -102,7 +103,7 @@ func! s:init_groups_from_colors()
 endfunc
 
 
-func! s:init_rb_color_groups()
+func! rainbow_csv#init_rb_color_groups()
     if !exists("g:syntax_on") || s:has_custom_colors()
         call s:init_groups_from_colors()
     else
@@ -114,7 +115,14 @@ func! s:init_rb_color_groups()
 endfunc
 
 
-call s:init_rb_color_groups()
+
+augroup RainbowCsvPluginInitAuGrp
+    " We need this autocmd only for users who has g:rcsv_colorpairs customization enabled and who set custom colorscheme manually or in .vimrc.
+    autocmd!
+    " If someone sets syntax on VimEnter autocmd, it will overwrite the color groups, so we restore them back here
+    autocmd VimEnter * call rainbow_csv#init_rb_color_groups()
+    autocmd ColorScheme * call rainbow_csv#init_rb_color_groups()
+augroup END
 
 
 func! s:try_read_lines(src_path)
@@ -1560,6 +1568,9 @@ func! rainbow_csv#buffer_enable_rainbow_features()
     endif
 
     let b:rainbow_features_enabled = 1
+
+    " Calling init_rb_color_groups() just in case; there are currently no identified situations where this becomes critical.
+    call rainbow_csv#init_rb_color_groups()
 
     set laststatus=2
 
