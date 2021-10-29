@@ -1081,6 +1081,7 @@ func! s:status_escape_string(src)
     " Strings in 'substitute' must follow esoteric rules, see `:help substitute()`
     let result = substitute(a:src, ' ', '\\ ', 'g')
     let result = substitute(result, '"', '\\"', 'g')
+    let result = substitute(result, '|', '\\|', 'g')
     return result
 endfunc
 
