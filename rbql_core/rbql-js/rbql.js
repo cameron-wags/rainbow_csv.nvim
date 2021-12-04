@@ -70,7 +70,7 @@ var query_context = null; // Needs to be global for MIN(), MAX(), etc functions
 
 
 const wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside JavaScript expressions is not allowed, see the docs';
-const RBQL_VERSION = '0.20.0';
+const RBQL_VERSION = '0.21.0';
 
 
 function check_if_brackets_match(opening_bracket, closing_bracket) {
@@ -156,7 +156,7 @@ function column_info_from_text_span(text_span, string_literals) {
         if (replaced_string_literal_id < string_literals.length) {
             let quoted_column_name = string_literals[replaced_string_literal_id];
             let unquoted_column_name = unquote_string(quoted_column_name);
-            if (unquoted_column_name) {
+            if (unquoted_column_name !== null && unquoted_column_name !== undefined) {
                 return {table_name: null, column_index: null, column_name: unquoted_column_name, is_star: false};
             }
         }
@@ -1783,12 +1783,12 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
     query_text = cleanup_query(query_text);
     var [format_expression, string_literals] = separate_string_literals(query_text);
     format_expression = remove_redundant_table_name(format_expression);
-    var input_variables_map = await input_iterator.get_variables_map(query_text);
 
     var rb_actions = separate_actions(format_expression);
     if (rb_actions.hasOwnProperty(WITH)) {
         input_iterator.handle_query_modifier(rb_actions[WITH]);
     }
+    var input_variables_map = await input_iterator.get_variables_map(query_text);
 
     if (rb_actions.hasOwnProperty(ORDER_BY) && rb_actions.hasOwnProperty(UPDATE))
         throw new RbqlParsingError('"ORDER BY" is not allowed in "UPDATE" queries');
