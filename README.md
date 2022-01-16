@@ -435,9 +435,10 @@ You can define custom functions and/or import libraries in two special files:
 
 #### RBQL
 
-* RBQL website [RBQL](https://rbql.org/)
-* Library and CLI App for JavaScript [RBQL](https://www.npmjs.com/package/rbql)  
-* Library and CLI App for Python [RBQL](https://pypi.org/project/rbql/)  
+* RBQL [website](https://rbql.org/)
+* Library and CLI App for [JavaScript](https://www.npmjs.com/package/rbql)
+* Library and CLI App for [Python](https://pypi.org/project/rbql/)
+* Demo Google Colab IPython [notebook](https://colab.research.google.com/drive/1_cFPtnQUxILP0RE2_DBlqIfXaEzT-oZ6?usp=sharing)
 
 #### Related vim plugins:
 Rainbow CSV name and original implementation was significantly influenced by [rainbow_parentheses](https://github.com/kien/rainbow_parentheses.vim) Vim plugin.  
