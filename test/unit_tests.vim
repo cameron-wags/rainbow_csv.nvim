@@ -93,6 +93,7 @@
 :call add(g:rbql_test_log_records, log_msg)
 
 
+:let g:rbql_with_headers = 1
 :e ../rbql_core/test/csv_files/university_ranking_with_comments.csv
 :sleep 1
 :set ft=csv
@@ -105,6 +106,7 @@
 :let num_lines = line('$')
 :let log_msg = (num_lines == 201) ? 'OK' : 'FAIL: university_ranking_with_comments.csv'
 :call add(g:rbql_test_log_records, log_msg)
+:let g:rbql_with_headers = 0
 
 
 :call add(g:rbql_test_log_records, 'Finished full integration tests')
