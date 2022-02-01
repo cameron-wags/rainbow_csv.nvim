@@ -1570,9 +1570,6 @@ func! rainbow_csv#buffer_enable_rainbow_features()
 
     let b:rainbow_features_enabled = 1
 
-    " Calling init_rb_color_groups() just in case; there are currently no identified situations where this becomes critical.
-    call rainbow_csv#init_rb_color_groups()
-
     set laststatus=2
 
     if &compatible == 1
@@ -1709,6 +1706,11 @@ endfunc
 
 
 func! rainbow_csv#handle_buffer_enter()
+    if !exists("s:num_groups")
+        " Just to make sure that syntax was generated.
+        call rainbow_csv#init_rb_color_groups()
+    endif
+
     if exists("b:rainbow_features_enabled")
         if b:rainbow_features_enabled
             " This is a workaround against Vim glitches. sometimes it 'forgets' to highlight the file even when ft=csv, see https://stackoverflow.com/questions/14779299/syntax-highlighting-randomly-disappears-during-file-saving
@@ -1763,6 +1765,11 @@ func! rainbow_csv#handle_syntax_change()
         endif
         return
     endif
+    if !exists("s:num_groups")
+        " Just to make sure that syntax was generated.
+        call rainbow_csv#init_rb_color_groups()
+    endif
+
     " We don't want to update_table_record() here because ft change could have been triggered by autodetection
     " Even if it is manual, Vim itself doesn't save manual ft=<lang> selections, so if this plugin does it but only for csv, this could be a little inconsistent
     " But we can actually do this: in autodetection set a special flag and immediately unset it here. If the flag is not set, than it was manual switch and we need to remember the choice
