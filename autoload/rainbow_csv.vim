@@ -21,6 +21,11 @@ let s:named_syntax_map = {'csv': [',', 'quoted', ''], 'csv_semicolon': [';', 'qu
 
 let s:autodetection_delims = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : ["\t", ",", ";", "|"]
 
+let s:number_regex = '^[0-9]\+\(\.[0-9]\+\)\?$'
+let s:non_numeric = -1
+
+let s:align_progress_bar_position = 0
+let s:progress_bar_size = 20
 
 " Vim has 2 different variables: filetype and syntax. syntax is a subset of filetype
 " We need to use both of them.
@@ -678,31 +683,140 @@ func! rainbow_csv#csv_lint()
 endfunc
 
 
-func! s:calc_column_sizes(delim, policy, comment_prefix)
-    let result = []
+func! rainbow_csv#update_subcomponent_stats(field, is_first_line, max_field_components_lens)
+    " Extract overall field length and length of integer and fractional parts of the field if it represents a number.
+    " Here `max_field_components_lens` is a tuple: (max_field_length, max_integer_part_length, max_fractional_part_length)
+    let field_length = strdisplaywidth(a:field)
+    if field_length > a:max_field_components_lens[0]
+        let a:max_field_components_lens[0] = field_length
+    endif
+    if a:max_field_components_lens[1] == s:non_numeric
+        " Column is not a number, early return.
+        return
+    endif
+    let pos = match(a:field, s:number_regex)
+    if pos == -1
+        if !a:is_first_line && field_length " Checking field_length here allows numeric columns to have some of the fields empty.
+            " We only mark the column as non-header if we know that this is not a header line.
+            let a:max_field_components_lens[1] = s:non_numeric
+            let a:max_field_components_lens[2] = s:non_numeric
+        endif
+        return
+    endif
+    let dot_pos = stridx(a:field, '.')
+    let cur_integer_part_length = dot_pos == -1 ? field_length : dot_pos
+    if cur_integer_part_length > a:max_field_components_lens[1]
+        let a:max_field_components_lens[1] = cur_integer_part_length
+    endif
+    " Here cur_fractional_part_length includes the leading dot too.
+    let cur_fractional_part_length = dot_pos == -1 ? 0 : field_length - dot_pos
+    if cur_fractional_part_length > a:max_field_components_lens[2]
+        let a:max_field_components_lens[2] = cur_fractional_part_length
+    endif
+endfunc
+
+
+func! s:display_progress_bar(cur_progress_pos)
+    let progress_display_str = 'Processing... [' . repeat('#', a:cur_progress_pos) . repeat(' ', s:progress_bar_size - a:cur_progress_pos) . ']'
+    redraw | echo progress_display_str
+endfunc
+
+
+func! rainbow_csv#adjust_column_stats(column_stats)
+    " Ensure that numeric components max widths are consistent with non-numeric (header) width.
+    let adjusted_stats = []
+    for column_stat in a:column_stats
+        if column_stat[1] <= 0
+            let column_stat[1] = -1
+            let column_stat[2] = -1
+        endif
+        if column_stat[1] > 0
+            " The sum of integer and float parts can be bigger than the max width, e.g. here:
+            " value
+            " 0.12
+            " 1234
+            if (column_stat[1] + column_stat[2] > column_stat[0])
+                let column_stat[0] = column_stat[1] + column_stat[2]
+            endif
+            " This is needed when the header is wider than numeric components and/or their sum.
+            if (column_stat[0] - column_stat[2] > column_stat[1])
+                let column_stat[1] = column_stat[0] - column_stat[2]
+            endif
+            if (column_stat[0] != column_stat[1] + column_stat[2])
+                echo column_stat[0] . ' ' . column_stat[1] . ' ' . column_stat[2]
+                " Assertion Error, this can never happen.
+                return []
+            endif
+        endif
+        call add(adjusted_stats, column_stat)
+    endfor
+    return adjusted_stats
+endfunc
+
+
+func! s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
+    " Result `column_stats` is a list of (max_total_len, max_int_part_len, max_fractional_part_len) tuples.
+    let column_stats = []
     let lastLineNo = line("$")
+    let is_first_line = 1
     for linenum in range(1, lastLineNo)
+        if (a:progress_bucket_size && linenum % a:progress_bucket_size == 0)
+            let s:align_progress_bar_position = s:align_progress_bar_position + 1
+            call s:display_progress_bar(s:align_progress_bar_position)
+        endif
         let line = getline(linenum)
         let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, a:delim, a:policy)
         if a:comment_prefix != '' && stridx(line, a:comment_prefix) == 0
             continue
         endif
         if has_warning
-            return [result, linenum]
+            return [column_stats, linenum]
         endif
         for fnum in range(len(fields))
             let field = rainbow_csv#strip_spaces(fields[fnum])
-            if len(result) <= fnum
-                call add(result, 0)
+            if len(column_stats) <= fnum
+                call add(column_stats, [0, 0, 0])
             endif
-            let result[fnum] = max([result[fnum], strdisplaywidth(field)])
+            call rainbow_csv#update_subcomponent_stats(field, is_first_line, column_stats[fnum])
         endfor
+        let is_first_line = 0
     endfor
-    return [result, 0]
+    return [column_stats, 0]
+endfunc
+
+
+func! rainbow_csv#align_field(field, is_first_line, max_field_components_lens)
+    " Align field, use max() to avoid negative delta_length which can happen theorethically due to async doc edit.
+    let extra_readability_whitespace_length = 1
+    let clean_field = rainbow_csv#strip_spaces(a:field)
+    let field_length = strdisplaywidth(clean_field)
+    if (a:max_field_components_lens[1] == s:non_numeric)
+        let delta_length = a:max_field_components_lens[0] - field_length > 0 ? a:max_field_components_lens[0] - field_length : 0
+        return clean_field . repeat(' ', delta_length + extra_readability_whitespace_length)
+    endif
+    if a:is_first_line
+        let pos = match(a:field, s:number_regex)
+        if pos == -1
+            " The line must be a header - align it using max_width rule.
+            let delta_length = max([a:max_field_components_lens[0] - field_length, 0])
+            return clean_field . repeat(' ', delta_length + extra_readability_whitespace_length)
+        endif
+    endif
+    let dot_pos = stridx(clean_field, '.')
+    let cur_integer_part_length = dot_pos == -1 ? field_length : dot_pos
+    " Here cur_fractional_part_length includes the leading dot too.
+    let cur_fractional_part_length = dot_pos == -1 ? 0 : field_length - dot_pos
+    let integer_delta_length = a:max_field_components_lens[1] - cur_integer_part_length > 0 ? a:max_field_components_lens[1] - cur_integer_part_length : 0
+    let fractional_delta_length = a:max_field_components_lens[2] - cur_fractional_part_length > 0 ? a:max_field_components_lens[2] - cur_fractional_part_length : 0
+    return repeat(' ', integer_delta_length) . clean_field . repeat(' ', fractional_delta_length + extra_readability_whitespace_length)
 endfunc
 
 
 func! rainbow_csv#csv_align()
+    " The first (statistic) pass of the function takes about 40% of runtime, the second (actual align) pass around 60% of runtime.
+    " Numeric-aware logic by itself adds about 50% runtime compared to the basic string-based field width alignment
+    " If there are lot of numeric columns this can additionally increase runtime by another 50% or more.
+    let show_progress_bar = wordcount()['bytes'] > 200000
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
         echoerr "RainbowAlign is available only for highlighted CSV files"
@@ -712,14 +826,29 @@ func! rainbow_csv#csv_align()
         echoerr 'RainbowAlign not available for "rfc_csv" filetypes, consider using "csv" instead'
         return
     endif
-    let [column_sizes, first_failed_line] = s:calc_column_sizes(delim, policy, comment_prefix)
+    let lastLineNo = line("$")
+    let progress_bucket_size = (lastLineNo * 2) / s:progress_bar_size " multiply by 2 because we have two passes.
+    if !show_progress_bar || progress_bucket_size < 10
+        let progress_bucket_size = 0
+    endif
+    let s:align_progress_bar_position = 0
+    let [column_stats, first_failed_line] = s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
     if first_failed_line != 0
         echoerr 'Unable to allign: Inconsistent double quotes at line ' . first_failed_line
         return
     endif
-    let lastLineNo = line("$")
+    let column_stats = rainbow_csv#adjust_column_stats(column_stats)
+    if !len(column_stats)
+        echoerr 'Unable to allign: Internal Rainbow CSV Error'
+        return
+    endif
     let has_edit = 0
+    let is_first_line = 1
     for linenum in range(1, lastLineNo)
+        if (progress_bucket_size && linenum % progress_bucket_size == 0)
+            let s:align_progress_bar_position = s:align_progress_bar_position + 1
+            call s:display_progress_bar(s:align_progress_bar_position)
+        endif
         let has_line_edit = 0
         let line = getline(linenum)
         if comment_prefix != '' && stridx(line, comment_prefix) == 0
@@ -727,14 +856,10 @@ func! rainbow_csv#csv_align()
         endif
         let fields = rainbow_csv#preserving_smart_split(line, delim, policy)[0]
         for fnum in range(len(fields))
-            if fnum >= len(column_sizes)
+            if fnum >= len(column_stats)
                 break " Should never happen
             endif
-            let field = rainbow_csv#strip_spaces(fields[fnum])
-            let delta_len = column_sizes[fnum] - strdisplaywidth(field)
-            if delta_len >= 0
-                let field = field . repeat(' ', delta_len + 1)
-            endif
+            let field = rainbow_csv#align_field(fields[fnum], is_first_line, column_stats[fnum])
             if fields[fnum] != field
                 let fields[fnum] = field
                 let has_line_edit = 1
@@ -745,6 +870,7 @@ func! rainbow_csv#csv_align()
             call setline(linenum, updated_line)
             let has_edit = 1
         endif
+        let is_first_line = 0
     endfor
     if !has_edit
         echoerr "File is already aligned"
@@ -764,7 +890,17 @@ func! rainbow_csv#csv_shrink()
     endif
     let lastLineNo = line("$")
     let has_edit = 0
+    let show_progress_bar = wordcount()['bytes'] > 200000
+    let progress_bucket_size = lastLineNo / s:progress_bar_size
+    if !show_progress_bar || progress_bucket_size < 10
+        let progress_bucket_size = 0
+    endif
+    let s:align_progress_bar_position = 0
     for linenum in range(1, lastLineNo)
+        if (progress_bucket_size && linenum % progress_bucket_size == 0)
+            let s:align_progress_bar_position = s:align_progress_bar_position + 1
+            call s:display_progress_bar(s:align_progress_bar_position)
+        endif
         let has_line_edit = 0
         let line = getline(linenum)
         if comment_prefix != '' && stridx(line, comment_prefix) == 0
