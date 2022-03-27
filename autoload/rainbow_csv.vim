@@ -21,6 +21,8 @@ let s:named_syntax_map = {'csv': [',', 'quoted', ''], 'csv_semicolon': [';', 'qu
 
 let s:autodetection_delims = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : ["\t", ",", ";", "|"]
 
+let s:number_regex = '^[0-9]\+\(\.[0-9]\+\)\?$'
+let s:non_numeric = -1
 
 " Vim has 2 different variables: filetype and syntax. syntax is a subset of filetype
 " We need to use both of them.
@@ -678,39 +680,38 @@ func! rainbow_csv#csv_lint()
 endfunc
 
 
-func! s:update_subcomponent_stats(field, field_component_stats)
+func! s:update_subcomponent_stats(field, is_first_line, max_field_components_lens)
     " Extract overall field length and length of integer and fractional parts of the field if it represents a number.
-    " Here `field_component_stats` is a tuple: (field_length, integer_part_length, fractional_part_length)
+    " Here `max_field_components_lens` is a tuple: (max_field_length, max_integer_part_length, max_fractional_part_length)
     let field_length = strdisplaywidth(a:field)
-    let a:field_component_stats[0] = max([a:field_component_stats[0], field_length])
-    if a:field_component_stats[1] == -1
+    let a:max_field_components_lens[0] = max([a:max_field_components_lens[0], field_length])
+    if a:max_field_components_lens[1] == s:non_numeric
         " Column is not a number, early return.
         return
     endif
-    let pos = match(a:field, '^[0-9]\+\(\.[0-9]\+\)\?$')
+    let pos = match(a:field, s:number_regex)
     if pos == -1
-        let a:field_component_stats[1] = -1
-        let a:field_component_stats[2] = -1
+        if !a:is_first_line
+            " We only mark the column as non-header if we know that this is not a header line.
+            let a:max_field_components_lens[1] = s:non_numeric
+            let a:max_field_components_lens[2] = s:non_numeric
+        endif
         return
     endif
     let dot_pos = stridx(a:field, '.')
-    let integer_part_length = dot_pos == -1 ? field_length : dot_pos
-    " Here fractional_part_length includes the leading dot too.
-    let fractional_part_length = dot_pos == -1 ? -1 : field_length - dot_pos
-    let a:field_component_stats[1] = max([a:field_component_stats[1], integer_part_length])
-    let a:field_component_stats[2] = max([a:field_component_stats[2], fractional_part_length])
+    let cur_integer_part_length = dot_pos == -1 ? field_length : dot_pos
+    " Here cur_fractional_part_length includes the leading dot too.
+    let cur_fractional_part_length = dot_pos == -1 ? 0 : field_length - dot_pos
+    let a:max_field_components_lens[1] = max([a:max_field_components_lens[1], cur_integer_part_length])
+    let a:max_field_components_lens[2] = max([a:max_field_components_lens[2], cur_fractional_part_length])
 endfunc
 
 
 func! s:calc_column_stats(delim, policy, comment_prefix)
-    " FIXME we should exclude header line from number param calculation but we
-    " should use it for field max_width determination and take this into
-    " accound during the alignment i.e. numbers should be aligned but add
-    " extra whitespaces for max_width.
-
-    " Result is a list of (max_total_len, max_int_part_len, max_fractional_part_len) tuples.
-    let result = []
+    " Result `column_stats` is a list of (max_total_len, max_int_part_len, max_fractional_part_len) tuples.
+    let column_stats = []
     let lastLineNo = line("$")
+    let is_first_line = 1
     for linenum in range(1, lastLineNo)
         let line = getline(linenum)
         let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, a:delim, a:policy)
@@ -718,37 +719,59 @@ func! s:calc_column_stats(delim, policy, comment_prefix)
             continue
         endif
         if has_warning
-            return [result, linenum]
+            return [column_stats, linenum]
         endif
         for fnum in range(len(fields))
             let field = rainbow_csv#strip_spaces(fields[fnum])
-            if len(result) <= fnum
-                call add(result, [0, 0, 0])
+            if len(column_stats) <= fnum
+                call add(column_stats, [0, 0, 0])
             endif
-            call s:update_subcomponent_stats(field, result[fnum])
+            call s:update_subcomponent_stats(field, is_first_line, column_stats[fnum])
         endfor
+        let is_first_line = 0
     endfor
-    return [result, 0]
+    for column_stat in column_stats
+        if column_stat[1] <= 0
+            let column_stat[1] = -1
+        endif
+        if column_stat[1] > 0
+            " Adjust max_width to be consistent with integer and fractional widths. This is needed to properly allign headers of numeric columns.
+            column_stat[0] = max([column_stat[0], column_stat[1] + column_stat[2]])
+            column_stat[1] = max([column_stat[1], column_stat[0] - column_stat[2]])
+            if (column_stat[0] != column_stat[1] + column_stat[2])
+                return [[], -1]
+            endif
+        endif
+    endfor
+    return [column_stats, 0]
 endfunc
 
 
-func! s:align_field(field, field_component_stats)
+func! s:align_field(field, is_first_line, max_field_components_lens)
     " Align field, use max() to avoid negative delta_length which can happen theorethically due to async doc edit.
+    let extra_readability_whitespace_length = 1
     let clean_field = rainbow_csv#strip_spaces(a:field)
     let field_length = strdisplaywidth(clean_field)
-    if (a:field_component_stats[1] <= 0)
+    if (a:max_field_components_lens[1] == s:non_numeric)
         " FIXME consider replacing max with ternary op to improve performance by not creating a temporary list.
-        let delta_length = max([a:field_component_stats[0] - field_length, 0])
-        " Add an extra whitespace at the end for better readability.
-        return clean_field . repeat(' ', delta_length + 1)
+        let delta_length = max([a:max_field_components_lens[0] - field_length, 0])
+        return clean_field . repeat(' ', delta_length + extra_readability_whitespace_length)
+    endif
+    if s:is_first_line
+        let pos = match(a:field, s:number_regex)
+        if pos == -1
+            " The line must be a header - align it using max_width rule.
+            let delta_length = max([a:max_field_components_lens[0] - field_length, 0])
+            return clean_field . repeat(' ', delta_length + extra_readability_whitespace_length)
+        endif
     endif
     let dot_pos = stridx(clean_field, '.')
-    let integer_part_length = dot_pos == -1 ? field_length : dot_pos
-    let fractional_part_length = dot_pos == -1 ? 0 : field_length - dot_pos
-    let integer_delta_length = max([a:field_component_stats[1] - integer_part_length, 0])
-    let fractional_delta_length = max([(a:field_component_stats[2] >= 0 ? a:field_component_stats[2] - fractional_part_length : 0), 0])
-    " Add an extra whitespace at the end for better readability.
-    return repeat(' ', integer_delta_length) . clean_field . repeat(' ', fractional_delta_length + 1)
+    let cur_integer_part_length = dot_pos == -1 ? field_length : dot_pos
+    " Here cur_fractional_part_length includes the leading dot too.
+    let cur_fractional_part_length = dot_pos == -1 ? 0 : field_length - dot_pos
+    let integer_delta_length = max([a:max_field_components_lens[1] - cur_integer_part_length, 0])
+    let fractional_delta_length = max([a:max_field_components_lens[2] - cur_fractional_part_length, 0])
+    return repeat(' ', integer_delta_length) . clean_field . repeat(' ', fractional_delta_length + extra_readability_whitespace_length)
 endfunc
 
 
@@ -763,12 +786,17 @@ func! rainbow_csv#csv_align()
         return
     endif
     let [column_stats, first_failed_line] = s:calc_column_stats(delim, policy, comment_prefix)
+    if first_failed_line == 1
+        echoerr 'Unable to allign: Internal Rainbow CSV Error'
+        return
+    endif
     if first_failed_line != 0
         echoerr 'Unable to allign: Inconsistent double quotes at line ' . first_failed_line
         return
     endif
     let lastLineNo = line("$")
     let has_edit = 0
+    let is_first_line = 1
     for linenum in range(1, lastLineNo)
         let has_line_edit = 0
         let line = getline(linenum)
@@ -780,7 +808,7 @@ func! rainbow_csv#csv_align()
             if fnum >= len(column_stats)
                 break " Should never happen
             endif
-            let field = s:align_field(fields[fnum], column_stats[fnum])
+            let field = s:align_field(fields[fnum], is_first_line, column_stats[fnum])
             if fields[fnum] != field
                 let fields[fnum] = field
                 let has_line_edit = 1
@@ -791,6 +819,7 @@ func! rainbow_csv#csv_align()
             call setline(linenum, updated_line)
             let has_edit = 1
         endif
+        let is_first_line = 0
     endfor
     if !has_edit
         echoerr "File is already aligned"
