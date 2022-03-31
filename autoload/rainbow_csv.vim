@@ -681,6 +681,8 @@ endfunc
 
 
 func! s:update_subcomponent_stats(field, is_first_line, max_field_components_lens)
+    " FIXME consider handling missing values i.e. empty field as number
+
     " Extract overall field length and length of integer and fractional parts of the field if it represents a number.
     " Here `max_field_components_lens` is a tuple: (max_field_length, max_integer_part_length, max_fractional_part_length)
     let field_length = strdisplaywidth(a:field)
@@ -736,9 +738,14 @@ func! s:calc_column_stats(delim, policy, comment_prefix)
         endif
         if column_stat[1] > 0
             " Adjust max_width to be consistent with integer and fractional widths. This is needed to properly allign headers of numeric columns.
-            column_stat[0] = max([column_stat[0], column_stat[1] + column_stat[2]])
-            column_stat[1] = max([column_stat[1], column_stat[0] - column_stat[2]])
+            if (column_stat[1] + column_stat[2] > column_stat[0])
+                let column_stat[0] = column_stat[1] + column_stat[2]
+            endif
+            if (column_stat[0] - column_stat[2] > column_stat[1])
+                let column_stat[1] = column_stat[0] - column_stat[2]
+            endif
             if (column_stat[0] != column_stat[1] + column_stat[2])
+                " Assertion Error, this can never happen.
                 return [[], -1]
             endif
         endif
@@ -753,11 +760,10 @@ func! s:align_field(field, is_first_line, max_field_components_lens)
     let clean_field = rainbow_csv#strip_spaces(a:field)
     let field_length = strdisplaywidth(clean_field)
     if (a:max_field_components_lens[1] == s:non_numeric)
-        " FIXME consider replacing max with ternary op to improve performance by not creating a temporary list.
-        let delta_length = max([a:max_field_components_lens[0] - field_length, 0])
+        let delta_length = a:max_field_components_lens[0] - field_length > 0 ? a:max_field_components_lens[0] - field_length : 0
         return clean_field . repeat(' ', delta_length + extra_readability_whitespace_length)
     endif
-    if s:is_first_line
+    if a:is_first_line
         let pos = match(a:field, s:number_regex)
         if pos == -1
             " The line must be a header - align it using max_width rule.
@@ -769,8 +775,8 @@ func! s:align_field(field, is_first_line, max_field_components_lens)
     let cur_integer_part_length = dot_pos == -1 ? field_length : dot_pos
     " Here cur_fractional_part_length includes the leading dot too.
     let cur_fractional_part_length = dot_pos == -1 ? 0 : field_length - dot_pos
-    let integer_delta_length = max([a:max_field_components_lens[1] - cur_integer_part_length, 0])
-    let fractional_delta_length = max([a:max_field_components_lens[2] - cur_fractional_part_length, 0])
+    let integer_delta_length = a:max_field_components_lens[1] - cur_integer_part_length > 0 ? a:max_field_components_lens[1] - cur_integer_part_length : 0
+    let fractional_delta_length = a:max_field_components_lens[2] - cur_fractional_part_length > 0 ? a:max_field_components_lens[2] - cur_fractional_part_length : 0
     return repeat(' ', integer_delta_length) . clean_field . repeat(' ', fractional_delta_length + extra_readability_whitespace_length)
 endfunc
 
