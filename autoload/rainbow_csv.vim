@@ -780,6 +780,7 @@ endfunc
 
 
 func! rainbow_csv#csv_align()
+    " FIXME compare runtime with the previous version and consider adding completion percentages.
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
         echoerr "RainbowAlign is available only for highlighted CSV files"
