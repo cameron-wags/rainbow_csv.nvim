@@ -681,8 +681,6 @@ endfunc
 
 
 func! s:update_subcomponent_stats(field, is_first_line, max_field_components_lens)
-    " FIXME consider handling missing values i.e. empty field as number
-
     " Extract overall field length and length of integer and fractional parts of the field if it represents a number.
     " Here `max_field_components_lens` is a tuple: (max_field_length, max_integer_part_length, max_fractional_part_length)
     let field_length = strdisplaywidth(a:field)
@@ -693,7 +691,7 @@ func! s:update_subcomponent_stats(field, is_first_line, max_field_components_len
     endif
     let pos = match(a:field, s:number_regex)
     if pos == -1
-        if !a:is_first_line
+        if !a:is_first_line && field_length " Checking field_length here allows numeric columns to have some of the fields empty.
             " We only mark the column as non-header if we know that this is not a header line.
             let a:max_field_components_lens[1] = s:non_numeric
             let a:max_field_components_lens[2] = s:non_numeric
