@@ -24,6 +24,9 @@ let s:autodetection_delims = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : [
 let s:number_regex = '^[0-9]\+\(\.[0-9]\+\)\?$'
 let s:non_numeric = -1
 
+let s:align_progress_bar_position = 0
+let s:progress_bar_size = 20
+
 " Vim has 2 different variables: filetype and syntax. syntax is a subset of filetype
 " We need to use both of them.
 
@@ -713,18 +716,21 @@ func! s:update_subcomponent_stats(field, is_first_line, max_field_components_len
 endfunc
 
 
+func! s:display_progress_bar(cur_progress_pos)
+    let progress_display_str = 'Processing... [' . repeat('#', a:cur_progress_pos) . repeat(' ', s:progress_bar_size - a:cur_progress_pos) . ']'
+    redraw | echo progress_display_str
+endfunc
+
+
 func! s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
     " Result `column_stats` is a list of (max_total_len, max_int_part_len, max_fractional_part_len) tuples.
     let column_stats = []
     let lastLineNo = line("$")
     let is_first_line = 1
-    let cur_progress_percent = 0
     for linenum in range(1, lastLineNo)
         if (a:progress_bucket_size && linenum % a:progress_bucket_size == 0)
-            let cur_progress_percent = cur_progress_percent + 10
-            if cur_progress_percent > 0
-                redraw | echo string(cur_progress_percent) . '%'
-            endif
+            let s:align_progress_bar_position = s:align_progress_bar_position + 1
+            call s:display_progress_bar(s:align_progress_bar_position)
         endif
         let line = getline(linenum)
         let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, a:delim, a:policy)
@@ -793,12 +799,9 @@ endfunc
 
 
 func! rainbow_csv#csv_align()
-    " FIXME get rid of profiling vars
-    let profiling_start = reltime()
     " The first (statistic) pass of the function takes about 40% of runtime, the second (actual align) pass around 60% of runtime.
     " Numeric-aware logic by itself adds about 50% runtime compared to the basic string-based field width alignment
     " If there are lot of numeric columns this can additionally increase runtime by another 50% or more.
-    " TODO consider adding completion percentages.
     let show_progress_bar = wordcount()['bytes'] > 200000
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
@@ -810,14 +813,12 @@ func! rainbow_csv#csv_align()
         return
     endif
     let lastLineNo = line("$")
-    " Divide by 5, not by 10 because there are 10% * 2 * 5 = 100%, here 2 is the number of passes: stat and align.
-    let progress_bucket_size = lastLineNo / 5
-    if !show_progress_bar || progress_bucket_size < 1000
+    let progress_bucket_size = (lastLineNo * 2) / s:progress_bar_size " multiply by 2 because we have two passes.
+    if !show_progress_bar || progress_bucket_size < 10
         let progress_bucket_size = 0
     endif
+    let s:align_progress_bar_position = 0
     let [column_stats, first_failed_line] = s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
-    let seconds = reltimefloat(reltime(profiling_start))
-    echo "column stats calculated for " . string(seconds) . " seconds"
     if first_failed_line == 1
         echoerr 'Unable to allign: Internal Rainbow CSV Error'
         return
@@ -829,6 +830,10 @@ func! rainbow_csv#csv_align()
     let has_edit = 0
     let is_first_line = 1
     for linenum in range(1, lastLineNo)
+        if (progress_bucket_size && linenum % progress_bucket_size == 0)
+            let s:align_progress_bar_position = s:align_progress_bar_position + 1
+            call s:display_progress_bar(s:align_progress_bar_position)
+        endif
         let has_line_edit = 0
         let line = getline(linenum)
         if comment_prefix != '' && stridx(line, comment_prefix) == 0
@@ -852,8 +857,6 @@ func! rainbow_csv#csv_align()
         endif
         let is_first_line = 0
     endfor
-    let seconds = reltimefloat(reltime(profiling_start))
-    echo "Aligned fully for " . string(seconds) . " seconds"
     if !has_edit
         echoerr "File is already aligned"
     endif
@@ -872,7 +875,17 @@ func! rainbow_csv#csv_shrink()
     endif
     let lastLineNo = line("$")
     let has_edit = 0
+    let show_progress_bar = wordcount()['bytes'] > 200000
+    let progress_bucket_size = lastLineNo / s:progress_bar_size
+    if !show_progress_bar || progress_bucket_size < 10
+        let progress_bucket_size = 0
+    endif
+    let s:align_progress_bar_position = 0
     for linenum in range(1, lastLineNo)
+        if (progress_bucket_size && linenum % progress_bucket_size == 0)
+            let s:align_progress_bar_position = s:align_progress_bar_position + 1
+            call s:display_progress_bar(s:align_progress_bar_position)
+        endif
         let has_line_edit = 0
         let line = getline(linenum)
         if comment_prefix != '' && stridx(line, comment_prefix) == 0
