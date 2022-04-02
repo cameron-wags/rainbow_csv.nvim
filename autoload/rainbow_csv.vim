@@ -782,9 +782,10 @@ endfunc
 func! rainbow_csv#csv_align()
     " TODO get rid of profiling vars
     let profiling_start = reltime()
+    " The first (statistic) pass of the function takes about 40% of runtime, the second (actual align) pass around 60% of runtime.
     " Numeric-aware logic by itself adds about 50% runtime compared to the basic string-based field width alignment
     " If there are lot of numeric columns this can additionally increase runtime by another 50% or more.
-    " FIXME compare runtime with the previous version and consider adding completion percentages.
+    " TODO consider adding completion percentages.
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
         echoerr "RainbowAlign is available only for highlighted CSV files"
