@@ -684,7 +684,9 @@ func! s:update_subcomponent_stats(field, is_first_line, max_field_components_len
     " Extract overall field length and length of integer and fractional parts of the field if it represents a number.
     " Here `max_field_components_lens` is a tuple: (max_field_length, max_integer_part_length, max_fractional_part_length)
     let field_length = strdisplaywidth(a:field)
-    let a:max_field_components_lens[0] = max([a:max_field_components_lens[0], field_length])
+    if field_length > a:max_field_components_lens[0]
+        let a:max_field_components_lens[0] = field_length
+    endif
     if a:max_field_components_lens[1] == s:non_numeric
         " Column is not a number, early return.
         return
@@ -700,19 +702,30 @@ func! s:update_subcomponent_stats(field, is_first_line, max_field_components_len
     endif
     let dot_pos = stridx(a:field, '.')
     let cur_integer_part_length = dot_pos == -1 ? field_length : dot_pos
+    if cur_integer_part_length > a:max_field_components_lens[1]
+        let a:max_field_components_lens[1] = cur_integer_part_length
+    endif
     " Here cur_fractional_part_length includes the leading dot too.
     let cur_fractional_part_length = dot_pos == -1 ? 0 : field_length - dot_pos
-    let a:max_field_components_lens[1] = max([a:max_field_components_lens[1], cur_integer_part_length])
-    let a:max_field_components_lens[2] = max([a:max_field_components_lens[2], cur_fractional_part_length])
+    if cur_fractional_part_length > a:max_field_components_lens[2]
+        let a:max_field_components_lens[2] = cur_fractional_part_length
+    endif
 endfunc
 
 
-func! s:calc_column_stats(delim, policy, comment_prefix)
+func! s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
     " Result `column_stats` is a list of (max_total_len, max_int_part_len, max_fractional_part_len) tuples.
     let column_stats = []
     let lastLineNo = line("$")
     let is_first_line = 1
+    let cur_progress_percent = 0
     for linenum in range(1, lastLineNo)
+        if (a:progress_bucket_size && linenum % a:progress_bucket_size == 0)
+            let cur_progress_percent = cur_progress_percent + 10
+            if cur_progress_percent > 0
+                redraw | echo string(cur_progress_percent) . '%'
+            endif
+        endif
         let line = getline(linenum)
         let [fields, has_warning] = rainbow_csv#preserving_smart_split(line, a:delim, a:policy)
         if a:comment_prefix != '' && stridx(line, a:comment_prefix) == 0
@@ -780,12 +793,13 @@ endfunc
 
 
 func! rainbow_csv#csv_align()
-    " TODO get rid of profiling vars
+    " FIXME get rid of profiling vars
     let profiling_start = reltime()
     " The first (statistic) pass of the function takes about 40% of runtime, the second (actual align) pass around 60% of runtime.
     " Numeric-aware logic by itself adds about 50% runtime compared to the basic string-based field width alignment
     " If there are lot of numeric columns this can additionally increase runtime by another 50% or more.
     " TODO consider adding completion percentages.
+    let show_progress_bar = wordcount()['bytes'] > 200000
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
         echoerr "RainbowAlign is available only for highlighted CSV files"
@@ -795,7 +809,13 @@ func! rainbow_csv#csv_align()
         echoerr 'RainbowAlign not available for "rfc_csv" filetypes, consider using "csv" instead'
         return
     endif
-    let [column_stats, first_failed_line] = s:calc_column_stats(delim, policy, comment_prefix)
+    let lastLineNo = line("$")
+    " Divide by 5, not by 10 because there are 10% * 2 * 5 = 100%, here 2 is the number of passes: stat and align.
+    let progress_bucket_size = lastLineNo / 5
+    if !show_progress_bar || progress_bucket_size < 1000
+        let progress_bucket_size = 0
+    endif
+    let [column_stats, first_failed_line] = s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
     let seconds = reltimefloat(reltime(profiling_start))
     echo "column stats calculated for " . string(seconds) . " seconds"
     if first_failed_line == 1
@@ -806,7 +826,6 @@ func! rainbow_csv#csv_align()
         echoerr 'Unable to allign: Inconsistent double quotes at line ' . first_failed_line
         return
     endif
-    let lastLineNo = line("$")
     let has_edit = 0
     let is_first_line = 1
     for linenum in range(1, lastLineNo)
