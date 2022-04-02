@@ -703,6 +703,7 @@ endfunc
 
 
 func! rainbow_csv#csv_align()
+    let profiling_start = reltime()
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
         echoerr "RainbowAlign is available only for highlighted CSV files"
@@ -713,6 +714,8 @@ func! rainbow_csv#csv_align()
         return
     endif
     let [column_sizes, first_failed_line] = s:calc_column_sizes(delim, policy, comment_prefix)
+    let seconds = reltimefloat(reltime(profiling_start))
+    echo "column stats calculated for " . string(seconds) . " seconds"
     if first_failed_line != 0
         echoerr 'Unable to allign: Inconsistent double quotes at line ' . first_failed_line
         return
@@ -746,6 +749,8 @@ func! rainbow_csv#csv_align()
             let has_edit = 1
         endif
     endfor
+    let seconds = reltimefloat(reltime(profiling_start))
+    echo "Aligned fully for " . string(seconds) . " seconds"
     if !has_edit
         echoerr "File is already aligned"
     endif
