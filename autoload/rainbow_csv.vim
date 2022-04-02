@@ -683,7 +683,7 @@ func! rainbow_csv#csv_lint()
 endfunc
 
 
-func! s:update_subcomponent_stats(field, is_first_line, max_field_components_lens)
+func! rainbow_csv#update_subcomponent_stats(field, is_first_line, max_field_components_lens)
     " Extract overall field length and length of integer and fractional parts of the field if it represents a number.
     " Here `max_field_components_lens` is a tuple: (max_field_length, max_integer_part_length, max_fractional_part_length)
     let field_length = strdisplaywidth(a:field)
@@ -745,7 +745,7 @@ func! s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
             if len(column_stats) <= fnum
                 call add(column_stats, [0, 0, 0])
             endif
-            call s:update_subcomponent_stats(field, is_first_line, column_stats[fnum])
+            call rainbow_csv#update_subcomponent_stats(field, is_first_line, column_stats[fnum])
         endfor
         let is_first_line = 0
     endfor

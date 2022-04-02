@@ -3,7 +3,7 @@ let g:rbql_test_log_records = []
 
 func! AssertEqual(lhs, rhs)
     if a:lhs != a:rhs
-        let msg = 'FAIL. Equal assertion failed: "' . a:lhs . '" != "' . a:rhs . '"'
+        let msg = 'FAIL. Equal assertion failed: "' . string(a:lhs) . '" != "' . string(a:rhs) . '"'
         throw msg
     endif
 endfunc
@@ -14,6 +14,21 @@ func! AssertTrue(expr, error_msg)
         let msg = 'FAIL. True assertion failed: ' . a:error_msg
         throw msg
     endif
+endfunc
+
+
+func! TestAlignStats()
+    let field = 'foobar'
+    let is_first_line = 0
+    let field_components = [0, 0, 0]
+    call rainbow_csv#update_subcomponent_stats(field, is_first_line, field_components)
+    call AssertEqual(field_components, [6, -1, -1])
+
+    let field = 'foobar'
+    let is_first_line = 1
+    let field_components = [0, 0, 0]
+    call rainbow_csv#update_subcomponent_stats(field, is_first_line, field_components)
+    call AssertEqual(field_components, [6, 0, 0])
 endfunc
 
 
@@ -83,6 +98,8 @@ func! RunUnitTests()
     endfor
 
     call TestWhitespaceSplit()
+
+    call TestAlignStats()
     
     call add(g:rbql_test_log_records, 'Finished Test: Statusline')
 endfunc
