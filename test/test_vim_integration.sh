@@ -46,7 +46,7 @@ cleanup_tmp_files
 # We need random_ut.csv file in vim unit tests
 PYTHONPATH="../rbql_core:$PYTHONPATH" python ../rbql_core/test/test_csv_utils.py --create_random_csv_table random_ut.csv
 
-$vim -s unit_tests.vim -V0vim_debug.log -u test_vimrc
+$vim -s integration_tests.vim -V0vim_debug.log -u test_vimrc
 
 errors=$( cat vim_debug.log | grep '^E[0-9][0-9]*' | wc -l )
 total=$( cat vim_unit_tests.log | wc -l )
