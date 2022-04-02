@@ -780,6 +780,10 @@ endfunc
 
 
 func! rainbow_csv#csv_align()
+    " TODO get rid of profiling vars
+    let profiling_start = reltime()
+    " Numeric-aware logic by itself adds about 50% runtime compared to the basic string-based field width alignment
+    " If there are lot of numeric columns this can additionally increase runtime by another 50% or more.
     " FIXME compare runtime with the previous version and consider adding completion percentages.
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
     if policy == 'monocolumn'
@@ -791,6 +795,8 @@ func! rainbow_csv#csv_align()
         return
     endif
     let [column_stats, first_failed_line] = s:calc_column_stats(delim, policy, comment_prefix)
+    let seconds = reltimefloat(reltime(profiling_start))
+    echo "column stats calculated for " . string(seconds) . " seconds"
     if first_failed_line == 1
         echoerr 'Unable to allign: Internal Rainbow CSV Error'
         return
@@ -826,6 +832,8 @@ func! rainbow_csv#csv_align()
         endif
         let is_first_line = 0
     endfor
+    let seconds = reltimefloat(reltime(profiling_start))
+    echo "Aligned fully for " . string(seconds) . " seconds"
     if !has_edit
         echoerr "File is already aligned"
     endif
