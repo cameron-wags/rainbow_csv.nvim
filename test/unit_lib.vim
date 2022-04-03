@@ -18,17 +18,54 @@ endfunc
 
 
 func! TestAlignStats()
+    " Previous fields are numbers but the current one is not - mark the column as non-numeric.
     let field = 'foobar'
     let is_first_line = 0
-    let field_components = [0, 0, 0]
+    let field_components = [5, 2, 3]
     call rainbow_csv#update_subcomponent_stats(field, is_first_line, field_components)
     call AssertEqual(field_components, [6, -1, -1])
 
+    " The field is non-numeric but it is at the first line so could be a header - do not mark the column as non-numeric just yet.
     let field = 'foobar'
     let is_first_line = 1
     let field_components = [0, 0, 0]
     call rainbow_csv#update_subcomponent_stats(field, is_first_line, field_components)
     call AssertEqual(field_components, [6, 0, 0])
+
+    " The field is a number but the column is already marked as non-numeric so we just update the max string width.
+    let field = '100000'
+    let is_first_line = 0
+    let field_components = [2, -1, -1]
+    call rainbow_csv#update_subcomponent_stats(field, is_first_line, field_components)
+    call AssertEqual(field_components, [6, -1, -1])
+
+    " Empty field should not mark a potentially numeric column as non-numeric.
+    let field = ''
+    let is_first_line = 0
+    let field_components = [5, 2, 3]
+    call rainbow_csv#update_subcomponent_stats(field, is_first_line, field_components)
+    call AssertEqual(field_components, [5, 2, 3])
+
+    " The field doesn't change stats because all of 3 components are smaller than the current maximums.
+    let field = '100.3'
+    let is_first_line = 0
+    let field_components = [7, 4, 3]
+    call rainbow_csv#update_subcomponent_stats(field, is_first_line, field_components)
+    call AssertEqual(field_components, [7, 4, 3])
+
+    " Integer update example.
+    let field = '100000'
+    let is_first_line = 0
+    let field_components = [5, 2, 3]
+    call rainbow_csv#update_subcomponent_stats(field, is_first_line, field_components)
+    call AssertEqual(field_components, [6, 6, 3])
+
+    " Float update example.
+    let field = '1000.23'
+    let is_first_line = 0
+    let field_components = [3, 3, 0]
+    call rainbow_csv#update_subcomponent_stats(field, is_first_line, field_components)
+    call AssertEqual(field_components, [7, 4, 3])
 endfunc
 
 
