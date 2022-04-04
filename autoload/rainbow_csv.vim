@@ -722,6 +722,32 @@ func! s:display_progress_bar(cur_progress_pos)
 endfunc
 
 
+func! rainbow_csv#adjust_column_stats(column_stats)
+    " Ensure that numeric components max widths are consistent with non-numeric (header) width.
+    let adjusted_stats = []
+    for column_stat in a:column_stats
+        if column_stat[1] <= 0
+            let column_stat[1] = -1
+        endif
+        if column_stat[1] > 0
+            " Adjust max_width to be consistent with integer and fractional widths. This is needed to properly allign headers of numeric columns.
+            if (column_stat[1] + column_stat[2] > column_stat[0])
+                let column_stat[0] = column_stat[1] + column_stat[2]
+            endif
+            if (column_stat[0] - column_stat[2] > column_stat[1])
+                let column_stat[1] = column_stat[0] - column_stat[2]
+            endif
+            if (column_stat[0] != column_stat[1] + column_stat[2])
+                " Assertion Error, this can never happen.
+                return []
+            endif
+        endif
+        call add(adjusted_stats, column_stat)
+    endfor
+    return adjusted_stats
+endfunc
+
+
 func! s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
     " Result `column_stats` is a list of (max_total_len, max_int_part_len, max_fractional_part_len) tuples.
     let column_stats = []
@@ -749,29 +775,11 @@ func! s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
         endfor
         let is_first_line = 0
     endfor
-    for column_stat in column_stats
-        if column_stat[1] <= 0
-            let column_stat[1] = -1
-        endif
-        if column_stat[1] > 0
-            " Adjust max_width to be consistent with integer and fractional widths. This is needed to properly allign headers of numeric columns.
-            if (column_stat[1] + column_stat[2] > column_stat[0])
-                let column_stat[0] = column_stat[1] + column_stat[2]
-            endif
-            if (column_stat[0] - column_stat[2] > column_stat[1])
-                let column_stat[1] = column_stat[0] - column_stat[2]
-            endif
-            if (column_stat[0] != column_stat[1] + column_stat[2])
-                " Assertion Error, this can never happen.
-                return [[], -1]
-            endif
-        endif
-    endfor
     return [column_stats, 0]
 endfunc
 
 
-func! s:align_field(field, is_first_line, max_field_components_lens)
+func! rainbow_csv#align_field(field, is_first_line, max_field_components_lens)
     " Align field, use max() to avoid negative delta_length which can happen theorethically due to async doc edit.
     let extra_readability_whitespace_length = 1
     let clean_field = rainbow_csv#strip_spaces(a:field)
@@ -819,12 +827,13 @@ func! rainbow_csv#csv_align()
     endif
     let s:align_progress_bar_position = 0
     let [column_stats, first_failed_line] = s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
-    if first_failed_line == 1
-        echoerr 'Unable to allign: Internal Rainbow CSV Error'
-        return
-    endif
     if first_failed_line != 0
         echoerr 'Unable to allign: Inconsistent double quotes at line ' . first_failed_line
+        return
+    endif
+    let column_stats = rainbow_csv#adjust_column_stats(column_stats)
+    if !len(column_stats)
+        echoerr 'Unable to allign: Internal Rainbow CSV Error'
         return
     endif
     let has_edit = 0
@@ -844,7 +853,7 @@ func! rainbow_csv#csv_align()
             if fnum >= len(column_stats)
                 break " Should never happen
             endif
-            let field = s:align_field(fields[fnum], is_first_line, column_stats[fnum])
+            let field = rainbow_csv#align_field(fields[fnum], is_first_line, column_stats[fnum])
             if fields[fnum] != field
                 let fields[fnum] = field
                 let has_line_edit = 1
