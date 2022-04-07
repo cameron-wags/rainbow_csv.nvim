@@ -728,16 +728,22 @@ func! rainbow_csv#adjust_column_stats(column_stats)
     for column_stat in a:column_stats
         if column_stat[1] <= 0
             let column_stat[1] = -1
+            let column_stat[2] = -1
         endif
         if column_stat[1] > 0
-            " Adjust max_width to be consistent with integer and fractional widths. This is needed to properly allign headers of numeric columns.
+            " The sum of integer and float parts can be bigger than the max width, e.g. here:
+            " value
+            " 0.12
+            " 1234
             if (column_stat[1] + column_stat[2] > column_stat[0])
                 let column_stat[0] = column_stat[1] + column_stat[2]
             endif
+            " This is needed when the header is wider than numeric components and/or their sum.
             if (column_stat[0] - column_stat[2] > column_stat[1])
                 let column_stat[1] = column_stat[0] - column_stat[2]
             endif
             if (column_stat[0] != column_stat[1] + column_stat[2])
+                echo column_stat[0] . ' ' . column_stat[1] . ' ' . column_stat[2]
                 " Assertion Error, this can never happen.
                 return []
             endif

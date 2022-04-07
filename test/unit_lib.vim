@@ -69,12 +69,38 @@ func! TestAlignStats()
 endfunc
 
 
+func! TestAdjustColumnStats()
+    " Not a numeric column, adjustment is NOOP.
+    let max_components_lens = [10, -1, -1]
+    let adjusted_components = rainbow_csv#adjust_column_stats([max_components_lens])[0]
+    call AssertEqual([10, -1, -1,], adjusted_components)
+
+    " This is possisble with a single-line file.
+    let max_components_lens = [10, 0, 0]
+    let adjusted_components = rainbow_csv#adjust_column_stats([max_components_lens])[0]
+    call AssertEqual([10, -1, -1,], adjusted_components)
+
+    " Header is smaller than the sum of the numeric components.
+    " value
+    " 0.12
+    " 1234
+    let max_components_lens = [5, 4, 3]
+    let adjusted_components = rainbow_csv#adjust_column_stats([max_components_lens])[0]
+    call AssertEqual([7, 4, 3,], adjusted_components)
+
+    " Header is bigger than the sum of the numeric components.
+    let max_components_lens = [10, 4, 3]
+    let adjusted_components = rainbow_csv#adjust_column_stats([max_components_lens])[0]
+    call AssertEqual([10, 7, 3,], adjusted_components)
+endfunc
+
+
 func! TestFieldAlign()
-    " FIXME use adjust_column_stats here and in separate unit tests.
     " Align field in non-numeric column.
     let field = 'foobar'
     let is_first_line = 0
     let max_components_lens = [10, -1, -1]
+    let max_components_lens = rainbow_csv#adjust_column_stats([max_components_lens])[0]
     let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
     call AssertEqual('foobar     ', aligned_field)
 
@@ -82,6 +108,7 @@ func! TestFieldAlign()
     let field = 'foobar'
     let is_first_line = 1
     let max_components_lens = [10, 4, 6]
+    let max_components_lens = rainbow_csv#adjust_column_stats([max_components_lens])[0]
     let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
     call AssertEqual('foobar     ', aligned_field)
 
@@ -89,6 +116,7 @@ func! TestFieldAlign()
     let field = '10.1'
     let is_first_line = 1
     let max_components_lens = [10, 4, 6]
+    let max_components_lens = rainbow_csv#adjust_column_stats([max_components_lens])[0]
     let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
     call AssertEqual('  10.1     ', aligned_field)
 
@@ -96,6 +124,7 @@ func! TestFieldAlign()
     let field = '10.1'
     let is_first_line = 1
     let max_components_lens = [10, -1, -1]
+    let max_components_lens = rainbow_csv#adjust_column_stats([max_components_lens])[0]
     let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
     call AssertEqual('10.1       ', aligned_field)
 
@@ -103,6 +132,7 @@ func! TestFieldAlign()
     let field = '10.1'
     let is_first_line = 0
     let max_components_lens = [10, -1, -1]
+    let max_components_lens = rainbow_csv#adjust_column_stats([max_components_lens])[0]
     let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
     call AssertEqual('10.1       ', aligned_field)
 
@@ -110,6 +140,7 @@ func! TestFieldAlign()
     let field = '10.1'
     let is_first_line = 0
     let max_components_lens = [10, 4, 6]
+    let max_components_lens = rainbow_csv#adjust_column_stats([max_components_lens])[0]
     let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
     call AssertEqual('  10.1     ', aligned_field)
 
@@ -117,6 +148,7 @@ func! TestFieldAlign()
     let field = '1000'
     let is_first_line = 0
     let max_components_lens = [10, 4, 6]
+    let max_components_lens = rainbow_csv#adjust_column_stats([max_components_lens])[0]
     let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
     call AssertEqual('1000       ', aligned_field)
 
@@ -124,23 +156,25 @@ func! TestFieldAlign()
     let field = '1000'
     let is_first_line = 0
     let max_components_lens = [4, 4, 0]
+    let max_components_lens = rainbow_csv#adjust_column_stats([max_components_lens])[0]
     let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
     call AssertEqual('1000 ', aligned_field)
 
     " Align numeric integer in numeric (integer) column dominated by header width.
-    " FIXME!!!
-    "let field = '1000'
-    "let is_first_line = 0
-    "let max_components_lens = [6, 4, 0]
-    "let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
-    "call AssertEqual('  1000 ', aligned_field)
+    let field = '1000'
+    let is_first_line = 0
+    let max_components_lens = [6, 4, 0]
+    let max_components_lens = rainbow_csv#adjust_column_stats([max_components_lens])[0]
+    let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
+    call AssertEqual('  1000 ', aligned_field)
 
     " Align numeric float in numeric column dominated by header width.
-    "let field = '10.1'
-    "let is_first_line = 0
-    "let max_components_lens = [12, 4, 6]
-    "let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
-    "call AssertEqual('    10.1     ', aligned_field)
+    let field = '10.1'
+    let is_first_line = 0
+    let max_components_lens = [12, 4, 6]
+    let max_components_lens = rainbow_csv#adjust_column_stats([max_components_lens])[0]
+    let aligned_field = rainbow_csv#align_field(field, is_first_line, max_components_lens)
+    call AssertEqual('    10.1     ', aligned_field)
 endfunc
 
 
@@ -213,6 +247,7 @@ func! RunUnitTests()
 
     call TestAlignStats()
     call TestFieldAlign()
+    call TestAdjustColumnStats()
     
     call add(g:rbql_test_log_records, 'Finished Test: Statusline')
 endfunc
