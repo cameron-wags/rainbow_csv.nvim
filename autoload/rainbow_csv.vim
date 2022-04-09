@@ -742,8 +742,8 @@ func! rainbow_csv#adjust_column_stats(column_stats)
             if (column_stat[0] - column_stat[2] > column_stat[1])
                 let column_stat[1] = column_stat[0] - column_stat[2]
             endif
+            " Sanity check.
             if (column_stat[0] != column_stat[1] + column_stat[2])
-                echo column_stat[0] . ' ' . column_stat[1] . ' ' . column_stat[2]
                 " Assertion Error, this can never happen.
                 return []
             endif
