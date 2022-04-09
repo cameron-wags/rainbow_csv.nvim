@@ -795,7 +795,7 @@ func! rainbow_csv#align_field(field, is_first_line, max_field_components_lens)
         return clean_field . repeat(' ', delta_length + extra_readability_whitespace_length)
     endif
     if a:is_first_line
-        let pos = match(a:field, s:number_regex)
+        let pos = match(clean_field, s:number_regex)
         if pos == -1
             " The line must be a header - align it using max_width rule.
             let delta_length = max([a:max_field_components_lens[0] - field_length, 0])
