@@ -785,21 +785,21 @@ func! s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
 endfunc
 
 
-func! rainbow_csv#align_field(field, is_first_line, max_field_components_lens)
+func! rainbow_csv#align_field(field, is_first_line, max_field_components_lens, is_last_column)
     " Align field, use max() to avoid negative delta_length which can happen theorethically due to async doc edit.
     let extra_readability_whitespace_length = 1
     let clean_field = rainbow_csv#strip_spaces(a:field)
     let field_length = strdisplaywidth(clean_field)
     if (a:max_field_components_lens[1] == s:non_numeric)
         let delta_length = a:max_field_components_lens[0] - field_length > 0 ? a:max_field_components_lens[0] - field_length : 0
-        return clean_field . repeat(' ', delta_length + extra_readability_whitespace_length)
+        return a:is_last_column ? clean_field : clean_field . repeat(' ', delta_length + extra_readability_whitespace_length)
     endif
     if a:is_first_line
         let pos = match(clean_field, s:number_regex)
         if pos == -1
             " The line must be a header - align it using max_width rule.
             let delta_length = max([a:max_field_components_lens[0] - field_length, 0])
-            return clean_field . repeat(' ', delta_length + extra_readability_whitespace_length)
+            return a:is_last_column ? clean_field : clean_field . repeat(' ', delta_length + extra_readability_whitespace_length)
         endif
     endif
     let dot_pos = stridx(clean_field, '.')
@@ -808,7 +808,8 @@ func! rainbow_csv#align_field(field, is_first_line, max_field_components_lens)
     let cur_fractional_part_length = dot_pos == -1 ? 0 : field_length - dot_pos
     let integer_delta_length = a:max_field_components_lens[1] - cur_integer_part_length > 0 ? a:max_field_components_lens[1] - cur_integer_part_length : 0
     let fractional_delta_length = a:max_field_components_lens[2] - cur_fractional_part_length > 0 ? a:max_field_components_lens[2] - cur_fractional_part_length : 0
-    return repeat(' ', integer_delta_length) . clean_field . repeat(' ', fractional_delta_length + extra_readability_whitespace_length)
+    let trailing_spaces = a:is_last_column ? '' : repeat(' ', fractional_delta_length + extra_readability_whitespace_length)
+    return repeat(' ', integer_delta_length) . clean_field . trailing_spaces
 endfunc
 
 
@@ -859,7 +860,8 @@ func! rainbow_csv#csv_align()
             if fnum >= len(column_stats)
                 break " Should never happen
             endif
-            let field = rainbow_csv#align_field(fields[fnum], is_first_line, column_stats[fnum])
+            let is_last_column = fnum + 1 == len(column_stats)
+            let field = rainbow_csv#align_field(fields[fnum], is_first_line, column_stats[fnum], is_last_column)
             if fields[fnum] != field
                 let fields[fnum] = field
                 let has_line_edit = 1
