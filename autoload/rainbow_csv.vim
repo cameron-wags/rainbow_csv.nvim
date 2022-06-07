@@ -60,6 +60,9 @@ endfunc
 
 func! s:init_groups_from_links()
     let link_groups = ['String', 'Comment', 'NONE', 'Special', 'Identifier', 'Type', 'Question', 'CursorLineNr', 'ModeMsg', 'Title']
+    if s:has_custom_links()
+        let link_groups = g:rcsv_colorlinks
+    endif
     for gi in range(len(link_groups))
         let cmd = 'highlight link status_color%d %s'
         exe printf(cmd, gi, link_groups[gi])
@@ -76,6 +79,11 @@ endfunc
 
 func! s:has_custom_colors()
     return exists('g:rcsv_colorpairs') && len(g:rcsv_colorpairs) > 1
+endfunc
+
+
+func! s:has_custom_links()
+    return exists('g:rcsv_colorlinks') && len(g:rcsv_colorlinks) > 1
 endfunc
 
 
@@ -1240,7 +1248,7 @@ endfunc
 func! rainbow_csv#set_statusline_columns()
     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
     if !exists("b:statusline_before")
-        let b:statusline_before = &statusline 
+        let b:statusline_before = &statusline
     endif
     let has_number_column = &number
     let indent = ''
@@ -1270,7 +1278,7 @@ func! rainbow_csv#set_statusline_columns()
         let column_name = status_labels[nf * 2]
         let space_filling = status_labels[nf * 2 + 1]
         let cur_len += len(column_name) + len(space_filling)
-        if cur_len + 1 >= max_len 
+        if cur_len + 1 >= max_len
             break
         endif
         let rb_statusline = rb_statusline . '%#status_color' . color_id . '#' . column_name . '%#status_line_default_hl#' . space_filling
@@ -1764,7 +1772,7 @@ func! rainbow_csv#manual_set(arg_policy, is_multidelim)
             return
         endif
     else
-        let delim = getline('.')[col('.') - 1]  
+        let delim = getline('.')[col('.') - 1]
         let policy = a:arg_policy
     endif
     if policy == 'auto'
@@ -1804,7 +1812,7 @@ func! rainbow_csv#manual_set_comment_prefix(is_multi_comment_prefix)
             return
         endif
     else
-        let comment_prefix = getline('.')[col('.') - 1]  
+        let comment_prefix = getline('.')[col('.') - 1]
     endif
     if len(comment_prefix) <= 0
         echoerr 'Comment prefix can not be empty'
