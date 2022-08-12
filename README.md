@@ -80,8 +80,8 @@ Here is an example of how to extract some fields from a bunch of uniform single-
 
 ### Working with multiline CSV fields
 In rare cases some CSV files can contain double-quoted fields spanning multiple lines.  
-To work with such files you can set filetype to either "rfc_csv" or "rfc_semicolon".  
-Syntax highlighting for rfc_csv and rfc_semicolon dialects can go out of sync with the file content under specific conditions, use `:syntax sync fromstart` command in that case  
+To work with such files you can set filetype to either "rfc_csv" or "rfc_semicolon" e.g. `:set ft=rfc_csv`.  
+Syntax highlighting for rfc_csv and rfc_semicolon dialects can sometimes go out of sync with the file content, use `:syntax sync fromstart` command in that case.  
 rfc_csv and rfc_semicolon are fully supported by RBQL which among other things allows you to easily convert them to line-by-line CSV by replacing newlines in fields with sequences of 4 spaces or something like that.  
 rfc_csv and rfc_semicolon take their name from [RFC 4180](https://tools.ietf.org/html/rfc4180) memo with which they are fully compatible.  
 
@@ -418,7 +418,6 @@ You can define custom functions and/or import libraries in two special files:
 #### Disadvantages
 
 * Rainbow CSV technology may be less effective for CSV files with many (> 10) columns
-* Current Rainbow CSV implementations do not support newlines inside double-quoted csv fields. Adding multiline fields support is technically possible under certain conditions but would impair other Rainbow CSV features and advantages.
 
 ### References
 
