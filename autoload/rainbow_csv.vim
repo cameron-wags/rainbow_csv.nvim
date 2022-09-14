@@ -1099,7 +1099,7 @@ func! rainbow_csv#provide_column_info_on_hover()
     endif
     let num_cols = len(fields)
 
-    let ui_message = printf('Col #%s', col_num + 1)
+    let ui_message = printf('Col %s', col_num + 1)
     let col_name = ''
     if col_num < len(header)
         let col_name = header[col_num]
@@ -1110,7 +1110,7 @@ func! rainbow_csv#provide_column_info_on_hover()
         let col_name = strpart(col_name, 0, max_col_name) . '...'
     endif
     if col_name != ""
-        let ui_message = ui_message . printf(' "%s"', col_name)
+        let ui_message = ui_message . printf(', %s', col_name)
     endif
     if len(header) != num_cols
         let ui_message = ui_message . '; WARN: num of fields in Header and this line differs'

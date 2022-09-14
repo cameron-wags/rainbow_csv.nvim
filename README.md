@@ -27,7 +27,7 @@ There are 4 ways to enable csv columns highlighting:
 
 The core functionality of the plugin is written in pure vimscript, no additional libraries required.  
 
-![Rainbow CSV Screenshot](https://user-images.githubusercontent.com/5349737/190055959-835c6741-6caa-4469-bff3-93018ef34ee7.png)
+![Rainbow CSV Screenshot](https://user-images.githubusercontent.com/5349737/190057249-8ec401f6-b76d-4420-a6af-053dd502f8a9.png)
 
 # Plugin description
 
