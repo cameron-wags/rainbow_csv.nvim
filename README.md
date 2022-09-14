@@ -25,19 +25,9 @@ There are 4 ways to enable csv columns highlighting:
 3. Manual CSV delimiter selection with _:RainbowMultiDelim_ for multi-character delimiters selecting them in "VISUAL" mode  
 4. Explicitly activate one of the built-in filetypes, e.g. `:set ft=csv`  
 
-To run an RBQL query either press _F5_ or enter the query in vim command line e.g. _:Select a1, a2_  
-As soon as you finish entering ":select" (or ":update") and press whitespace, the plugin will show column names in the status line.  
-
 The core functionality of the plugin is written in pure vimscript, no additional libraries required.  
 
-### Demonstration of rainbow_csv highlighting and RBQL queries 
-
-
-![demo_screencast](https://i.imgur.com/4PIVvjc.gif)
-
-
-In this demo python expressions were used, but JavaScript is also available.
-
+![Rainbow CSV Screenshot](https://user-images.githubusercontent.com/5349737/190055959-835c6741-6caa-4469-bff3-93018ef34ee7.png)
 
 # Plugin description
 
@@ -66,24 +56,33 @@ autocmd BufNewFile,BufRead *.csv   set filetype=csv_semicolon
 autocmd BufNewFile,BufRead *.dat   set filetype=csv_pipe
 ```
 
-
-### Rainbow highlighting for non-table files
-You can use rainbow highlighting and RBQL even for non-csv/tsv files.  
-E.g. you can highlight records in log files, one-line xmls and other delimited records.  
-You can even highlight function arguments in your programming language using comma or comma+whitespaces as a delimiter for _:RainbowDelim_ or _:RainbowMultiDelim_ commands.  
-And you can always turn off the rainbow highlighting using _:NoRainbowDelim_ command.  
-
-Here is an example of how to extract some fields from a bunch of uniform single-line xmls:  
-
-![demo_xml_screencast](https://i.imgur.com/HlzBWOV.gif)
-
-
 ### Working with multiline CSV fields
 In rare cases some CSV files can contain double-quoted fields spanning multiple lines.  
 To work with such files you can set filetype to either "rfc_csv" or "rfc_semicolon" e.g. `:set ft=rfc_csv`.  
 Syntax highlighting for rfc_csv and rfc_semicolon dialects can sometimes go out of sync with the file content, use `:syntax sync fromstart` command in that case.  
 rfc_csv and rfc_semicolon are fully supported by RBQL which among other things allows you to easily convert them to line-by-line CSV by replacing newlines in fields with sequences of 4 spaces or something like that.  
 rfc_csv and rfc_semicolon take their name from [RFC 4180](https://tools.ietf.org/html/rfc4180) memo with which they are fully compatible.  
+
+
+### Built-in RBQL query language
+Rainbow CSV comes with built-in lightweight RBQL SQL-like query engine.
+To run an RBQL query either press _F5_ (_:RbSelect_ command) or enter the query in vim command line e.g. _:Select a1, a2_  
+As soon as you finish entering ":select" (or ":update") and press whitespace, the plugin will show column names in the status line.  
+
+Demonstration of rainbow_csv highlighting and RBQL queries 
+
+
+![demo_screencast](https://i.imgur.com/4PIVvjc.gif)
+
+
+In this demo python expressions were used, but JavaScript is also available.
+
+
+### Rainbow highlighting for non-table files
+You can use rainbow highlighting and RBQL even for non-csv/tsv files.  
+E.g. you can highlight records in log files, one-line xmls and other delimited records.  
+You can even highlight function arguments in your programming language using comma or comma+whitespaces as a delimiter for _:RainbowDelim_ or _:RainbowMultiDelim_ commands.  
+And you can always turn off the rainbow highlighting using _:NoRainbowDelim_ command.  
 
 
 ### Key Mappings
