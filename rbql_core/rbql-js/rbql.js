@@ -70,7 +70,7 @@ var query_context = null; // Needs to be global for MIN(), MAX(), etc functions.
 
 
 const wrong_aggregation_usage_error = 'Usage of RBQL aggregation functions inside JavaScript expressions is not allowed, see the docs';
-const RBQL_VERSION = '0.24.0';
+const RBQL_VERSION = '0.26.0';
 
 
 function check_if_brackets_match(opening_bracket, closing_bracket) {
@@ -128,28 +128,32 @@ function column_info_from_text_span(text_span, string_literals) {
     let attribute_match = /^([ab])\.([_a-zA-Z][_a-zA-Z0-9]*)$/.exec(text_span);
     let subscript_int_match = /^([ab])\[([0-9]+)\]$/.exec(text_span);
     let subscript_str_match = /^([ab])\[___RBQL_STRING_LITERAL([0-9]+)___\]$/.exec(text_span);
+    let as_alias_match = /^(.*) (as|AS) +([a-zA-Z][a-zA-Z0-9_]*) *$/.exec(text_span);
+    if (as_alias_match !== null) {
+        return {table_name: null, column_index: null, column_name: as_alias_match[3], is_star: false, is_alias: true};
+    }
     if (simple_var_match !== null) {
         if (text_span == rbql_star_marker)
-            return {table_name: null, column_index: null, column_name: null, is_star: true};
+            return {table_name: null, column_index: null, column_name: null, is_star: true, is_alias: false};
         if (text_span.startsWith('___RBQL_STRING_LITERAL'))
             return null;
         let match = /^([ab])([0-9]+)$/.exec(text_span);
         if (match !== null) {
-            return {table_name: match[1], column_index: parseInt(match[2]) - 1, column_name: null, is_star: false};
+            return {table_name: match[1], column_index: parseInt(match[2]) - 1, column_name: null, is_star: false, is_alias: false};
         }
         // Some examples for this branch: NR, NF
-        return {table_name: null, column_index: null, column_name: text_span, is_star: false};
+        return {table_name: null, column_index: null, column_name: text_span, is_star: false, is_alias: false};
     } else if (attribute_match !== null) {
         let table_name = attribute_match[1];
         let column_name = attribute_match[2];
         if (column_name == rbql_star_marker) {
-            return {table_name: table_name, column_index: null, column_name: null, is_star: true};
+            return {table_name: table_name, column_index: null, column_name: null, is_star: true, is_alias: false};
         }
-        return {table_name: null, column_index: null, column_name: column_name, is_star: false};
+        return {table_name: null, column_index: null, column_name: column_name, is_star: false, is_alias: false};
     } else if (subscript_int_match != null) {
         let table_name = subscript_int_match[1];
         let column_index = parseInt(subscript_int_match[2]) - 1;
-        return {table_name: table_name, column_index: column_index, column_name: null, is_star: false};
+        return {table_name: table_name, column_index: column_index, column_name: null, is_star: false, is_alias: false};
     } else if (subscript_str_match != null) {
         let table_name = subscript_str_match[1];
         let replaced_string_literal_id = subscript_str_match[2];
@@ -157,7 +161,7 @@ function column_info_from_text_span(text_span, string_literals) {
             let quoted_column_name = string_literals[replaced_string_literal_id];
             let unquoted_column_name = unquote_string(quoted_column_name);
             if (unquoted_column_name !== null && unquoted_column_name !== undefined) {
-                return {table_name: null, column_index: null, column_name: unquoted_column_name, is_star: false};
+                return {table_name: null, column_index: null, column_name: unquoted_column_name, is_star: false, is_alias: false};
             }
         }
     }
@@ -575,10 +579,10 @@ class TopWriter {
         this.top_count = top_count;
     }
 
-    write(record) {
+    async write(record) {
         if (this.top_count !== null && this.NW >= this.top_count)
             return false;
-        this.subwriter.write(record);
+        await this.subwriter.write(record);
         this.NW += 1;
         return true;
     }
@@ -595,10 +599,10 @@ class UniqWriter {
         this.seen = new Set();
     }
 
-    write(record) {
+    async write(record) {
         if (!add_to_set(this.seen, JSON.stringify(record)))
             return true;
-        if (!this.subwriter.write(record))
+        if (!await this.subwriter.write(record))
             return false;
         return true;
     }
@@ -615,7 +619,7 @@ class UniqCountWriter {
         this.records = new Map();
     }
 
-    write(record) {
+    async write(record) {
         var key = JSON.stringify(record);
         var old_val = this.records.get(key);
         if (old_val) {
@@ -630,7 +634,7 @@ class UniqCountWriter {
         for (var [key, value] of this.records) {
             let [count, record] = value;
             record.unshift(count);
-            if (!this.subwriter.write(record))
+            if (!await this.subwriter.write(record))
                 break;
         }
         await this.subwriter.finish();
@@ -645,7 +649,7 @@ class SortedWriter {
         this.unsorted_entries = [];
     }
 
-    write(stable_entry) {
+    async write(stable_entry) {
         this.unsorted_entries.push(stable_entry);
         return true;
     }
@@ -657,7 +661,7 @@ class SortedWriter {
             unsorted_entries.reverse();
         for (var i = 0; i < unsorted_entries.length; i++) {
             var entry = unsorted_entries[i];
-            if (!this.subwriter.write(entry[entry.length - 1]))
+            if (!await this.subwriter.write(entry[entry.length - 1]))
                 break;
         }
         await this.subwriter.finish();
@@ -681,7 +685,7 @@ class AggregateWriter {
             for (var ag of this.aggregators) {
                 out_fields.push(ag.get_final(key));
             }
-            if (!this.subwriter.write(out_fields))
+            if (!await this.subwriter.write(out_fields))
                 break;
         }
         await this.subwriter.finish();
@@ -741,13 +745,13 @@ function select_except(src, except_fields) {
 }
 
 
-function select_simple(sort_key, NR, out_fields) {
+async function select_simple(sort_key, NR, out_fields) {
     if (query_context.sort_key_expression !== null) {
         var sort_entry = sort_key.concat([NR, out_fields]);
-        if (!query_context.writer.write(sort_entry))
+        if (!await query_context.writer.write(sort_entry))
             return false;
     } else {
-        if (!query_context.writer.write(out_fields))
+        if (!await query_context.writer.write(out_fields))
             return false;
     }
     return true;
@@ -789,12 +793,12 @@ function select_aggregated(key, transparent_values) {
 }
 
 
-function select_unnested(sort_key, NR, folded_fields) {
+async function select_unnested(sort_key, NR, folded_fields) {
     let out_fields = folded_fields.slice();
     let unnest_pos = folded_fields.findIndex(val => val instanceof UnnestMarker);
     for (var i = 0; i < query_context.unnest_list.length; i++) {
         out_fields[unnest_pos] = query_context.unnest_list[i];
-        if (!select_simple(sort_key, NR, out_fields.slice()))
+        if (!await select_simple(sort_key, NR, out_fields.slice()))
             return false;
     }
     return true;
@@ -811,10 +815,10 @@ if (__RBQLMP__where_expression) {
     } else {
         let sort_key = [__RBQLMP__sort_key_expression];
         if (query_context.unnest_list !== null) {
-            if (!select_unnested(sort_key, NR, out_fields))
+            if (!await select_unnested(sort_key, NR, out_fields))
                 stop_flag = true;
         } else {
-            if (!select_simple(sort_key, NR, out_fields))
+            if (!await select_simple(sort_key, NR, out_fields))
                 stop_flag = true;
         }
     }
@@ -855,7 +859,7 @@ if (join_matches.length == 1 && (__RBQLMP__where_expression)) {
     NU += 1;
     __RBQLMP__update_expressions
 }
-if (!query_context.writer.write(up_fields))
+if (!await query_context.writer.write(up_fields))
     stop_flag = true;
 `;
 
@@ -867,7 +871,7 @@ if (__RBQLMP__where_expression) {
     NU += 1;
     __RBQLMP__update_expressions
 }
-if (!query_context.writer.write(up_fields))
+if (!await query_context.writer.write(up_fields))
     stop_flag = true;
 `;
 
@@ -972,7 +976,7 @@ async function compile_and_run(query_context) {
             if (lower_case_query.indexOf(' like ') != -1)
                 throw new SyntaxError(e.message + "\nRBQL doesn't support \"LIKE\" operator, use like() function instead e.g. ... WHERE like(a1, 'foo%bar') ... "); // UT JSON
             if (lower_case_query.indexOf(' from ') != -1)
-                throw new SyntaxError(e.message + "\nRBQL doesn't use \"FROM\" keyword, e.g. you can query 'SELECT *' without FROM"); // UT JSON
+                throw new SyntaxError(e.message + "\nTip: If input table is defined by the environment, RBQL query should not have \"FROM\" keyword"); // UT JSON
             if (e && e.message && String(e.message).toLowerCase().indexOf('unexpected identifier') != -1) {
                 if (lower_case_query.indexOf(' and ') != -1)
                     throw new SyntaxError(e.message + "\nDid you use 'and' keyword in your query?\nJavaScript backend doesn't support 'and' keyword, use '&&' operator instead!");
@@ -1328,9 +1332,11 @@ function translate_update_expression(update_expression, input_variables_map, str
 
 
 function translate_select_expression(select_expression) {
-    let expression_without_stars = replace_star_count(select_expression);
-    let translated = str_strip(replace_star_vars(expression_without_stars));
-    let translated_for_header = str_strip(replace_star_vars_for_header_parsing(expression_without_stars));
+    let as_alias_replacement_regexp = / +(AS|as) +([a-zA-Z][a-zA-Z0-9_]*) *(?=$|,)/g;
+    let expression_without_counting_stars = replace_star_count(select_expression);
+    let expression_without_as_column_alias = expression_without_counting_stars.replace(as_alias_replacement_regexp, '');
+    let translated = str_strip(replace_star_vars(expression_without_as_column_alias));
+    let translated_for_header = str_strip(replace_star_vars_for_header_parsing(expression_without_counting_stars));
     if (!translated.length)
         throw new RbqlParsingError('"SELECT" expression is empty');
     return [`[].concat([${translated}])`, translated_for_header];
@@ -1571,12 +1577,21 @@ function remove_redundant_table_name(query_text) {
 
 
 function select_output_header(input_header, join_header, query_column_infos) {
-    if (input_header === null && join_header === null)
+    if (input_header === null) {
+        assert(join_header === null);
+    }
+    if (input_header === null) {
+        for (let qci of query_column_infos) {
+            if (qci !== null && qci.is_alias) {
+                throw new RbqlParsingError(`Specifying column alias "AS ${qci.column_name}" is not allowed if input table has no header`);
+            }
+        }
         return null;
-    if (input_header === null)
-        input_header = [];
-    if (join_header === null)
+    }
+    if (join_header === null) {
+        // This means there is no JOIN table.
         join_header = [];
+    }
     let output_header = [];
     for (let qci of query_column_infos) {
         // TODO refactor this and python version: extract this code into a function instead to always return something
@@ -1608,20 +1623,20 @@ function select_output_header(input_header, join_header, query_column_infos) {
 }
 
 
-function make_inconsistent_num_fields_warning(table_name, inconsistent_records_info) {
-    let keys = Object.keys(inconsistent_records_info);
-    let entries = [];
-    for (let i = 0; i < keys.length; i++) {
-        let key = keys[i];
-        let record_id = inconsistent_records_info[key];
-        entries.push([record_id, key]);
-    }
-    entries.sort(function(a, b) { return a[0] - b[0]; });
+function sample_first_two_inconsistent_records(inconsistent_records_info) {
+    let entries = Array.from(inconsistent_records_info.entries());
+    entries.sort(function(a, b) { return a[1] - b[1]; });
     assert(entries.length > 1);
-    let [record_1, num_fields_1] = entries[0];
-    let [record_2, num_fields_2] = entries[1];
+    let [num_fields_1, record_num_1] = entries[0];
+    let [num_fields_2, record_num_2] = entries[1];
+    return [record_num_1, num_fields_1, record_num_2, num_fields_2];
+}
+
+
+function make_inconsistent_num_fields_warning(table_name, inconsistent_records_info) {
+    let [record_num_1, num_fields_1, record_num_2, num_fields_2] = sample_first_two_inconsistent_records(inconsistent_records_info);
     let warn_msg = `Number of fields in "${table_name}" table is not consistent: `;
-    warn_msg += `e.g. record ${record_1} -> ${num_fields_1} fields, record ${record_2} -> ${num_fields_2} fields`;
+    warn_msg += `e.g. record ${record_num_1} -> ${num_fields_1} fields, record ${record_num_2} -> ${num_fields_2} fields`;
     return warn_msg;
 }
 
@@ -1652,7 +1667,7 @@ class RBQLInputIterator {
 class RBQLOutputWriter {
     constructor(){}
 
-    write(fields) {
+    async write(fields) {
         throw new Error("Unable to call the interface method");
     }
 
@@ -1691,7 +1706,7 @@ class TableIterator extends RBQLInputIterator {
         this.normalize_column_names = normalize_column_names;
         this.variable_prefix = variable_prefix;
         this.nr = 0;
-        this.fields_info = new Object();
+        this.fields_info = new Map();
         this.stopped = false;
     }
 
@@ -1727,13 +1742,13 @@ class TableIterator extends RBQLInputIterator {
         let record = this.table[this.nr];
         this.nr += 1;
         let num_fields = record.length;
-        if (!this.fields_info.hasOwnProperty(num_fields))
-            this.fields_info[num_fields] = this.nr;
+        if (!this.fields_info.has(num_fields))
+            this.fields_info.set(num_fields, this.nr);
         return record;
     };
 
     get_warnings() {
-        if (Object.keys(this.fields_info).length > 1)
+        if (this.fields_info.size > 1)
             return [make_inconsistent_num_fields_warning('input', this.fields_info)];
         return [];
     };
@@ -1751,7 +1766,7 @@ class TableWriter extends RBQLOutputWriter {
         this.header = null;
     }
 
-    write(fields) {
+    async write(fields) {
         this.table.push(fields);
         return true;
     };
@@ -1799,6 +1814,8 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
         query_context.aggregation_key_expression = '[' + combine_string_literals(rb_actions[GROUP_BY]['text'], string_literals) + ']';
     }
 
+
+    let input_header = await input_iterator.get_header();
     let join_variables_map = null;
     let join_header = null;
     if (rb_actions.hasOwnProperty(JOIN)) {
@@ -1813,6 +1830,12 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
         }
         join_variables_map = await join_record_iterator.get_variables_map(query_text);
         join_header = await join_record_iterator.get_header();
+        if (input_header === null && join_header !== null) {
+            throw new RbqlIOHandlingError('Inconsistent modes: Input table doesn\'t have a header while the Join table has a header');
+        }
+        if (input_header !== null && join_header === null) {
+            throw new RbqlIOHandlingError('Inconsistent modes: Input table has a header while the Join table doesn\'t have a header');
+        }
         let [lhs_variables, rhs_indices] = resolve_join_variables(input_variables_map, join_variables_map, variable_pairs, string_literals);
         let sql_join_type = {'JOIN': InnerJoiner, 'INNER JOIN': InnerJoiner, 'LEFT JOIN': LeftJoiner, 'LEFT OUTER JOIN': LeftJoiner, 'STRICT LEFT JOIN': StrictLeftJoiner}[rb_actions[JOIN]['join_subtype']];
         query_context.lhs_join_var_expression = lhs_variables.length == 1 ? lhs_variables[0] : 'JSON.stringify([' + lhs_variables.join(',') + '])';
@@ -1830,7 +1853,6 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
         query_context.where_expression = combine_string_literals(where_expression, string_literals);
     }
 
-    let input_header = await input_iterator.get_header();
     if (rb_actions.hasOwnProperty(UPDATE)) {
         var update_expression = translate_update_expression(rb_actions[UPDATE]['text'], input_variables_map, string_literals, ' '.repeat(8));
         query_context.update_expressions = combine_string_literals(update_expression, string_literals);
@@ -1840,13 +1862,16 @@ async function shallow_parse_input_query(query_text, input_iterator, join_tables
     if (rb_actions.hasOwnProperty(SELECT)) {
         query_context.top_count = find_top(rb_actions);
         if (rb_actions.hasOwnProperty(EXCEPT)) {
+            if (rb_actions.hasOwnProperty(JOIN)) {
+                throw new RbqlParsingError('EXCEPT and JOIN are not allowed in the same query');
+            }
             let [output_header, select_expression] = translate_except_expression(rb_actions[EXCEPT]['text'], input_variables_map, string_literals, input_header);
             query_context.select_expression = select_expression;
             query_context.writer.set_header(output_header);
         } else {
-            let [select_expression, select_expression_for_ast] = translate_select_expression(rb_actions[SELECT]['text']);
+            let [select_expression, select_expression_for_header] = translate_select_expression(rb_actions[SELECT]['text']);
             query_context.select_expression = combine_string_literals(select_expression, string_literals);
-            let column_infos = adhoc_parse_select_expression_to_column_infos(select_expression_for_ast, string_literals);
+            let column_infos = adhoc_parse_select_expression_to_column_infos(select_expression_for_header, string_literals);
             let output_header = select_output_header(input_header, join_header, column_infos);
             query_context.writer.set_header(output_header);
         }
@@ -1947,5 +1972,6 @@ exports.adhoc_parse_select_expression_to_column_infos = adhoc_parse_select_expre
 exports.replace_star_count = replace_star_count;
 exports.replace_star_vars_for_header_parsing = replace_star_vars_for_header_parsing;
 exports.select_output_header = select_output_header;
+exports.sample_first_two_inconsistent_records = sample_first_two_inconsistent_records;
 
 }(typeof exports === 'undefined' ? this.rbql = {} : exports));

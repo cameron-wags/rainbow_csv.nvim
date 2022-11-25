@@ -39,6 +39,7 @@ function extract_next_field(src, dlm, preserve_quotes_and_whitespaces, allow_ext
 
 
 function split_quoted_str(src, dlm, preserve_quotes_and_whitespaces=false) {
+    // This function is newline-agnostic i.e. it can also split records with multiline fields.
     if (src.indexOf('"') == -1) // Optimization for most common case
         return [src.split(dlm), false];
     var result = [];
@@ -116,6 +117,41 @@ function smart_split(src, dlm, policy, preserve_quotes_and_whitespaces) {
 }
 
 
+class MultilineRecordAggregator {
+    constructor(comment_prefix) {
+        this.comment_prefix = comment_prefix;
+        this.reset();
+    }
+    add_line(line_text) {
+        if (this.has_full_record || this.has_comment_line) {
+            throw new Error('Invalid usage - record aggregator must be reset before adding new lines');
+        }
+        if (this.comment_prefix && this.rfc_line_buffer.length == 0 && line_text.startsWith(this.comment_prefix)) {
+            this.has_comment_line = true;
+            return false;
+        }
+        let match_list = line_text.match(/"/g);
+        let has_unbalanced_double_quote = match_list && match_list.length % 2 == 1;
+        this.rfc_line_buffer.push(line_text);
+        this.has_full_record = (!has_unbalanced_double_quote && this.rfc_line_buffer.length == 1) || (has_unbalanced_double_quote && this.rfc_line_buffer.length > 1);
+        return this.has_full_record;
+    }
+    is_inside_multiline_record() {
+        return this.rfc_line_buffer.length && !this.has_full_record;
+    }
+    get_full_line(line_separator) {
+        return this.rfc_line_buffer.join(line_separator);
+    }
+    get_num_lines_in_record() {
+        return this.rfc_line_buffer.length;
+    }
+    reset() {
+        this.rfc_line_buffer = [];
+        this.has_full_record = false;
+        this.has_comment_line = false;
+    }
+}
+
 
 module.exports.split_quoted_str = split_quoted_str;
 module.exports.split_whitespace_separated_str = split_whitespace_separated_str;
@@ -125,3 +161,4 @@ module.exports.rfc_quote_field = rfc_quote_field;
 module.exports.unquote_field = unquote_field;
 module.exports.unquote_fields = unquote_fields;
 module.exports.split_lines = split_lines;
+module.exports.MultilineRecordAggregator = MultilineRecordAggregator;
