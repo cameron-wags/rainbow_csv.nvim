@@ -55,6 +55,15 @@ local progress_bar_size = 20
 -- " We need to use both of them.
 
 
+-- start vim fn rewrites
+local function lua_strpart(str, start, count)
+    if count == nil then
+        return string.sub(str, start + 1)
+    else
+        return string.sub(str, start + 1, start + count)
+    end
+end
+
 -- " XXX Use :syntax command to list all current syntax groups
 -- " XXX Use :highlight command to list all current highlight groups
 
@@ -798,9 +807,9 @@ end
 -- endfunc
 local function test_coverage()
     if vim.g.rbql_dbg_test_coverage ~= true then
-        return 0
+        return false
     end
-    return vim.fn.reltime()[2] % 2
+    return vim.fn.reltime()[2] % 2 == 1
 end
 
 -- function! s:EnsureJavaScriptInitialization()
@@ -850,14 +859,41 @@ end
 --     let s:python_env_initialized = 1
 --     return 1
 -- endfunction
-
+local function EnsurePythonInitialization()
+    if python_env_initialized then
+        return true
+    end
+    local py_home_dir = py_source_escape(script_folder_path .. '/rbql_core')
+    if vim.fn.has('python3') == 1 and not use_system_python() and not test_coverage() then
+        vim.cmd('py3 import sys')
+        vim.cmd('py3 import vim')
+        vim.cmd("exe 'python3 sys.path.insert(0, \"'" .. py_home_dir .. "\")'")
+        vim.cmd('py3 import vim_rbql')
+    elseif has_python_27() and not use_system_python() and not test_coverage() then
+        vim.cmd('py import sys')
+        vim.cmd('py import vim')
+        vim.cmd("exe 'python sys.path.insert(0, \"'" .. py_home_dir .. "\")'")
+        vim.cmd('py import vim_rbql')
+    else
+        M.find_python_interpreter()
+        if system_python_interpreter == '' then
+            return false
+        end
+    end
+    python_env_initialized = true
+    return true
+end
 
 -- func! s:ensure_storage_exists()
 --     if !isdirectory(s:rb_storage_dir)
 --         call mkdir(s:rb_storage_dir, "p")
 --     endif
 -- endfunc
-
+local function ensure_storage_exists()
+    if vim.fn.isdirectory(rb_storage_dir) == 0 then
+        vim.fn.mkdir(rb_storage_dir, 'p')
+    end
+end
 
 -- func! rainbow_csv#rstrip(line)
 --     let result = a:line
@@ -869,11 +905,26 @@ end
 --     endif
 --     return result
 -- endfunc
+M.rstrip = function(line)
+    -- todo gsub can do this with less effort but might be slower
+    local result = line
+    if #result > 0 and string.sub(result, #result, #result) == '\n' then
+        result = string.sub(result, 1, #result - 1)
+    end
+    if #result > 0 and string.sub(result, #result, #result) == '\r' then
+        result = string.sub(result, 1, #result - 1)
+    end
+    return result
+end
 
 
 -- function! rainbow_csv#strip_spaces(input_string)
 --     return substitute(a:input_string, '^ *\(.\{-}\) *$', '\1', '')
 -- endfunction
+M.strip_spaces = function(input_string)
+    local lstrip = string.gsub(input_string, '^ *([^ ])', '%1', 1)
+    return string.gsub(lstrip, '([^ ]) *$', '%1', 1)
+end
 
 
 -- func! rainbow_csv#unescape_quoted_fields(src)
@@ -887,7 +938,18 @@ end
 --     endfor
 --     return res
 -- endfunc
-
+M.unescape_quoted_fields = function(src)
+    -- todo mutates parameter
+    local res = src
+    for nt, _ in ipairs(res) do
+        res[nt] = M.strip_spaces(res[nt])
+        if #res[nt] >= 2 and string.sub(res[nt], 1, 1) == '"' then
+            res[nt] = lua_strpart(res[nt], 1, #res[nt] - 2)
+        end
+        res[nt] = string.gsub(res[nt], '""', '"')
+    end
+    return res
+end
 
 -- func! rainbow_csv#preserving_quoted_split(line, delim)
 --     let src = a:line
@@ -943,6 +1005,13 @@ end
 --     endif
 --     return [result, has_warning]
 -- endfunc
+M.preserving_quoted_split = function(line, delim)
+    local src = line
+    if string.find(src, '"') == nil then
+        local regex_delim = vim.fn.escape(delim, magic_chars)
+        return { vim.fn.split(src, regex_delim, 1), false }
+    end
+end
 
 
 -- func! rainbow_csv#quoted_split(line, delim)
