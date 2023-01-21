@@ -255,7 +255,7 @@ vim.api.nvim_create_autocmd({ 'VimEnter', 'ColorScheme' }, {
 -- endfunc
 local function try_read_lines(src_path)
     local lines = {}
-    if vim.fn.filereadable(src_path) then
+    if vim.fn.filereadable(src_path) == 1 then
         lines = vim.fn.readfile(src_path)
     end
     return lines
@@ -583,6 +583,11 @@ end
 --         call rainbow_csv#ensure_syntax_exists(ft, delim_policy[0], delim_policy[1], delim_policy[2])
 --     endfor
 -- endfunc
+M.generate_named_dialects = function()
+    for ft, delim_policy in pairs(named_syntax_map) do
+        M.ensure_syntax_exists(ft, delim_policy[1], delim_policy[2], delim_policy[3])
+    end
+end
 
 
 -- func! rainbow_csv#get_current_dialect()
@@ -590,16 +595,26 @@ end
 --     let current_ft = &syntax
 --     return rainbow_csv#ft_to_dialect(current_ft)
 -- endfunc
+M.get_current_dialect = function()
+    -- todo this should be fine but might not be
+    return M.ft_to_dialect(vim.o.filetype)
+end
 
 
 -- func! rainbow_csv#is_rainbow_table()
 --     return rainbow_csv#get_current_dialect()[1] != 'monocolumn'
 -- endfunc
+M.is_rainbow_table = function()
+    return M.get_current_dialect()[2] ~= 'monocolumn'
+end
 
 
 -- func! rainbow_csv#is_rainbow_table_or_was_just_disabled()
 --     return (exists("b:rainbow_features_enabled") && b:rainbow_features_enabled == 1)
 -- endfunc
+M.is_rainbow_table_or_was_just_disabled = function()
+    return vim.b.rainbow_features_enabled == true
+end
 
 
 -- func! s:get_meta_language()
@@ -615,7 +630,19 @@ end
 --     endif
 --     return lang_lw
 -- endfunc
-
+local function get_meta_language()
+    local lang_lw = 'python'
+    if vim.g.rbql_meta_language ~= nil then
+        lang_lw = string.lower(vim.g.rbql_meta_language)
+    end
+    if vim.g.rbql_backend_language ~= nil then
+        lang_lw = string.lower(vim.g.rbql_backend_language)
+    end
+    if lang_lw == 'javascript' then
+        lang_lw = 'js'
+    end
+    return lang_lw
+end
 
 -- func! s:has_python_27()
 --     if !has("python")
@@ -627,7 +654,17 @@ end
 --     endif
 --     return 1
 -- endfunc
-
+local function has_python_27()
+    -- todo verify this
+    if vim.fn.has('python') ~= 1 then
+        return false
+    end
+    vim.cmd('py import sys')
+    if vim.fn.pyeval('sys.version_info[1]') < 7 then
+        return false
+    end
+    return true
+end
 
 -- func! s:read_virtual_header(delim, policy)
 --     " TODO rename and refactor into try_set_virtual_header() - without parameters, get delim and policy from the current filetype
@@ -650,11 +687,33 @@ end
 --     endif
 --     return names
 -- endfunc
-
+local function read_virtual_header(delim, policy)
+    local table_path = vim.fn.resolve(vim.fn.expand('%:p'))
+    local headerName = table_path .. '.header'
+    if vim.fn.filereadable(headerName) == 0 then
+        return {}
+    end
+    local lines = vim.fn.readfile(headerName, '', 1)
+    if #lines == 0 then
+        return {}
+    end
+    local line = lines[1]
+    local names = {}
+    if policy == 'monocolumn' then
+        names = { line } -- todo correct?
+    else
+        local regex_delim = vim.fn.escape(delim, magic_chars)
+        names = vim.fn.split(line, regex_delim)
+    end
+    return names
+end
 
 -- func! rainbow_csv#dbg_set_system_python_interpreter(interpreter)
 --     let s:system_python_interpreter = a:interpreter
 -- endfunction
+M.dbg_set_system_python_interpreter = function(interpreter)
+    system_python_interpreter = interpreter
+end
 
 
 -- func! rainbow_csv#find_python_interpreter()
@@ -672,6 +731,27 @@ end
 --     let s:system_python_interpreter = ''
 --     return s:system_python_interpreter
 -- endfunc
+M.find_python_interpreter = function()
+    local ret = vim.api.nvim_exec([[
+        func! s:find_python_interpreter()
+            let py3_version = tolower(system('python3 --version'))
+            if (v:shell_error == 0 && match(py3_version, 'python 3\.') == 0)
+                let s:system_python_interpreter = 'python3'
+                return s:system_python_interpreter
+            endif
+            let py_version = tolower(system('python --version'))
+            if (v:shell_error == 0 && (match(py_version, 'python 2\.7') == 0 || match(py_version, 'python 3\.') == 0))
+                let s:system_python_interpreter = 'python'
+                return s:system_python_interpreter
+            endif
+            let s:system_python_interpreter = ''
+            return s:system_python_interpreter
+        endfunc
+        echo s:find_python_interpreter()
+    ]], true)
+    system_python_interpreter = ret
+    return system_python_interpreter
+end
 
 
 -- function! s:py_source_escape(src)
@@ -681,7 +761,12 @@ end
 --     let dst = substitute(dst, '"', '\\"', "g")
 --     return dst
 -- endfunc
-
+local function py_source_escape(src)
+    local dst = string.gsub(src, '\\', '\\\\')
+    dst = string.gsub(dst, '\t', '\\t')
+    dst = string.gsub(dst, '"', '\\"')
+    return dst
+end
 
 -- function! s:char_class_escape(src)
 --     if a:src == ']'
@@ -692,7 +777,15 @@ end
 --     endif
 --     return a:src
 -- endfunc
-
+local function char_class_escape(src)
+    if src == ']' then
+        return '\\]'
+    end
+    if src == '\\' then
+        return '\\\\'
+    end
+    return src
+end
 
 -- function! s:test_coverage()
 --     if !exists("g:rbql_dbg_test_coverage")
@@ -700,6 +793,12 @@ end
 --     endif
 --     return reltime()[1] % 2
 -- endfunc
+local function test_coverage()
+    if vim.g.rbql_dbg_test_coverage ~= true then
+        return 0
+    end
+    return vim.fn.reltime()[2] % 2
+end
 
 
 -- function! s:EnsureJavaScriptInitialization()
@@ -713,6 +812,16 @@ end
 --     let s:js_env_initialized = 1
 --     return 1
 -- endfunction
+local function EnsureJavaScriptInitialization()
+    if js_env_initialized then
+        return true
+    end
+    if os.execute('node --version') ~= 0 then
+        return false
+    end
+    js_env_initialized = true
+    return true
+end
 
 
 -- function! s:EnsurePythonInitialization()
@@ -1018,7 +1127,6 @@ end
 --     endfor
 --     return adjusted_stats
 -- endfunc
-
 
 -- func! s:calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
 --     " Result `column_stats` is a list of (max_total_len, max_int_part_len, max_fractional_part_len) tuples.
