@@ -345,6 +345,7 @@ local function index_encode_delim(delim)
         return 'TAB'
     end
     if #delim > 1 then
+        -- todo these string literals are not equivalent to the vimscript ones
         local result = string.gsub(delim, '\\', '\\\\')
         result = string.gsub(result, '\t', '\\t')
         return 'multichar:' .. result
@@ -370,6 +371,7 @@ local function index_decode_delim(encoded_delim)
     end
     if string.find(encoded_delim, 'multichar:') then
         local result = string.sub(encoded_delim, #'multichar:' + 1)
+        -- todo these string literals are not equivalent to the vimscript ones
         result = string.gsub(result, '\\t', '\t')
         result = string.gsub(result, '\\\\', '\\')
         return result
@@ -762,6 +764,7 @@ end
 --     return dst
 -- endfunc
 local function py_source_escape(src)
+    -- todo these string literals are not equivalent to the vimscript ones
     local dst = string.gsub(src, '\\', '\\\\')
     dst = string.gsub(dst, '\t', '\\t')
     dst = string.gsub(dst, '"', '\\"')
@@ -800,7 +803,6 @@ local function test_coverage()
     return vim.fn.reltime()[2] % 2
 end
 
-
 -- function! s:EnsureJavaScriptInitialization()
 --     if (s:js_env_initialized)
 --         return 1
@@ -822,7 +824,6 @@ local function EnsureJavaScriptInitialization()
     js_env_initialized = true
     return true
 end
-
 
 -- function! s:EnsurePythonInitialization()
 --     if (s:python_env_initialized)
