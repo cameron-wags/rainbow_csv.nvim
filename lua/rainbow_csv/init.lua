@@ -1347,6 +1347,7 @@ end
 -- endfunc
 -- ]])
 M.update_subcomponent_stats = function(field, is_first_line, max_field_components_lens)
+    -- todo very hot fn
     local field_length = vim.fn.strdisplaywidth(field)
     if field_length > max_field_components_lens[1] then
         max_field_components_lens[1] = field_length
