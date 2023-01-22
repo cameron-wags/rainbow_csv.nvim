@@ -1883,7 +1883,17 @@ end
 --     endwhile
 --     return col_num
 -- endfunc
-
+M.get_col_num_single_line = function(fields, delim, offset)
+    -- todo dubious
+    local col_num = 0
+    local kb_pos = vim.fn.col('.')
+    local cpos = offset + #fields[col_num + 1] + #delim
+    while kb_pos > cpos and col_num + 1 < #fields do
+        col_num = col_num + 1
+        cpos = cpos + #fields[col_num + 1] + #delim
+    end
+    return col_num
+end
 
 -- func! s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
 --     let record_lines = getline(a:start_line, a:end_line)
@@ -1985,6 +1995,7 @@ end
 -- endfunc
 
 
+-- portme
 -- func! rainbow_csv#provide_column_info_on_hover()
 --     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
 --     if policy == 'monocolumn'
@@ -2039,6 +2050,7 @@ end
 -- endfunc
 
 
+-- portme
 -- func! s:get_num_columns_if_delimited(delim, policy)
 --     let lastLineNo = min([line("$"), 100])
 --     if (lastLineNo < 5)
@@ -2068,6 +2080,7 @@ end
 -- endfunc
 
 
+-- portme
 -- func! s:guess_table_params_from_content()
 --     let best_dialect = []
 --     let best_score = 1
@@ -2604,6 +2617,10 @@ end
 --     let b:originial_ft = &ft
 --     execute "set ft=" . a:rainbow_ft
 -- endfunc
+M.do_set_rainbow_filetype = function(rainbow_ft)
+    vim.b.originial_ft = vim.b.ft
+    vim.cmd(('set ft=%q'):format(rainbow_ft))
+end
 
 
 -- func! rainbow_csv#set_rainbow_filetype(delim, policy, comment_prefix)
@@ -2613,7 +2630,13 @@ end
 --     endif
 --     call rainbow_csv#do_set_rainbow_filetype(rainbow_ft)
 -- endfunc
-
+M.set_rainbow_filetype = function(delim, policy, comment_prefix)
+    local rainbow_ft = M.dialect_to_ft(delim, policy, comment_prefix)
+    if rainbow_ft:find('rcsv', 1, true) ~= nil then
+        M.ensure_syntax_exists(rainbow_ft, delim, policy, comment_prefix)
+    end
+    M.do_set_rainbow_filetype(rainbow_ft)
+end
 
 -- func! rainbow_csv#buffer_disable_rainbow_features()
 --     let b:rainbow_features_enabled = 0
@@ -2624,8 +2647,20 @@ end
 --         unmap <buffer> <F5>
 --     endif
 -- endfunc
+M.buffer_disable_rainbow_features = function()
+    vim.b.rainbow_features_enabled = false
+    -- todo what
+    vim.cmd([[
+        augroup RainbowHintGrp
+            autocmd! CursorMoved <buffer>
+        augroup END
+    ]])
+    if vim.g.disable_rainbow_key_mappings == nil then
+        vim.cmd('unmap <buffer> <F5>')
+    end
+end
 
-
+-- portme
 -- func! rainbow_csv#buffer_enable_rainbow_features()
 --     if rainbow_csv#is_rainbow_table_or_was_just_disabled()
 --         call rainbow_csv#buffer_disable_rainbow_features()
@@ -2679,6 +2714,7 @@ end
 -- endfunction
 
 
+-- portme
 -- func! rainbow_csv#manual_set(arg_policy, is_multidelim)
 --     if a:is_multidelim
 --         let delim = rainbow_csv#get_visual_selection()
@@ -2749,6 +2785,7 @@ end
 -- endfunc
 
 
+-- portme
 -- func! rainbow_csv#handle_new_file()
 --     let table_extension = expand('%:e')
 --     if table_extension == 'tsv' || table_extension == 'tab'
@@ -2768,6 +2805,7 @@ end
 -- endfunc
 
 
+-- portme
 -- func! rainbow_csv#handle_buffer_enter()
 --     if !exists("s:num_groups")
 --         " Just to make sure that syntax was generated.
@@ -2818,6 +2856,7 @@ end
 -- endfunc
 
 
+-- portme
 -- func! rainbow_csv#handle_syntax_change()
 --     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
 --     if policy == 'monocolumn' " If the new filetype is no longer rainbow:
