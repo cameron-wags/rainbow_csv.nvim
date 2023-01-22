@@ -93,6 +93,14 @@ local function lua_escape(str, targets)
     return result
 end
 
+local function lua_join(list, sep)
+    if sep == nil then
+        return table.concat(list, ' ')
+    else
+        return table.concat(list, sep)
+    end
+end
+
 -- " XXX Use :syntax command to list all current syntax groups
 -- " XXX Use :highlight command to list all current highlight groups
 
@@ -168,7 +176,6 @@ local function init_groups_from_links()
         vim.cmd('highlight link column' .. index - 1 .. ' ' .. value)
         vim.cmd('highlight link escaped_column' .. index - 1 .. ' ' .. value)
     end
-    -- todo s var
     M.num_groups = #link_groups
 end
 
@@ -331,7 +338,7 @@ end
 local function write_index(records, dst_path)
     local lines = {}
     for _, record in ipairs(records) do
-        local new_line = vim.fn.join(record, '\t')
+        local new_line = lua_join(record, '\t')
         table.insert(lines, new_line)
     end
     vim.fn.writefile(lines, dst_path)
@@ -383,9 +390,8 @@ local function index_encode_delim(delim)
         return 'TAB'
     end
     if #delim > 1 then
-        -- todo these string literals are not equivalent to the vimscript ones
-        local result = string.gsub(delim, '\\', '\\\\')
-        result = string.gsub(result, '\t', '\\t')
+        local result = string.gsub(delim, [[\\]], [[\\\\]])
+        result = string.gsub(result, [[\t]], [[\\t]])
         return 'multichar:' .. result
     end
     return delim
@@ -409,9 +415,8 @@ local function index_decode_delim(encoded_delim)
     end
     if string.find(encoded_delim, 'multichar:') then
         local result = string.sub(encoded_delim, #'multichar:' + 1)
-        -- todo these string literals are not equivalent to the vimscript ones
-        result = string.gsub(result, '\\t', '\t')
-        result = string.gsub(result, '\\\\', '\\')
+        result = string.gsub(result, [[\\t]], [[\t']])
+        result = string.gsub(result, [[\\\\]], [[\\]])
         return result
     end
     return encoded_delim
@@ -452,10 +457,11 @@ end
 --     return exists('g:rainbow_comment_prefix') ? g:rainbow_comment_prefix : ''
 -- endfunc
 local function get_auto_comment_prefix()
-    if vim.g.rainbow_comment_prefix then
+    if vim.g.rainbow_comment_prefix ~= nil then
         return vim.g.rainbow_comment_prefix
+    else
+        return ''
     end
-    return ''
 end
 
 -- func! s:get_table_record(table_path)
@@ -486,9 +492,12 @@ local function get_table_record(table_path)
             local delim = index_encode_delim(record[2])
             local policy = record[3]
             local comment_prefix
-            if #record > 3 then
+            if #record > 3 then -- todo port correctly
                 comment_prefix = record[4]
             else
+                comment_prefix = get_auto_comment_prefix()
+            end
+            if comment_prefix == '@auto_comment_prefix@' then
                 comment_prefix = get_auto_comment_prefix()
             end
             return { delim, policy, comment_prefix }
@@ -545,7 +554,7 @@ M.dialect_to_ft = function(delim, policy, comment_prefix)
             return ft
         end
     end
-    return 'rcsv' .. '_' .. string_to_hex(delim) .. '_' .. policy .. '_' .. string_to_hex(comment_prefix)
+    return lua_join({ 'rcsv', string_to_hex(delim), policy, string_to_hex(comment_prefix) }, '_')
 end
 
 
@@ -804,9 +813,9 @@ end
 -- endfunc
 local function py_source_escape(src)
     -- todo these string literals are not equivalent to the vimscript ones
-    local dst = string.gsub(src, '\\', '\\\\')
-    dst = string.gsub(dst, '\t', '\\t')
-    dst = string.gsub(dst, '"', '\\"')
+    local dst = string.gsub(src, [[\\]], [[\\\\]])
+    dst = string.gsub(dst, [[\t]], [[\\t]])
+    dst = string.gsub(dst, '"', [[\\"]])
     return dst
 end
 
@@ -936,8 +945,7 @@ end
 --     return result
 -- endfunc
 M.rstrip = function(line)
-    -- todo gsub can do this with less effort but might be slower
-    -- this function is very hot
+    -- todo hot call
     local result = line
     if #result > 0 and string.sub(result, -1) == '\n' then
         result = string.sub(result, 1, -2)
@@ -1037,6 +1045,7 @@ end
 --     return [result, has_warning]
 -- endfunc
 M.preserving_quoted_split = function(line, delim)
+    -- todo hot function
     local src = line
     if string.find(src, '"') == nil then
         local regex_delim = lua_escape(delim, magic_chars)
@@ -1195,6 +1204,7 @@ end
 --     endif
 -- endfunc
 M.smart_split = function(line, delim, policy)
+    -- todo hot function
     local stripped = M.rstrip(line)
     if policy == 'monocolumn' then
         return stripped
@@ -1227,6 +1237,7 @@ end
 --     endif
 -- endfunc
 M.preserving_smart_split = function(line, delim, policy)
+    -- todo hot function
     local stripped = M.rstrip(line)
     if policy == 'monocolumn' then
         return { { stripped }, false }
@@ -1347,7 +1358,7 @@ end
 -- endfunc
 -- ]])
 M.update_subcomponent_stats = function(field, is_first_line, max_field_components_lens)
-    -- todo very hot fn
+    -- todo hottest function
     local field_length = vim.fn.strdisplaywidth(field)
     if field_length > max_field_components_lens[1] then
         max_field_components_lens[1] = field_length
@@ -1544,6 +1555,7 @@ end
 -- endfunc
 -- ]])
 M.align_field = function(field, is_first_line, max_field_components_lens, is_last_column)
+    -- todo hottest function
     local extra_readability_whitespace_length = 1
     local clean_field = M.strip_spaces(field)
     local field_length = vim.fn.strdisplaywidth(clean_field) -- todo hot code, maybe refactor
@@ -1706,6 +1718,7 @@ M.csv_align = function()
             display_progress_bar(align_progress_bar_position)
         end
         local has_line_edit = false
+        -- todo optimization target
         local line = vim.fn.getline(linenum)
         if comment_prefix ~= '' and lua_stridx(line, comment_prefix) == 0 then
             goto next
@@ -1725,7 +1738,7 @@ M.csv_align = function()
         end
         ::ibreak::
         if has_line_edit then
-            local updated_line = vim.fn.join(fields, delim)
+            local updated_line = lua_join(fields, delim)
             vim.fn.setline(linenum, updated_line)
             has_edit = true
         end
@@ -1830,7 +1843,7 @@ M.csv_shrink = function()
             end
         end
         if has_line_edit then
-            local updated_line = vim.fn.join(fields, delim)
+            local updated_line = lua_join(fields, delim)
             vim.fn.setline(linenum, updated_line)
             has_edit = true
         end
@@ -1884,7 +1897,7 @@ end
 --     endwhile
 --     return col_num
 -- endfunc
-M.get_col_num_single_line = function(fields, delim, offset)
+local function get_col_num_single_line(fields, delim, offset)
     -- todo dubious
     local col_num = 0
     local kb_pos = vim.fn.col('.')
@@ -1896,6 +1909,7 @@ M.get_col_num_single_line = function(fields, delim, offset)
     return col_num
 end
 
+-- vim.cmd([[
 -- func! s:do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
 --     let record_lines = getline(a:start_line, a:end_line)
 --     let record_str = join(record_lines, "\n")
@@ -1932,8 +1946,48 @@ end
 --     let col_num = col_num + s:get_col_num_single_line(fields[col_num:], a:delim, length_of_previous_field_segment_on_cursor_line)
 --     return [fields, col_num]
 -- endfunc
+-- ]])
+local function do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
+    local record_lines = vim.api.nvim_buf_get_lines(0, start_line, end_line + 1, true) -- todo this impl doesn't match getline()
+    local record_str = lua_join(record_lines, '\n')
+    local fields, has_warning = unpack(M.preserving_smart_split(record_str, delim, 'quoted_rfc'))
+    if has_warning or #fields ~= expected_num_fields then
+        return {}
+    end
+    local cursor_line_offset = cur_line - start_line
+    local current_line_offset = 0
+    local col_num = 0
+    while col_num < #fields do
+        current_line_offset = current_line_offset + #vim.fn.split(fields[col_num + 1], '\n', 1) - 1
+        if current_line_offset >= cursor_line_offset then
+            goto done
+        end
+        col_num = col_num + 1
+    end
+    ::done::
+    if current_line_offset > cursor_line_offset then
+        return { fields, col_num }
+    end
+    if current_line_offset < cursor_line_offset then
+        return {}
+    end
+    local length_of_previous_field_segment_on_cursor_line = 0
+    if current_line_offset > 0 then
+        local splitcol = vim.fn.split(fields[col_num + 1], '\n', 1)
+        length_of_previous_field_segment_on_cursor_line = #splitcol[#splitcol] + #delim
+        if vim.fn.col('.') <= length_of_previous_field_segment_on_cursor_line then
+            return { fields, col_num }
+        else
+            col_num = col_num + 1
+        end
+    end
+    col_num = col_num +
+        get_col_num_single_line(vim.list_slice(fields, col_num + 1), delim,
+            length_of_previous_field_segment_on_cursor_line)
+    return { fields, col_num }
+end
 
-
+-- vim.cmd([[
 -- func! s:find_unbalanced_lines_around(cur_line)
 --     let start_line = -1
 --     let end_line = -1
@@ -1954,8 +2008,33 @@ end
 --     endwhile
 --     return [start_line, end_line]
 -- endfunc
+-- ]])
+local function find_unbalanced_lines_around(cur_line)
+    local start_line = -1
+    local end_line = -1
+    local multiline_search_range = 10
+    if vim.g.multiline_search_range ~= nil then
+        multiline_search_range = vim.g.multiline_search_range
+    end
+    local lnmb = vim.fn.max({ 1, cur_line - multiline_search_range })
+    local lnme = vim.fn.min({ vim.fn.line('$'), cur_line + multiline_search_range })
+    while lnmb < lnme do
+        if #vim.fn.split(vim.fn.getline(lnmb), '"', 1) % 2 == 0 then
+            if lnmb < cur_line then
+                start_line = lnmb
+            end
+            if lnmb > cur_line then
+                end_line = lnmb
+                goto done
+            end
+        end
+        lnmb = lnmb + 1
+    end
+    ::done::
+    return { start_line, end_line }
+end
 
-
+-- vim.cmd([[
 -- func! s:get_col_num_rfc_basic_even_case(line, delim, expected_num_fields)
 --     let [fields, has_warning] = rainbow_csv#preserving_smart_split(a:line, a:delim, 'quoted_rfc')
 --     if !has_warning && len(fields) == a:expected_num_fields
@@ -1964,8 +2043,17 @@ end
 --     endif
 --     return []
 -- endfunc
+-- ]])
+local function get_col_num_rfc_basic_even_case(line, delim, expected_num_fields)
+    local fields, has_warning = unpack(M.preserving_smart_split(line, delim, 'quoted_rfc'))
+    if not has_warning and #fields == expected_num_fields then
+        local col_num = get_col_num_single_line(fields, delim, 0)
+        return { fields, col_num }
+    end
+    return {}
+end
 
-
+-- vim.cmd([[
 -- func! s:get_col_num_rfc_lines(line, delim, expected_num_fields)
 --     let cur_line = line('.')
 --     let [start_line, end_line] = s:find_unbalanced_lines_around(cur_line)
@@ -1994,21 +2082,49 @@ end
 --         return []
 --     endif
 -- endfunc
+-- ]])
+local function get_col_num_rfc_lines(line, delim, expected_num_fields)
+    local cur_line = vim.api.nvim_get_current_line()
+    local start_line, end_line = unpack(find_unbalanced_lines_around(cur_line))
+    local even_number_of_dquotes = #vim.fn.split(line, '"', 1) % 2 == 1
+    if even_number_of_dquotes then
+        if start_line ~= -1 and end_line ~= -1 then
+            local report = do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
+            if #report > 0 then
+                return report
+            end
+        end
+        return get_col_num_rfc_basic_even_case(line, delim, expected_num_fields)
+    else
+        if start_line ~= -1 then
+            local report = do_get_col_num_rfc_lines(cur_line, delim, start_line, cur_line, expected_num_fields)
+            if #report > 0 then
+                return report
+            end
+        end
+        if end_line ~= -1 then
+            local report = do_get_col_num_rfc_lines(cur_line, delim, cur_line, end_line, expected_num_fields)
+            if #report > 0 then
+                return report
+            end
+        end
+        return {}
+    end
+end
 
-
--- portme
+-- vim.cmd([[
 -- func! rainbow_csv#provide_column_info_on_hover()
 --     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
 --     if policy == 'monocolumn'
 --         return
 --     endif
 --     let line = getline('.')
-
+--
 --     if comment_prefix != '' && stridx(line, comment_prefix) == 0
 --         echo ""
 --         return
 --     endif
-
+--
 --     let header = rainbow_csv#get_csv_header(delim, policy, comment_prefix)
 --     if !len(header)
 --         return
@@ -2027,13 +2143,13 @@ end
 --         let col_num = s:get_col_num_single_line(fields, delim, 0)
 --     endif
 --     let num_cols = len(fields)
-
+--
 --     let ui_message = printf('Col %s', col_num + 1)
 --     let col_name = ''
 --     if col_num < len(header)
 --         let col_name = header[col_num]
 --     endif
-
+--
 --     let max_col_name = 50
 --     if len(col_name) > max_col_name
 --         let col_name = strpart(col_name, 0, max_col_name) . '...'
@@ -2049,9 +2165,61 @@ end
 --     endif
 --     echo ui_message
 -- endfunc
+-- ]])
+M.provide_column_info_on_hover = function()
+    local delim, policy, comment_prefix = unpack(M.get_current_dialect())
+    if policy == 'monocolumn' then
+        return
+    end
+    local line = vim.api.nvim_get_current_line()
 
+    if comment_prefix ~= '' and lua_stridx(line, comment_prefix) == 0 then
+        vim.cmd('echo ""')
+        return
+    end
 
--- portme
+    local header = M.get_csv_header(delim, policy, comment_prefix)
+    if #header == 0 then
+        return
+    end
+    local fields = {}
+    local col_num = 0
+    if policy == 'quoted_rfc' then
+        local report = get_col_num_rfc_lines(line, delim, #header)
+        if #report ~= 2 then
+            vim.cmd('echo ""')
+            return
+        end
+        fields, col_num = unpack(report)
+    else
+        fields = M.preserving_smart_split(line, delim, policy)[1]
+        col_num = get_col_num_single_line(fields, delim, 0)
+    end
+    local num_cols = #fields
+
+    local ui_message = string.format('Col %s', col_num + 1)
+    local col_name = ''
+    if col_num < #header then
+        col_name = header[col_num + 1]
+    end
+
+    local max_col_name = 50
+    if #col_name > max_col_name then
+        col_name = lua_strpart(col_name, 0, max_col_name) .. '...'
+    end
+    if col_name ~= '' then
+        ui_message = ui_message .. ', ' .. col_name
+    end
+    if #header ~= num_cols then
+        ui_message = ui_message .. '; WARN: num of fields in Header and this line differs'
+    end
+    if vim.b.root_table_name ~= nil then
+        ui_message = ui_message .. '; F7: Copy to ' .. vim.b.root_table_name
+    end
+    vim.cmd(string.format('echo %q', ui_message))
+end
+
+-- vim.cmd([[
 -- func! s:get_num_columns_if_delimited(delim, policy)
 --     let lastLineNo = min([line("$"), 100])
 --     if (lastLineNo < 5)
@@ -2079,9 +2247,37 @@ end
 --     endif
 --     return num_fields
 -- endfunc
+-- ]])
+local function get_num_columns_if_delimited(delim, policy)
+    local lastLineNo = vim.fn.min({ vim.fn.line('$'), 100 })
+    if lastLineNo < 5 then
+        return 0
+    end
+    local num_fields = 0
+    local num_lines_tested = 0
+    for linenum = 1, lastLineNo, 1 do
+        local line = vim.fn.getline(linenum)
+        local comment_prefix = get_auto_comment_prefix()
+        if comment_prefix ~= '' and lua_stridx(line, comment_prefix) == 0 then
+            goto next
+        end
+        num_lines_tested = num_lines_tested + 1
+        local num_fields_cur = #M.preserving_smart_split(line, delim, policy)[1]
+        if #num_fields == 0 then
+            num_fields = num_fields_cur
+        end
+        if num_fields ~= num_fields_cur or num_fields < 2 then
+            return 0
+        end
+        ::next::
+    end
+    if num_lines_tested < 5 then
+        return 0
+    end
+    return num_fields
+end
 
-
--- portme
+-- vim.cmd([[
 -- func! s:guess_table_params_from_content()
 --     let best_dialect = []
 --     let best_score = 1
@@ -2098,8 +2294,25 @@ end
 --     endif
 --     return best_dialect
 -- endfunc
+-- ]])
+local function guess_table_params_from_content()
+    local best_dialect = {}
+    local best_score = 1
+    for _, delim in ipairs(autodetection_delims) do
+        local policy = get_auto_policy_for_delim(delim)
+        local score = get_num_columns_if_delimited(delim, policy)
+        if score > best_score then
+            best_dialect = { delim, policy }
+            best_score = score
+        end
+    end
+    if best_score > max_columns then
+        return {}
+    end
+    return best_dialect
+end
 
-
+-- vim.cmd([[
 -- func! s:guess_table_params_from_content_frequency_based()
 --     let best_delim = ','
 --     let best_score = 0
@@ -2119,7 +2332,29 @@ end
 --     let best_policy = (best_delim == ',' || best_delim == ';') ? 'quoted' : 'simple'
 --     return [best_delim, best_policy]
 -- endfunc
-
+-- ]])
+local function guess_table_params_from_content_frequency_based()
+    local best_delim = ','
+    local best_score = 0
+    local lastLineNo = vim.fn.min({ vim.fn.line('$'), 50 })
+    for _, delim in ipairs(autodetection_delims) do
+        local regex_delim = lua_escape(delim, magic_chars)
+        local score = 0
+        for linenum = 1, lastLineNo, 1 do
+            local line = vim.fn.getline(linenum)
+            score = score + #vim.fn.split(line, regex_delim, 1) - 1
+        end
+        if score > best_score then
+            best_delim = delim
+            best_score = score
+        end
+    end
+    local best_policy = 'simple'
+    if best_delim == ',' or best_delim == ';' then
+        best_policy = 'quoted'
+    end
+    return { best_delim, best_policy }
+end
 
 -- func! rainbow_csv#clear_current_buf_content()
 --     let nl = line("$")
@@ -2662,36 +2897,37 @@ M.buffer_disable_rainbow_features = function()
 end
 
 -- portme
+-- vim.cmd([[
 -- func! rainbow_csv#buffer_enable_rainbow_features()
 --     if rainbow_csv#is_rainbow_table_or_was_just_disabled()
 --         call rainbow_csv#buffer_disable_rainbow_features()
 --     endif
-
+--
 --     let b:rainbow_features_enabled = 1
-
+--
 --     set laststatus=2
-
+--
 --     if &compatible == 1
 --         set nocompatible
 --     endif
-
+--
 --     " maybe use setlocal number ?
 --     set number
-
+--
 --     if !exists("g:disable_rainbow_key_mappings")
 --         nnoremap <buffer> <F5> :RbSelect<cr>
 --     endif
-
+--
 --     highlight status_line_default_hl ctermbg=black guibg=black
-
+--
 --     cnoreabbrev <expr> <buffer> Select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
 --     cnoreabbrev <expr> <buffer> select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
 --     cnoreabbrev <expr> <buffer> SELECT rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
-
+--
 --     cnoreabbrev <expr> <buffer> Update rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
 --     cnoreabbrev <expr> <buffer> update rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
 --     cnoreabbrev <expr> <buffer> UPDATE rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
-
+--
 --     augroup RainbowHintGrp
 --         autocmd! CursorMoved <buffer>
 --         if !exists("g:disable_rainbow_hover") || g:disable_rainbow_hover == 0
@@ -2699,7 +2935,38 @@ end
 --         endif
 --     augroup END
 -- endfunc
+-- ]])
+M.buffer_enable_rainbow_features = function()
+    if M.is_rainbow_table_or_was_just_disabled() then
+        M.buffer_disable_rainbow_features()
+    end
 
+    vim.b.rainbow_features_enabled = true
+
+    vim.cmd('set laststatus=2')
+
+    if vim.o.compatible then
+        vim.cmd('set nocompatible')
+    end
+
+    vim.cmd('set number')
+
+    if vim.g.disable_rainbow_key_mappings == nil then
+        vim.cmd('nnoremap <buffer> <F5> :RbSelect<cr>')
+    end
+
+    -- todo lazy set these up
+
+    vim.api.nvim_create_autocmd('CursorMoved', {
+        group = vim.api.nvim_create_augroup('RainbowHintGrp', { clear = true }),
+        pattern = '<buffer>',
+        callback = function()
+            if vim.g.disable_rainbow_hover == nil or vim.g.disable_rainbow_hover == false then
+                M.provide_column_info_on_hover()
+            end
+        end
+    })
+end
 
 -- function! rainbow_csv#get_visual_selection()
 --     " Taken from here: https://stackoverflow.com/a/6271254/2898283
@@ -2713,9 +2980,23 @@ end
 --     let lines[0] = lines[0][column_start - 1:]
 --     return join(lines, "\n")
 -- endfunction
+M.get_visual_selection = function()
+    local sel = vim.api.nvim_exec([[
+        let [line_start, column_start] = getpos("'<")[1:2]
+        let [line_end, column_end] = getpos("'>")[1:2]
+        let lines = getline(line_start, line_end)
+        if len(lines) != 0
+            let lines[-1] = lines[-1][: column_end - (&selection == 'inclusive' ? 1 : 2)]
+            let lines[0] = lines[0][column_start - 1:]
+            echo join(lines, '\n')
+        else
+            echo ''
+        endif
+    ]], true)
+    return sel
+end
 
-
--- portme
+-- vim.cmd([[
 -- func! rainbow_csv#manual_set(arg_policy, is_multidelim)
 --     if a:is_multidelim
 --         let delim = rainbow_csv#get_visual_selection()
@@ -2740,7 +3021,35 @@ end
 --     let table_path = resolve(expand("%:p"))
 --     call s:update_table_record(table_path, delim, policy, '@auto_comment_prefix@')
 -- endfunc
-
+-- ]])
+M.manual_set = function(arg_policy, is_multidelim)
+    local policy, delim
+    if is_multidelim then
+        delim = M.get_visual_selection()
+        policy = 'simple'
+        local max_delim_len = 10
+        if vim.g.max_multichar_delim_len ~= nil then
+            max_delim_len = vim.g.max_multichar_delim_len
+        end
+        if #delim > max_delim_len then
+            vim.cmd('echoerr "Multicharater delimiter is too long. Adjust g:max_multichar_delim_len or use a different separator"')
+            return
+        end
+    else
+        delim = vim.fn.getline('.')[vim.fn.col('.')]
+        policy = arg_policy
+    end
+    if policy == 'auto' then
+        policy = get_auto_policy_for_delim(delim)
+    end
+    if delim == '"' and policy == 'quoted' then
+        vim.cmd("echoerr 'Double quote delimiter is incompatible with \"quoted\" policy'")
+        return
+    end
+    M.set_rainbow_filetype(delim, policy, get_auto_comment_prefix())
+    local table_path = vim.fn.resolve(vim.expand('%:p'))
+    update_table_record(table_path, delim, policy, '@auto_comment_prefix@')
+end
 
 -- func! rainbow_csv#manual_disable()
 --     if rainbow_csv#is_rainbow_table()
@@ -2786,14 +3095,14 @@ end
 -- endfunc
 
 
--- portme
+-- vim.cmd([[
 -- func! rainbow_csv#handle_new_file()
 --     let table_extension = expand('%:e')
 --     if table_extension == 'tsv' || table_extension == 'tab'
 --         call rainbow_csv#do_set_rainbow_filetype('tsv')
 --         return
 --     endif
-
+--
 --     let table_params = s:guess_table_params_from_content()
 --     if !len(table_params) && table_extension == 'csv'
 --         let table_params = s:guess_table_params_from_content_frequency_based()
@@ -2804,15 +3113,32 @@ end
 --     endif
 --     call rainbow_csv#set_rainbow_filetype(table_params[0], table_params[1], s:get_auto_comment_prefix())
 -- endfunc
+-- ]])
+M.handle_new_file = function()
+    local table_extension = vim.fn.expand('%:e')
+    if table_extension == 'tsv' or table_extension == 'tab' then
+        M.do_set_rainbow_filetype('tsv')
+        return
+    end
 
+    local table_params = guess_table_params_from_content()
+    if #table_params == 0 and table_extension == 'csv' then
+        table_params = guess_table_params_from_content_frequency_based()
+    end
+    if #table_params == 0 then
+        vim.b.rainbow_features_enabled = false
+        return
+    end
+    M.set_rainbow_filetype(table_params[1], table_params[2], get_auto_comment_prefix())
+end
 
--- portme
+-- vim.cmd([[
 -- func! rainbow_csv#handle_buffer_enter()
 --     if !exists("s:num_groups")
 --         " Just to make sure that syntax was generated.
 --         call rainbow_csv#init_rb_color_groups()
 --     endif
-
+--
 --     if exists("b:rainbow_features_enabled")
 --         if b:rainbow_features_enabled
 --             " This is a workaround against Vim glitches. sometimes it 'forgets' to highlight the file even when ft=csv, see https://stackoverflow.com/questions/14779299/syntax-highlighting-randomly-disappears-during-file-saving
@@ -2825,7 +3151,7 @@ end
 --         endif
 --         return
 --     endif
-
+--
 --     if exists("b:current_syntax")
 --         " This is actually problematic for files with first comment line with # comment prefix e.g. this file: RBQL/test/csv_files/university_ranking_with_comments.csv
 --         " Because this check happens before index search the decision to highlight as rainbow will not be remembered on file reopen
@@ -2836,7 +3162,7 @@ end
 --         " Actually it is desirable to handle this even on the very first file open. For some reason Vim treats files with non - .txt extension and '#' as the first character as 'conf' files
 --         return
 --     endif
-
+--
 --     let table_path = resolve(expand("%:p"))
 --     let table_params = s:get_table_record(table_path)
 --     if len(table_params)
@@ -2848,16 +3174,50 @@ end
 --         endif
 --         return
 --     endif
-
+--
 --     if exists("g:disable_rainbow_csv_autodetect") && g:disable_rainbow_csv_autodetect
 --         return
 --     endif
-
+--
 --     call rainbow_csv#handle_new_file()
 -- endfunc
+-- ]])
+M.handle_buffer_enter = function()
+    if M.num_groups == nil then
+        M.init_rb_color_groups()
+    end
 
+    if vim.b.rainbow_features_enabled ~= nil then
+        if vim.b.rainbow_features_enabled then
+            local ft_power_cycle = vim.o.ft
+            vim.cmd('set ft=' .. ft_power_cycle)
+        end
+        return
+    end
 
--- portme
+    if vim.b.current_syntax ~= nil then
+        return
+    end
+
+    local table_path = vim.fn.resolve(vim.fn.expand('%:p'))
+    local table_params = get_table_record(table_path)
+    if #table_params > 0 then
+        if table_params[2] == 'disabled' or table_params[2] == 'monocolumn' then
+            vim.b.rainbow_features_enabled = false
+        else
+            M.set_rainbow_filetype(table_params[1], table_params[2], table_params[3])
+        end
+        return
+    end
+
+    if vim.g.disable_rainbow_csv_autodetect ~= nil and vim.g.disable_rainbow_csv_autodetect then
+        return
+    end
+
+    M.handle_new_file()
+end
+
+-- vim.cmd([[
 -- func! rainbow_csv#handle_syntax_change()
 --     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
 --     if policy == 'monocolumn' " If the new filetype is no longer rainbow:
@@ -2872,12 +3232,30 @@ end
 --         " Just to make sure that syntax was generated.
 --         call rainbow_csv#init_rb_color_groups()
 --     endif
-
+--
 --     " We don't want to update_table_record() here because ft change could have been triggered by autodetection
 --     " Even if it is manual, Vim itself doesn't save manual ft=<lang> selections, so if this plugin does it but only for csv, this could be a little inconsistent
 --     " But we can actually do this: in autodetection set a special flag and immediately unset it here. If the flag is not set, than it was manual switch and we need to remember the choice
 --     call rainbow_csv#buffer_enable_rainbow_features()
 --     let b:cached_virtual_header = s:read_virtual_header(delim, policy)
 -- endfunc
+-- ]])
+M.handle_syntax_change = function()
+    local delim, policy, _ = unpack(M.get_current_dialect())
+    if policy == 'monocolumn' then
+        if M.is_rainbow_table_or_was_just_disabled() then
+            M.buffer_disable_rainbow_features()
+            local table_path = vim.fn.resolve(vim.fn.expand('%:p'))
+            update_table_record(table_path, '', 'monocolumn', '')
+        end
+        return
+    end
+    if M.num_groups == nil then
+        M.init_rb_color_groups()
+    end
+
+    M.buffer_enable_rainbow_features()
+    vim.b.cached_virtual_header = read_virtual_header(delim, policy)
+end
 
 return M
