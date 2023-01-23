@@ -8,14 +8,12 @@
 local M = {}
 
 M.setup = function()
-	require 'rainbow_csv.fns'
+	local fns = require 'rainbow_csv.fns'
 
 	vim.api.nvim_exec([[
 		augroup RainbowInitAuGrp
 			autocmd!
-			" autocmd Syntax * call rainbow_csv#handle_syntax_change()
 			autocmd Syntax * lua require'rainbow_csv.fns'.handle_syntax_change()
-			" autocmd BufEnter * call rainbow_csv#handle_buffer_enter()
 			autocmd BufEnter * lua require'rainbow_csv.fns'.handle_buffer_enter()
 		augroup END
 
@@ -37,10 +35,21 @@ M.setup = function()
 
 		command! RbSelect lua require'rainbow_csv.fns'.select_from_file()
 		command! RbRun lua require'rainbow_csv.fns'.finish_query_editing()
-		command! -nargs=+ Select call rainbow_csv#run_select_cmd_query(<q-args>)
-		command! -nargs=+ Update call rainbow_csv#run_update_cmd_query(<q-args>)
-		command! -nargs=1 RainbowName call rainbow_csv#set_table_name_for_buffer(<q-args>)
+		" command! -nargs=+ Select call rainbow_csv#run_select_cmd_query(<q-args>)
+		" command! -nargs=+ Update call rainbow_csv#run_update_cmd_query(<q-args>)
+		" command! -nargs=1 RainbowName call rainbow_csv#set_table_name_for_buffer(<q-args>)
 	]], false)
+
+	-- <q-args> may pose an issue, but we'll see
+	vim.api.nvim_create_user_command('Select', function(_, args)
+		fns.run_select_cmd_query(args)
+	end, { nargs = '+' })
+	vim.api.nvim_create_user_command('Update', function(_, args)
+		fns.run_update_cmd_query(args)
+	end, { nargs = '+' })
+	vim.api.nvim_create_user_command('RainbowName', function(_, args)
+		fns.set_table_name_for_buffer(args)
+	end, { nargs = 1 })
 end
 
 return M
