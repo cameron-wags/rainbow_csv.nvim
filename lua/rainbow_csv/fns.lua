@@ -2381,6 +2381,9 @@ end
 --     call cursor(1, 1)
 --     execute "delete " . nl
 -- endfunc
+M.clear_current_buf_content = function ()
+	vim.api.nvim_buf_set_lines(0, 0, -1, false, {})
+end
 
 
 -- vim.cmd([[
@@ -2730,6 +2733,18 @@ end
 --     let lines = readfile(a:src_file_path)
 --     call setline(1, lines)
 -- endfunc
+M.copy_file_content_to_buf = function(src_file_path, dst_buf_no)
+	-- todo I can't see how this isn't just throwing buffers away
+	vim.cmd([[
+		bd!
+		redraw!
+		echo 'executing...'
+	]])
+	vim.cmd('buffer ' .. dst_buf_no)
+	M.clear_current_buf_content()
+	local lines = vim.fn.readfile(src_file_path)
+	vim.api.nvim_buf_set_lines(dst_buf_no, 0, 0, true, lines)
+end
 
 
 -- func! s:ShowImportantMessage(msg_header, msg_lines)
@@ -2741,8 +2756,13 @@ end
 --     endfor
 --     call input("Press ENTER to continue...")
 -- endfunc
+local function ShowImportantMessage(msg_header, msg_lines)
+	local lines = msg_header .. '\n' .. lua_join(msg_lines, '\n')
+	vim.api.nvim_notify(lines, vim.log.levels.ERROR, {})
+end
 
 
+-- vim.cmd([[
 -- func! rainbow_csv#parse_report(report_content)
 --     let lines = split(a:report_content, "\n")
 --     let psv_warning_report = ''
@@ -2757,7 +2777,27 @@ end
 --     endif
 --     return [psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path]
 -- endfunc
-
+-- ]])
+M.parse_report = function(report_content)
+	local lines = vim.fn.split(report_content, '\n')
+	local psv_warning_report = ''
+	local psv_error_report = ''
+	local psv_query_status = 'Unknown error'
+	if #lines > 0 and #lines[1] > 0 then
+		psv_query_status = lines[1]
+	end
+	local psv_dst_table_path = ''
+	if #lines > 1 then
+		psv_dst_table_path = lines[2]
+	end
+	local report = lua_join(vim.list_slice(lines, 3), '\n')
+	if psv_query_status == 'OK' then
+		psv_warning_report = report
+	else
+		psv_error_report = report
+	end
+	return { psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path }
+end
 
 -- vim.cmd([[
 -- func! s:get_output_format_params(input_delim, input_policy)
