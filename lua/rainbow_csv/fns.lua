@@ -1499,7 +1499,6 @@ end
 -- endfunc
 -- ]])
 local function calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
-	vim.notify(string.format('delim = %q policy = %q', delim, policy), vim.log.levels.WARN, {})
 	local column_stats = {}
 	local lastLineNo = vim.fn.line('$')
 	local is_first_line = true
@@ -1823,7 +1822,7 @@ M.csv_shrink = function()
 		progress_bucket_size = 0
 	end
 	align_progress_bar_position = 0
-	for linenum in 1, lastLineNo, 1 do
+	for linenum = 1, lastLineNo, 1 do
 		if progress_bucket_size > 0 and linenum % progress_bucket_size == 0 then
 			align_progress_bar_position = align_progress_bar_position + 1
 			display_progress_bar(align_progress_bar_position)
@@ -2266,7 +2265,7 @@ local function get_num_columns_if_delimited(delim, policy)
 		end
 		num_lines_tested = num_lines_tested + 1
 		local num_fields_cur = #M.preserving_smart_split(line, delim, policy)[1]
-		if #num_fields == 0 then
+		if num_fields == 0 then
 			num_fields = num_fields_cur
 		end
 		if num_fields ~= num_fields_cur or num_fields < 2 then
@@ -2366,32 +2365,38 @@ end
 -- endfunc
 
 
--- func! rainbow_csv#generate_tab_statusline(tabstop_val, delim_len, template_fields)
---     let result = []
---     let space_deficit = 0
---     for nf in range(len(a:template_fields))
---         let available_space = (a:delim_len + len(a:template_fields[nf]) / a:tabstop_val) * a:tabstop_val
---         let column_name = 'a' . string(nf + 1)
---         let extra_len = available_space - len(column_name) - 1
---         if extra_len < 0
---             let space_deficit -= extra_len
---             let extra_len = 0
---         else
---             let regained = min([space_deficit, extra_len])
---             let space_deficit -= regained
---             let extra_len -= regained
---         endif
---         let space_filling = repeat(' ', extra_len + 1)
---         if nf + 1 == len(a:template_fields)
---             let space_filling = ''
---         endif
---         call add(result, column_name)
---         call add(result, space_filling)
---     endfor
---     return result
--- endfunc
+-- portme
+vim.cmd([[
+func! rainbow_csv#generate_tab_statusline(tabstop_val, delim_len, template_fields)
+    let result = []
+    let space_deficit = 0
+    for nf in range(len(a:template_fields))
+        let available_space = (a:delim_len + len(a:template_fields[nf]) / a:tabstop_val) * a:tabstop_val
+        let column_name = 'a' . string(nf + 1)
+        let extra_len = available_space - len(column_name) - 1
+        if extra_len < 0
+            let space_deficit -= extra_len
+            let extra_len = 0
+        else
+            let regained = min([space_deficit, extra_len])
+            let space_deficit -= regained
+            let extra_len -= regained
+        endif
+        let space_filling = repeat(' ', extra_len + 1)
+        if nf + 1 == len(a:template_fields)
+            let space_filling = ''
+        endif
+        call add(result, column_name)
+        call add(result, space_filling)
+    endfor
+    return result
+endfunc
+]])
+M.generate_tab_statusline = function(tabstop_val, delim_len, template_fields)
+end
 
-
+-- portme
+-- vim.cmd([[
 -- func! s:status_escape_string(src)
 --     " Strings in 'substitute' must follow esoteric rules, see `:help substitute()`
 --     let result = substitute(a:src, ' ', '\\ ', 'g')
@@ -2399,8 +2404,10 @@ end
 --     let result = substitute(result, '|', '\\|', 'g')
 --     return result
 -- endfunc
+-- ]])
 
-
+-- portme
+-- vim.cmd([[
 -- func! rainbow_csv#restore_statusline()
 --     if !exists("b:statusline_before")
 --         return
@@ -2412,8 +2419,10 @@ end
 --     execute "set statusline=" . escaped_statusline
 --     unlet b:statusline_before
 -- endfunc
+-- ]])
 
-
+-- portme
+-- vim.cmd([[
 -- func! rainbow_csv#set_statusline_columns()
 --     let [delim, policy, comment_prefix] = rainbow_csv#get_current_dialect()
 --     if !exists("b:statusline_before")
@@ -2426,11 +2435,11 @@ end
 --         let indent = ' NR' . repeat(' ', indent_len - 3)
 --     endif
 --     let cur_line = policy == 'quoted_rfc' ? getline(1) : getline(line('.'))
-
+--
 --     if comment_prefix != '' && stridx(cur_line, comment_prefix) == 0
 --         return
 --     endif
-
+--
 --     let cur_fields = rainbow_csv#preserving_smart_split(cur_line, delim, policy)[0]
 --     let status_labels = []
 --     if delim == "\t"
@@ -2459,7 +2468,7 @@ end
 --         autocmd CursorMoved * call rainbow_csv#restore_statusline()
 --     augroup END
 -- endfunc
-
+-- ]])
 
 -- func! s:get_rb_script_path_for_this_table()
 --     let rb_script_name = expand("%:t") . ".rbql"
@@ -2765,6 +2774,7 @@ end
 -- endfunction
 
 
+-- portme
 -- func! rainbow_csv#run_select_cmd_query(query_string)
 --     let query = 'SELECT ' . a:query_string
 --     call s:run_cmd_query(query)
@@ -2958,7 +2968,17 @@ M.buffer_enable_rainbow_features = function()
 		vim.cmd('nnoremap <buffer> <F5> :RbSelect<cr>')
 	end
 
+	M.set_statusline_columns
 	-- todo lazy set these up
+	vim.api.nvim_exec([[
+		cnoreabbrev <expr> <buffer> Select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
+		cnoreabbrev <expr> <buffer> select rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
+		cnoreabbrev <expr> <buffer> SELECT rainbow_csv#set_statusline_columns() == "dummy" ? 'Select' : 'Select'
+
+		cnoreabbrev <expr> <buffer> Update rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
+		cnoreabbrev <expr> <buffer> update rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
+		cnoreabbrev <expr> <buffer> UPDATE rainbow_csv#set_statusline_columns() == "dummy" ? 'Update' : 'Update'
+	]], false)
 
 	vim.api.nvim_create_autocmd('CursorMoved', {
 		group = vim.api.nvim_create_augroup('RainbowHintGrp', { clear = true }),
@@ -3055,6 +3075,7 @@ M.manual_set = function(arg_policy, is_multidelim)
 	update_table_record(table_path, delim, policy, '@auto_comment_prefix@')
 end
 
+-- vim.cmd([[
 -- func! rainbow_csv#manual_disable()
 --     if rainbow_csv#is_rainbow_table()
 --         let original_filetype = exists("b:originial_ft") ? b:originial_ft : ''
@@ -3062,6 +3083,16 @@ end
 --         execute "set ft=" . original_filetype
 --     endif
 -- endfunc
+-- ]])
+M.manual_disable = function()
+	if M.is_rainbow_table() then
+		local original_filetype = ''
+		if vim.b.originial_ft ~= nil then
+			original_filetype = vim.b.originial_ft
+		end
+		vim.cmd('set ft=' .. original_filetype)
+	end
+end
 
 
 -- func! rainbow_csv#manual_set_comment_prefix(is_multi_comment_prefix)
@@ -3187,7 +3218,6 @@ end
 -- endfunc
 -- ]])
 M.handle_buffer_enter = function()
-	vim.notify('handling buffer enter', vim.log.levels.WARN, {})
 	if M.num_groups == nil then
 		M.init_rb_color_groups()
 	end
