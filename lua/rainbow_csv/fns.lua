@@ -8,12 +8,27 @@ local M = {}
 
 -- let s:max_columns = exists('g:rcsv_max_columns') ? g:rcsv_max_columns : 30
 local max_columns = 30
+if vim.g.rcsv_max_columns ~= nil then
+	max_columns = vim.g.rcsv_max_columns
+end
+
 -- let s:rb_storage_dir = exists('g:rb_storage_dir') ? g:rb_storage_dir : $HOME . '/.rainbow_csv_storage'
 local rb_storage_dir = vim.env.HOME .. '/.rainbow_csv_storage'
+if vim.g.rb_storage_dir ~= nil then
+	rb_storage_dir = vim.g.rb_storage_dir
+end
+
 -- let s:table_names_settings = exists('g:table_names_settings') ? g:table_names_settings : $HOME . '/.rbql_table_names'
 local table_names_settings = vim.env.HOME .. '/.rbql_table_names'
+if vim.g.table_names_settings ~= nil then
+	table_names_settings = vim.g.table_names_settings
+end
+
 -- let s:rainbow_table_index = exists('g:rainbow_table_index') ? g:rainbow_table_index : $HOME . '/.rbql_table_index'
 local rainbow_table_index = vim.env.HOME .. '/.rbql_table_index'
+if vim.g.rainbow_table_index ~= nil then
+	rainbow_table_index = vim.g.rainbow_table_index
+end
 
 -- let s:script_folder_path = expand('<sfile>:p:h:h')
 local script_folder_path = vim.fn.expand('<sfile>:p:h:h')
@@ -40,6 +55,9 @@ local named_syntax_map = {
 
 -- let s:autodetection_delims = exists('g:rcsv_delimiters') ? g:rcsv_delimiters : ["\t", ",", ";", "|"]
 local autodetection_delims = { "\t", ",", ";", "|" }
+if vim.g.rcsv_delimiters ~= nil then
+	autodetection_delims = vim.g.rcsv_delimiters
+end
 
 -- let s:number_regex = '^[0-9]\+\(\.[0-9]\+\)\?$'
 local number_regex = [[^[0-9]\+\(\.[0-9]\+\)\?$]]
@@ -50,6 +68,8 @@ local non_numeric = -1
 local align_progress_bar_position = 0
 -- let s:progress_bar_size = 20
 local progress_bar_size = 20
+
+local num_groups = nil
 
 -- " Vim has 2 different variables: filetype and syntax. syntax is a subset of filetype
 -- " We need to use both of them.
@@ -176,7 +196,7 @@ local function init_groups_from_links()
 		vim.cmd('highlight link column' .. index - 1 .. ' ' .. value)
 		vim.cmd('highlight link escaped_column' .. index - 1 .. ' ' .. value)
 	end
-	M.num_groups = #link_groups
+	num_groups = #link_groups
 end
 
 -- func! s:has_custom_colors()
@@ -250,7 +270,7 @@ local function init_groups_from_colors()
 		vim.cmd('highlight column' .. index - 1 .. ' ctermfg=' .. value[1] .. ' guifg=' .. value[2])
 		vim.cmd('highlight escaped_column' .. index - 1 .. ' ctermfg=' .. value[1] .. ' guifg=' .. value[2])
 	end
-	M.num_groups = #pairs
+	num_groups = #pairs
 end
 
 -- func! rainbow_csv#init_rb_color_groups()
@@ -3218,7 +3238,7 @@ end
 -- endfunc
 -- ]])
 M.handle_buffer_enter = function()
-	if M.num_groups == nil then
+	if num_groups == nil then
 		M.init_rb_color_groups()
 	end
 
@@ -3285,7 +3305,7 @@ M.handle_syntax_change = function()
 		end
 		return
 	end
-	if M.num_groups == nil then
+	if num_groups == nil then
 		M.init_rb_color_groups()
 	end
 
