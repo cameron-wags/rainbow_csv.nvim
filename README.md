@@ -1,13 +1,42 @@
-# Rainbow CSV
+# Rainbow CSV (nvim lua port)
 
-![rainbow_csv](https://i.imgur.com/EhV2niB.png)
+## WARNING
+
+This port is a lightly-tested side project. **Use at your own risk.**
+
+If functionality is important to you, [please use the original rainbow_csv](https://github.com/mechatroner/rainbow_csv).
+
+## Why port?
+
+I love rainbow_csv, but I wanted `:RainbowAlign` to run faster. Porting to lua
+made it a few times faster.
 
 ## Installation
-Use your favorite package manager.  
 
-Vundle: `Plugin 'mechatroner/rainbow_csv'`  
-VimPlug: `Plug 'mechatroner/rainbow_csv'`  
-dein: `call dein#add('mechatroner/rainbow_csv')`  
+In packer:
+
+```lua
+use {
+    'cameron-wags/rainbow_csv.nvim',
+    config = function()
+        require 'rainbow_csv'.setup()
+    end,
+    -- optional lazy-loading below
+    module = {
+        'rainbow_csv',
+        'rainbow_csv.fns'
+    },
+    ft = {
+        'csv',
+        'tsv',
+        'csv_semicolon',
+        'csv_whitespace',
+        'csv_pipe',
+        'rfc_csv',
+        'rfc_semicolon',
+    }
+}
+```
 
 No additional steps required - Rainbow CSV will work out of the box.  
 
