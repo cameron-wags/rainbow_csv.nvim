@@ -31,7 +31,9 @@ if vim.g.rainbow_table_index ~= nil then
 end
 
 -- let s:script_folder_path = expand('<sfile>:p:h:h')
-local script_folder_path = vim.fn.expand('<sfile>:p:h:h')
+-- this one's a bit of a mess, we find it eventually though
+local script_folder_path, _ = vim.fn.globpath(vim.o.rtp, 'rbql_core/'):gsub('/rbql_core/', '')
+
 -- let s:python_env_initialized = 0
 local python_env_initialized = false
 -- let s:js_env_initialized = 0
@@ -2937,8 +2939,6 @@ end
 -- endfunc
 -- ]])
 local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
-	vim.notify('Not implemented', vim.log.levels.WARN, {})
-
 	local meta_language = get_meta_language()
 
 	if meta_language == 'python' and not EnsurePythonInitialization() then
