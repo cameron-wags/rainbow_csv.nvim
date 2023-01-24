@@ -514,7 +514,7 @@ local function get_table_record(table_path)
 			local delim = index_encode_delim(record[2])
 			local policy = record[3]
 			local comment_prefix
-			if #record > 3 then -- todo port correctly
+			if #record > 3 then
 				comment_prefix = record[4]
 			else
 				comment_prefix = get_auto_comment_prefix()
@@ -976,7 +976,6 @@ M.rstrip = function(line)
 	end
 	return result
 end
-
 
 -- function! rainbow_csv#strip_spaces(input_string)
 --     return substitute(a:input_string, '^ *\(.\{-}\) *$', '\1', '')

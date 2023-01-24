@@ -11,7 +11,7 @@ M.setup = function()
 	local fns = require 'rainbow_csv.fns'
 
 	local function mkcmd(name, cb)
-		vim.api.nvim_create_user_command(name, cb)
+		vim.api.nvim_create_user_command(name, cb, {})
 	end
 
 	mkcmd('RainbowDelim', function() fns.manual_set('auto', false) end)
