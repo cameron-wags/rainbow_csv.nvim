@@ -2381,7 +2381,7 @@ end
 --     call cursor(1, 1)
 --     execute "delete " . nl
 -- endfunc
-M.clear_current_buf_content = function ()
+M.clear_current_buf_content = function()
 	vim.api.nvim_buf_set_lines(0, 0, -1, false, {})
 end
 
@@ -2761,7 +2761,6 @@ local function ShowImportantMessage(msg_header, msg_lines)
 	vim.api.nvim_notify(lines, vim.log.levels.ERROR, {})
 end
 
-
 -- vim.cmd([[
 -- func! rainbow_csv#parse_report(report_content)
 --     let lines = split(a:report_content, "\n")
@@ -2827,27 +2826,26 @@ local function get_output_format_params(input_delim, input_policy)
 	return { input_delim, input_policy }
 end
 
--- portme
 -- vim.cmd([[
 -- func! s:converged_select(table_buf_number, rb_script_path, query_buf_nr)
 --     let meta_language = s:get_meta_language()
-
+--
 --     if meta_language == "python" && !s:EnsurePythonInitialization()
 --         echoerr "Python interpreter not found. Unable to run in this mode."
 --         return 0
 --     endif
-
+--
 --     if meta_language == "js" && !s:EnsureJavaScriptInitialization()
 --         echoerr "Node.js interpreter not found. Unable to run in this mode."
 --         return 0
 --     endif
-
+--
 --     let rbql_encoding = exists('g:rbql_encoding') ? g:rbql_encoding : 'utf-8'
 --     if rbql_encoding != 'utf-8' && rbql_encoding != 'latin-1'
 --         echoerr "Unsupported rbql encoding. Must be 'utf-8' or 'latin-1'"
 --         return 0
 --     endif
-
+--
 --     let table_filetype = getbufvar(a:table_buf_number, "&syntax")
 --     let input_dialect = rainbow_csv#ft_to_dialect(table_filetype)
 --     if !len(input_dialect)
@@ -2857,7 +2855,7 @@ end
 --     let input_delim = input_dialect[0]
 --     let input_policy = input_dialect[1]
 --     let input_comment_prefix = input_dialect[2]
-
+--
 --     let table_path = expand("#" . a:table_buf_number . ":p")
 --     if table_path == ""
 --         " For unnamed buffers. E.g. can happen for stdin-read buffer: `cat data.tsv | vim -`
@@ -2865,12 +2863,12 @@ end
 --         let table_path = s:rb_storage_dir . "/" . tmp_file_name
 --         execute "w " . table_path
 --     endif
-
+--
 --     let psv_query_status = 'Unknown error'
 --     let psv_error_report = 'Something went wrong'
 --     let psv_warning_report = ''
 --     let psv_dst_table_path = ''
-
+--
 --     redraw!
 --     echo "executing..."
 --     let table_path_esc = s:py_source_escape(table_path)
@@ -2901,33 +2899,33 @@ end
 --         call s:ShowImportantMessage("Error", ["Python not found, vim must have 'python' or 'python3' feature installed to run in this mode"])
 --         return 0
 --     endif
-
+--
 --     if psv_query_status != "OK"
 --         call s:ShowImportantMessage(psv_query_status, [psv_error_report])
 --         return 0
 --     endif
-
+--
 --     if a:query_buf_nr != -1
 --         execute "bd! " . a:query_buf_nr
 --     endif
-
+--
 --     if index(split(psv_warning_report, "\n"), 'Output has multiple fields: using "CSV" output format instead of "Monocolumn"') == -1
 --         call s:update_table_record(psv_dst_table_path, out_delim, out_policy, '@auto_comment_prefix@')
 --     else
 --         call s:update_table_record(psv_dst_table_path, ',', 'quoted', '@auto_comment_prefix@')
 --     endif
 --     execute "e " . fnameescape(psv_dst_table_path)
-
+--
 --     let b:self_path = psv_dst_table_path
 --     let b:root_table_buf_number = a:table_buf_number
 --     let b:root_table_name = fnamemodify(table_path, ":t")
 --     let b:self_buf_number = bufnr("%")
 --     call setbufvar(a:table_buf_number, 'selected_buf', b:self_buf_number)
-
+--
 --     if !exists("g:disable_rainbow_key_mappings")
 --         nnoremap <buffer> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
 --     endif
-
+--
 --     if len(psv_warning_report)
 --         let warnings = split(psv_warning_report, "\n")
 --         for wnum in range(len(warnings))
@@ -2940,6 +2938,128 @@ end
 -- ]])
 local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 	vim.notify('Not implemented', vim.log.levels.WARN, {})
+
+	local meta_language = get_meta_language()
+
+	if meta_language == 'python' and not EnsurePythonInitialization() then
+		vim.notify('Python interpreter not found. Unable to run in this mode.', vim.log.levels.WARN, {})
+		return false
+	end
+	if meta_language == 'js' and not EnsureJavaScriptInitialization() then
+		vim.notify('Node.js interpreter not found. Unable to run in this mode.', vim.log.levels.WARN, {})
+		return false
+	end
+
+	local rbql_encoding = 'utf-8'
+	if vim.g.rbql_encoding ~= nil then
+		rbql_encoding = vim.g.rbql_encoding
+	end
+	if rbql_encoding ~= 'utf-8' and rbql_encoding ~= 'latin-1' then
+		vim.notify("Unsupported rbql encoding. Must be 'utf-8' or 'latin-1'", vim.log.levels.WARN, {})
+		return false
+	end
+
+	local table_filetype = vim.api.nvim_buf_get_option(table_buf_number, 'filetype')
+	local input_dialect = M.ft_to_dialect(table_filetype)
+	if #input_dialect == 0 then
+		vim.notify('File is not a rainbow table', vim.log.levels.WARN, {})
+		return false
+	end
+	local input_delim = input_dialect[1]
+	local input_policy = input_dialect[2]
+	local input_comment_prefix = input_dialect[3]
+
+	local table_path = vim.fn.expand('#' .. table_buf_number .. ':p')
+	if table_path == '' then
+		local tmp_file_name = 'tmp_table_' .. vim.fn.strftime('%Y_%m_%d_%H_%M_%S') .. '.txt'
+		table_path = rb_storage_dir .. '/' .. tmp_file_name
+		vim.cmd(string.format('w %q', table_path))
+	end
+
+	local psv_query_status = 'Unknown error'
+	local psv_error_report = 'Something went wrong'
+	local psv_warning_report = ''
+	local psv_dst_table_path = ''
+
+	vim.cmd([[
+		redraw!
+		echo "executing..."
+	]])
+	local table_path_esc = py_source_escape(table_path)
+	local rb_script_path_esc = py_source_escape(rb_script_path)
+	local input_delim_escaped = py_source_escape(input_delim)
+	local out_delim, out_policy = unpack(get_output_format_params(input_delim, input_policy))
+	local out_delim_escaped = py_source_escape(out_delim)
+	local comment_prefix_escaped = py_source_escape(input_comment_prefix)
+	local with_headers_py_tf = 'False'
+	if get_rbql_with_headers() then
+		with_headers_py_tf = 'True'
+	end
+	local py_call = lua_join({ 'vim_rbql.run_execute("', table_path_esc, '", "', rb_script_path_esc, '", "', rbql_encoding,
+		'", "', input_delim_escaped, '", "', input_policy, '", "', comment_prefix_escaped, '", "', out_delim_escaped, '", "',
+		out_policy, '", ', with_headers_py_tf, ')' }, '')
+	if meta_language == 'js' then
+		local rbql_executable_path = script_folder_path .. '/rbql_core/vim_rbql.js'
+		local cmd_args = { 'node', vim.fn.shellescape(rbql_executable_path), vim.fn.shellescape(table_path),
+			vim.fn.shellescape(rb_script_path), rbql_encoding, vim.fn.shellescape(input_delim), input_policy,
+			vim.fn.shellescape(input_comment_prefix), vim.fn.shellescape(out_delim), out_policy, with_headers_py_tf }
+		local cmd = lua_join(cmd_args, ' ')
+		local report_content = vim.fn.system(cmd)
+		psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path = unpack(M.parse_report(report_content))
+	elseif system_python_interpreter ~= "" then
+		local rbql_executable_path = script_folder_path .. '/rbql_core/vim_rbql.py'
+		local cmd_args = { system_python_interpreter, vim.fn.shellescape(rbql_executable_path), vim.fn.shellescape(table_path),
+			vim.fn.shellescape(rb_script_path), rbql_encoding, vim.fn.shellescape(input_delim), input_policy,
+			vim.fn.shellescape(input_comment_prefix), vim.fn.shellescape(out_delim), out_policy, with_headers_py_tf }
+		local cmd = lua_join(cmd_args, ' ')
+		local report_content = vim.fn.system(cmd)
+		psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path = unpack(M.parse_report(report_content))
+	elseif vim.fn.has('python3') ~= 0 then
+		vim.cmd('python3 ' .. py_call)
+	elseif has_python_27() then
+		vim.cmd('python3 ' .. py_call)
+	else
+		ShowImportantMessage('Error',
+			{ "Python not found, vim must have 'python' or 'python3' feature installed to run in this mode" })
+		return false
+	end
+
+	if psv_query_status ~= 'OK' then
+		ShowImportantMessage(psv_query_status, { psv_error_report })
+		return false
+	end
+
+	if query_buf_nr ~= -1 then
+		vim.cmd('bd! ' .. query_buf_nr)
+	end
+
+	if vim.fn.index(vim.fn.split(psv_warning_report, '\n'),
+		'Output has multiple fields: using "CSV" output format instead of "Monocolumn"') == -1 then
+		update_table_record(psv_dst_table_path, out_delim, out_policy, '@auto_comment_prefix@')
+	else
+		update_table_record(psv_dst_table_path, ',', 'quoted', '@auto_comment_prefix@')
+	end
+	vim.cmd('e ' .. vim.fn.fnameescape(psv_dst_table_path))
+
+	vim.b.self_path = psv_dst_table_path
+	vim.b.root_table_buf_number = table_buf_number
+	vim.b.root_table_name = vim.fn.fnamemodify(table_path, ':t')
+	vim.b.self_buf_number = vim.fn.bufnr('%')
+	vim.fn.setbufvar(table_buf_number, 'selected_buf', vim.b.self_buf_number)
+
+	if vim.g.disable_rainbow_key_mappings == nil then
+		-- todo later
+		-- nnoremap <buffer> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
+	end
+
+	if #psv_warning_report > 0 then
+		local warnings = vim.fn.split(psv_warning_report, '\n')
+		for wnum = 1, #warnings, 1 do
+			warnings[wnum] = 'Warning: ' .. warnings[wnum]
+		end
+		ShowImportantMessage('Completed with WARNINGS!', warnings)
+	end
+	return true
 end
 
 -- vim.cmd([[
