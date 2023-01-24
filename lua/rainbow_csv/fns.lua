@@ -2604,6 +2604,8 @@ local function get_rb_script_path_for_this_table()
 	return rb_storage_dir .. '/' .. rb_script_name
 end
 
+-- todo portme
+-- vim.cmd([[
 -- func! s:generate_microlang_syntax(nfields)
 --     if s:get_meta_language() == "python"
 --         set ft=python
@@ -2627,8 +2629,11 @@ end
 --     syntax match RbCmd "\c \@<=ASC\( *$\)\@="
 --     syntax match RbCmd "\c \@<=\(\(\(STRICT \+\)\?LEFT \+\)\|\(INNER \+\)\)\?JOIN \+[^ ]\+ \+ON \@="
 -- endfunc
+-- ]])
 
 
+-- todo portme
+-- vim.cmd([[
 -- func! s:make_select_line(num_fields)
 --     let select_line = 'select '
 --     let new_rows = []
@@ -2640,8 +2645,10 @@ end
 --     endfor
 --     return select_line
 -- endfunc
+-- ]])
 
-
+-- todo portme
+-- vim.cmd([[
 -- func! s:make_rbql_demo(num_fields, rbql_welcome_path)
 --     let select_line = s:make_select_line(a:num_fields)
 --     let lines = readfile(a:rbql_welcome_path)
@@ -2657,39 +2664,40 @@ end
 --     call cursor(query_line_num, 1)
 --     w
 -- endfunc
+-- ]])
 
 
 -- todo portme?
 -- vim.cmd([[
 -- func! rainbow_csv#select_from_file()
 --     let [delim, policy, unused_comment_prefix] = rainbow_csv#get_current_dialect()
-
+--
 --     let meta_language = s:get_meta_language()
-
+--
 --     if meta_language == "python" && !s:EnsurePythonInitialization()
 --         echoerr "Python interpreter not found. Unable to run in this mode."
 --         return 0
 --     endif
-
+--
 --     if meta_language == "js" && !s:EnsureJavaScriptInitialization()
 --         echoerr "Node.js interpreter not found. Unable to run in this mode."
 --         return 0
 --     endif
-
+--
 --     if exists("b:selected_buf") && buflisted(b:selected_buf)
 --         execute "bd " . b:selected_buf
 --     endif
-
+--
 --     let buf_number = bufnr("%")
 --     let buf_path = resolve(expand("%:p"))
-
+--
 --     let rb_script_path = s:get_rb_script_path_for_this_table()
 --     let already_exists = filereadable(rb_script_path)
-
+--
 --     let num_fields = len(rainbow_csv#preserving_smart_split(getline(1), delim, policy)[0])
-
+--
 --     call rainbow_csv#set_statusline_columns()
-
+--
 --     let splitbelow_before = &splitbelow
 --     set splitbelow
 --     execute "split " . fnameescape(rb_script_path)
@@ -2700,15 +2708,15 @@ end
 --     if !splitbelow_before
 --         set nosplitbelow
 --     endif
-
+--
 --     let b:table_path = buf_path
 --     let b:table_buf_number = buf_number
 --     let b:rainbow_select = 1
-
+--
 --     if !exists("g:disable_rainbow_key_mappings")
 --         nnoremap <buffer> <F5> :RbRun<cr>
 --     endif
-
+--
 --     call s:generate_microlang_syntax(num_fields)
 --     if !already_exists
 --         if meta_language == "python"
@@ -2722,7 +2730,62 @@ end
 -- endfunc
 -- ]])
 M.select_from_file = function()
-	vim.notify('Not implemented', vim.log.levels.ERROR, {})
+	local delim, policy, _ = unpack(M.get_current_dialect())
+
+	local meta_language = get_meta_language()
+
+	if meta_language == 'python' and not EnsurePythonInitialization() then
+		vim.notify('Python interpreter not found. Unable to run in this mode.', vim.log.levels.ERROR, {})
+		return false
+	end
+	if meta_language == 'js' and not EnsureJavaScriptInitialization(() then
+		vim.notify('Node.js interpreter not found. Unable to run in this mode.', vim.log.levels.ERROR, {})
+		return false
+	end
+
+	if vim.b.selected_buf ~= nil and vim.fn.buflisted(vim.b.selected_buf) then
+		vim.cmd('bd ' .. vim.b.selected_buf)
+	end
+
+	local buf_number = vim.fn.bufnr('%')
+	local buf_path = vim.fn.resolve(vim.fn.expand('%:p'))
+
+	local rb_script_path = get_rb_script_path_for_this_table()
+	local already_exists = vim.fn.filereadable(rb_script_path)
+
+	local num_fields = #M.preserving_smart_split(vim.fn.getline(1), delim, policy)[1]
+
+	M.set_statusline_columns()
+
+	local splitbelow_before = vim.o.splitbelow
+	vim.cmd('set splitbelow')
+	vim.cmd('split ' .. vim.fn.fnameescape(rb_script_path))
+	if vim.fn.bufnr('%') == buf_number then
+		vim.notify('Something went wrong', vim.log.levels.ERROR)
+		return -- todo shouldn't this return a value?
+	end
+	if not splitbelow_before then
+		vim.cmd('set nosplitbelow')
+	end
+
+	vim.b.table_path = buf_path
+	vim.b.table_buf_number = buf_number
+	vim.b.rainbow_select = true
+
+	if vim.g.disable_rainbow_key_mappings == nil then
+		vim.cmd('nnoremap <buffer> <F5> :RbRun<cr>')
+	end
+
+	generate_microlang_syntax(num_fields)
+	if !already_exists then
+		local rbql_welcome_path
+		if meta_language == 'python' then
+			 rbql_welcome_path = script_folder_path .. '/rbql_core/welcome_py.rbql'
+		else
+			rbql_welcome_path = script_folder_path .. '/rbql_core/welcome_js.rbql'
+		end
+		make_rbql_demo(num_fields, rbql_welcome_path)
+	end
 end
 
 -- func! rainbow_csv#copy_file_content_to_buf(src_file_path, dst_buf_no)
