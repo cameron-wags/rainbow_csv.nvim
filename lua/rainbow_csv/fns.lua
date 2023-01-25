@@ -2604,7 +2604,6 @@ local function get_rb_script_path_for_this_table()
 	return rb_storage_dir .. '/' .. rb_script_name
 end
 
--- todo portme
 -- vim.cmd([[
 -- func! s:generate_microlang_syntax(nfields)
 --     if s:get_meta_language() == "python"
@@ -2612,7 +2611,7 @@ end
 --     else
 --         set ft=javascript
 --     endif
-
+--
 --     for lnum in range(1, a:nfields)
 --         let color_num = (lnum - 1) % s:num_groups
 --         let cmd = 'syntax keyword rbql_color%d a%d'
@@ -2620,7 +2619,7 @@ end
 --         let cmd = 'syntax keyword rbql_color%d b%d'
 --         exe printf(cmd, color_num, lnum)
 --     endfor
-
+--
 --     syntax match RbCmd "\c \@<=ORDER \+BY \@="
 --     syntax match RbCmd "\c\(^ *\)\@<=SELECT\( \+TOP \+[0-9]\+\)\?\( \+DISTINCT\( \+COUNT\)\?\)\? \@="
 --     syntax match RbCmd "\c\(^ *\)\@<=UPDATE\( \+SET\)\? \@="
@@ -2630,9 +2629,30 @@ end
 --     syntax match RbCmd "\c \@<=\(\(\(STRICT \+\)\?LEFT \+\)\|\(INNER \+\)\)\?JOIN \+[^ ]\+ \+ON \@="
 -- endfunc
 -- ]])
+local function generate_microlang_syntax(nfields)
+	if get_meta_language() == 'python' then
+		vim.o.ft = 'python'
+	else
+		vim.o.ft = 'javascript'
+	end
 
+	for lnum = 1, nfields, 1 do
+		local color_num = (lnum - 1) % num_groups
+		vim.cmd(('syntax keyword rbql_color%d a%d'):format(color_num, lnum))
+		vim.cmd(('syntax keyword rbql_color%d b%d'):format(color_num, lnum))
+	end
 
--- todo portme
+	vim.api.nvim_exec([[
+    syntax match RbCmd "\c \@<=ORDER \+BY \@="
+    syntax match RbCmd "\c\(^ *\)\@<=SELECT\( \+TOP \+[0-9]\+\)\?\( \+DISTINCT\( \+COUNT\)\?\)\? \@="
+    syntax match RbCmd "\c\(^ *\)\@<=UPDATE\( \+SET\)\? \@="
+    syntax match RbCmd "\c \@<=WHERE \@="
+    syntax match RbCmd "\c \@<=DESC\( *$\)\@="
+    syntax match RbCmd "\c \@<=ASC\( *$\)\@="
+    syntax match RbCmd "\c \@<=\(\(\(STRICT \+\)\?LEFT \+\)\|\(INNER \+\)\)\?JOIN \+[^ ]\+ \+ON \@="
+	]], false)
+end
+
 -- vim.cmd([[
 -- func! s:make_select_line(num_fields)
 --     let select_line = 'select '
@@ -2646,8 +2666,17 @@ end
 --     return select_line
 -- endfunc
 -- ]])
+local function make_select_line(num_fields)
+	local select_line = 'select '
+	for nf = 1, num_fields, 1 do
+		select_line = select_line .. 'a' .. nf
+		if nf < num_fields then
+			select_line = select_line .. ', '
+		end
+	end
+	return select_line
+end
 
--- todo portme
 -- vim.cmd([[
 -- func! s:make_rbql_demo(num_fields, rbql_welcome_path)
 --     let select_line = s:make_select_line(a:num_fields)
@@ -2665,9 +2694,22 @@ end
 --     w
 -- endfunc
 -- ]])
+local function make_rbql_demo(num_fields, rbql_welcome_path)
+	local select_line = make_select_line(num_fields)
+	local lines = vim.fn.readfile(rbql_welcome_path)
+	local query_line_num = 1
+	for lnum = 1, #lines, 1 do
+		local patched = string.gsub(lines[lnum], '###SELECT_PLACEHOLDER###', select_line)
+		if patched ~= lines[lnum] then
+			query_line_num = lnum
+			lines[lnum] = patched
+		end
+	end
+	vim.api.nvim_buf_set_lines(0, 0, 0, false, lines)
+	vim.fn.cursor(query_line_num, 1)
+	vim.cmd('w')
+end
 
-
--- todo portme?
 -- vim.cmd([[
 -- func! rainbow_csv#select_from_file()
 --     let [delim, policy, unused_comment_prefix] = rainbow_csv#get_current_dialect()
@@ -2738,7 +2780,7 @@ M.select_from_file = function()
 		vim.notify('Python interpreter not found. Unable to run in this mode.', vim.log.levels.ERROR, {})
 		return false
 	end
-	if meta_language == 'js' and not EnsureJavaScriptInitialization(() then
+	if meta_language == 'js' and not EnsureJavaScriptInitialization() then
 		vim.notify('Node.js interpreter not found. Unable to run in this mode.', vim.log.levels.ERROR, {})
 		return false
 	end
@@ -2777,10 +2819,10 @@ M.select_from_file = function()
 	end
 
 	generate_microlang_syntax(num_fields)
-	if !already_exists then
+	if not already_exists then
 		local rbql_welcome_path
 		if meta_language == 'python' then
-			 rbql_welcome_path = script_folder_path .. '/rbql_core/welcome_py.rbql'
+			rbql_welcome_path = script_folder_path .. '/rbql_core/welcome_py.rbql'
 		else
 			rbql_welcome_path = script_folder_path .. '/rbql_core/welcome_js.rbql'
 		end
@@ -3111,7 +3153,7 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 
 	if vim.g.disable_rainbow_key_mappings == nil then
 		-- todo later
-		-- nnoremap <buffer> <F7> :call rainbow_csv#copy_file_content_to_buf(b:self_path, b:root_table_buf_number)<cr>
+		vim.cmd('nnoremap <buffer> <F7> :echoerr "Not implemented"<cr>')
 	end
 
 	if #psv_warning_report > 0 then
@@ -3203,14 +3245,14 @@ M.finish_query_editing = function()
 		return
 	end
 	vim.cmd('w')
-	local rb_script_path
-	vim.fn.expand('%:p')
+	local rb_script_path = vim.fn.expand('%:p')
 	local query_buf_nr = vim.fn.bufnr('%')
 	local table_buf_number = vim.b.table_buf_number
 	converged_select(table_buf_number, rb_script_path, query_buf_nr)
 end
 
 
+-- vim.cmd([[
 -- func! rainbow_csv#generate_rainbow_syntax(delim)
 --     let syntax_lines = []
 --     let regex_delim = escape(a:delim, s:magic_chars)
@@ -3224,8 +3266,25 @@ end
 --     endwhile
 --     return syntax_lines
 -- endfunc
+-- ]])
+M.generate_rainbow_syntax = function(delim)
+	local syntax_lines = {}
+	local regex_delim = lua_escape(delim, magic_chars)
+	local groupid = num_groups - 1
+	while groupid >= 0 do
+		local next_group_id = 0
+		if groupid + 1 < num_groups then
+			next_group_id = groupid + 1
+		end
+		local cmd = [[syntax match column%d /.\{-}\(%s\|$\)/ nextgroup=column%d]]
+		table.insert(syntax_lines, cmd:format(groupid, regex_delim, next_group_id))
+		groupid = groupid - 1
+	end
+	return syntax_lines
+end
 
 
+-- vim.cmd([[
 -- func! rainbow_csv#generate_escaped_rainbow_syntax(delim)
 --     let syntax_lines = []
 --     let regex_delim = escape(a:delim, s:magic_chars)
@@ -3241,8 +3300,27 @@ end
 --     endwhile
 --     return syntax_lines
 -- endfunc
+-- ]])
+M.generate_escaped_rainbow_syntax = function(delim)
+	local syntax_lines = {}
+	local regex_delim = lua_escape(delim, magic_chars)
+	local groupid = num_groups - 1
+	while groupid >= 0 do
+		local next_group_id = 0
+		if groupid + 1 < num_groups then
+			next_group_id = groupid + 1
+		end
+		local cmd = [[syntax match column%d /.\{-}\(%s\|$\)/ nextgroup=escaped_column%d,column%d]]
+		table.insert(syntax_lines, cmd:format(groupid, regex_delim, next_group_id, next_group_id))
+		cmd = [[syntax match escaped_column%d / *"\([^"]*""\)*[^"]*" *\(%s\|$\)/ nextgroup=escaped_column%d,column%d]]
+		table.insert(syntax_lines, cmd:format(groupid, regex_delim, next_group_id, next_group_id))
+		groupid = groupid - 1
+	end
+	return syntax_lines
+end
 
 
+-- vim.cmd([[
 -- func! rainbow_csv#generate_escaped_rfc_rainbow_syntax(delim)
 --     let syntax_lines = []
 --     let regex_delim = escape(a:delim, s:magic_chars)
@@ -3258,8 +3336,27 @@ end
 --     endwhile
 --     return syntax_lines
 -- endfunc
+-- ]])
+M.generate_escaped_rfc_rainbow_syntax = function(delim)
+	local syntax_lines = {}
+	local regex_delim = lua_escape(delim, magic_chars)
+	local groupid = num_groups - 1
+	while groupid >= 0 do
+		local next_group_id = 0
+		if groupid + 1 < num_groups then
+			next_group_id = groupid + 1
+			local cmd = [[syntax match column%d /.\{-}\(%s\|$\)/ nextgroup=escaped_column%d,column%d]]
+			table.insert(syntax_lines, cmd:format(groupid, regex_delim, next_group_id, next_group_id))
+			cmd = [[syntax match escaped_column%d / *"\(\([^"]\|\n\)*""\)*\([^"]\|\n\)*" *\(%s\|$\)/ nextgroup=escaped_column%d,column%d]]
+			table.insert(syntax_lines, cmd:format(groupid, regex_delim, next_group_id, next_group_id))
+			groupid = groupid - 1
+		end
+	end
+	return syntax_lines
+end
 
 
+-- vim.cmd([[
 -- func! rainbow_csv#generate_whitespace_syntax()
 --     let syntax_lines = []
 --     let groupid = s:num_groups - 1
@@ -3271,6 +3368,21 @@ end
 --     endwhile
 --     return syntax_lines
 -- endfunc
+-- ]])
+M.generate_whitespace_syntax = function()
+	local syntax_lines = {}
+	local groupid = num_groups - 1
+	while groupid >= 0 do
+		local next_group_id = 0
+		if groupid + 1 < num_groups then
+			next_group_id = groupid + 1
+		end
+		local cmd = ([[syntax match column%d / *.\{-}\(  *\|$\)/ nextgroup=column%d]]):format(groupid, next_group_id)
+		table.insert(syntax_lines, cmd)
+		groupid = groupid - 1
+	end
+	return syntax_lines
+end
 
 
 -- func! rainbow_csv#do_set_rainbow_filetype(rainbow_ft)

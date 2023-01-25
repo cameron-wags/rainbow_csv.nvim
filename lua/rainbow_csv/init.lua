@@ -31,7 +31,7 @@ M.setup = function()
 	mkcmd('RainbowShrink', function() fns.csv_shrink() end)
 
 	mkcmd('RbSelect', function() fns.select_from_file() end)
-	mkcmd('RbRunk', function() fns.finish_query_editing() end)
+	mkcmd('RbRun', function() fns.finish_query_editing() end)
 
 	vim.api.nvim_exec([[
 		augroup RainbowInitAuGrp
