@@ -100,6 +100,10 @@ local function lua_stridx(haystack, needle, start)
 	end
 end
 
+local function lua_startswith(s, prefix)
+	return s:sub(1, #prefix) == prefix
+end
+
 local function lua_charat(str, idx)
 	return string.sub(str, idx + 1, idx + 1)
 end
@@ -121,6 +125,77 @@ local function lua_join(list, sep)
 	else
 		return table.concat(list, sep)
 	end
+end
+
+-- ripped from the neovim shared implementation, but validation is removed
+local function vim_gsplit(s, sep, plain)
+	local start = 1
+	local done = false
+
+	local function _pass(i, j, ...)
+		if i then
+			assert(j + 1 > start, 'Infinite loop detected')
+			local seg = s:sub(start, i - 1)
+			start = j + 1
+			return seg, ...
+		else
+			done = true
+			return s:sub(start)
+		end
+	end
+
+	return function()
+		if done or (s == '' and sep == '') then
+			return
+		end
+		if sep == '' then
+			if start == #s then
+				done = true
+			end
+			return _pass(start + 1, start)
+		end
+		return _pass(s:find(sep, start, plain))
+	end
+end
+
+-- ripped from the neovim shared implementation, but validation is removed
+local function vim_split(s, sep, kwargs)
+	local plain
+	local trimempty = false
+
+	kwargs = kwargs or {}
+	plain = kwargs.plain
+	trimempty = kwargs.trimempty
+
+	local t = {}
+	local skip = trimempty
+	for c in vim_gsplit(s, sep, plain) do
+		if c ~= '' then
+			skip = false
+		end
+
+		if not skip then
+			table.insert(t, c)
+		end
+	end
+
+	if trimempty then
+		for i = #t, 1, -1 do
+			if t[i] ~= '' then
+				break
+			end
+			table.remove(t, i)
+		end
+	end
+
+	return t
+end
+
+local function lit_split(str, sep, keepempty)
+	if keepempty ~= nil then
+		return vim_split(str, sep, { plain = true, trimempty = true })
+	end
+	return vim_split(str, sep, { plain = true, trimempty = not keepempty })
 end
 
 -- " XXX Use :syntax command to list all current syntax groups
@@ -342,7 +417,7 @@ local function try_read_index(src_path)
 	local records = {}
 
 	for _, line in ipairs(lines) do
-		local fields = vim.fn.split(line, ' ', 1)
+		local fields = lit_split(line, ' ', true)
 		table.insert(records, fields)
 	end
 
@@ -435,7 +510,7 @@ local function index_decode_delim(encoded_delim)
 	if encoded_delim == 'TAB' then
 		return '\t'
 	end
-	if string.find(encoded_delim, 'multichar:') then
+	if lua_startswith(encoded_delim, 'multichar:') then
 		local result = string.sub(encoded_delim, #'multichar:' + 1)
 		result = string.gsub(result, [[\\t]], [[\t']])
 		result = string.gsub(result, [[\\\\]], [[\\]])
@@ -595,7 +670,7 @@ M.ft_to_dialect = function(ft_val)
 	if named_syntax_map[ft_val] then
 		return named_syntax_map[ft_val]
 	end
-	local ft_parts = vim.fn.split(ft_val, '_')
+	local ft_parts = lit_split(ft_val, '_')
 	if #ft_parts < 3 or ft_parts[1] ~= 'rcsv' then
 		return { '', 'monocolumn', '' }
 	end
@@ -774,8 +849,8 @@ local function read_virtual_header(delim, policy)
 	if policy == 'monocolumn' then
 		names = { line } -- todo correct?
 	else
-		local regex_delim = lua_escape(delim, magic_chars)
-		names = vim.fn.split(line, regex_delim)
+		-- local regex_delim = lua_escape(delim, magic_chars)
+		names = lit_split(line, delim)
 	end
 	return names
 end
@@ -1071,8 +1146,8 @@ M.preserving_quoted_split = function(line, delim)
 	-- todo hot function
 	local src = line
 	if string.find(src, '"') == nil then
-		local regex_delim = lua_escape(delim, magic_chars)
-		return { vim.fn.split(src, regex_delim, 1), false }
+		-- local regex_delim = lua_escape(delim, magic_chars)
+		return { lit_split(src, delim, true), false }
 	end
 	local result = {}
 	local cidx = 0
@@ -1234,8 +1309,8 @@ M.smart_split = function(line, delim, policy)
 	elseif policy == 'quoted' or policy == 'quoted_rfc' then
 		return M.quoted_split(stripped, delim)
 	elseif policy == 'simple' then
-		local regex_delim = lua_escape(delim, magic_chars)
-		return vim.fn.split(stripped, regex_delim, 1) -- todo maybe port split()
+		-- local regex_delim = lua_escape(delim, magic_chars)
+		return lit_split(stripped, delim, true) -- todo maybe port split()
 	elseif policy == 'whitespace' then
 		return M.whitespace_split(line, false)
 	else
@@ -1267,8 +1342,8 @@ M.preserving_smart_split = function(line, delim, policy)
 	elseif policy == 'quoted' or policy == 'quoted_rfc' then
 		return M.preserving_quoted_split(stripped, delim)
 	elseif policy == 'simple' then
-		local regex_delim = lua_escape(delim, magic_chars)
-		return { vim.fn.split(stripped, regex_delim, 1), false }
+		-- local regex_delim = lua_escape(delim, magic_chars)
+		return { lit_split(stripped, delim, true), false }
 	elseif policy == 'whitespace' then
 		return { M.whitespace_split(line, true), false }
 	else
@@ -1325,7 +1400,7 @@ M.csv_lint = function()
 	local num_fields = 0
 	for linenum = 1, lastLineNo, 1 do
 		local line = vim.fn.getline(linenum)
-		if comment_prefix ~= '' and lua_stridx(line, comment_prefix) == 0 then
+		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
 			goto next
 		end
 		local fields, has_warning = unpack(M.preserving_smart_split(line, delim, policy))
@@ -1380,17 +1455,21 @@ end
 --     endif
 -- endfunc
 -- ]])
+local num_regex = vim.regex(number_regex)
 M.update_subcomponent_stats = function(field, is_first_line, max_field_components_lens)
 	-- todo hottest function
-	local field_length = vim.fn.strdisplaywidth(field)
+	-- local field_length = vim.fn.strdisplaywidth(field)
+	local field_length = vim.api.nvim_strwidth(field) -- should be equivalent and runs faster
 	if field_length > max_field_components_lens[1] then
 		max_field_components_lens[1] = field_length
 	end
 	if max_field_components_lens[2] == non_numeric then
 		return
 	end
-	local pos = vim.fn.match(field, number_regex)
-	if pos == -1 then
+	-- local pos = vim.fn.match(field, number_regex)
+	local ismatch = num_regex:match_str(field)
+	-- if pos == -1 then
+	if ismatch == nil then
 		if not is_first_line and field_length > 0 then
 			max_field_components_lens[2] = non_numeric
 			max_field_components_lens[3] = non_numeric
@@ -1529,7 +1608,7 @@ local function calc_column_stats(delim, policy, comment_prefix, progress_bucket_
 		end
 		local line = vim.fn.getline(linenum)
 		local fields, has_warning = unpack(M.preserving_smart_split(line, delim, policy))
-		if comment_prefix ~= '' and lua_stridx(line, comment_prefix) == 0 then
+		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
 			goto next
 		end
 		if has_warning then
@@ -1580,7 +1659,8 @@ M.align_field = function(field, is_first_line, max_field_components_lens, is_las
 	-- todo hottest function
 	local extra_readability_whitespace_length = 1
 	local clean_field = M.strip_spaces(field)
-	local field_length = vim.fn.strdisplaywidth(clean_field) -- todo hot code, maybe refactor
+	-- local field_length = vim.fn.strdisplaywidth(clean_field) -- todo hot code, maybe refactor
+	local field_length = vim.api.nvim_strwidth(clean_field)
 	if max_field_components_lens[2] == non_numeric then
 		local delta_length
 		if max_field_components_lens[1] - field_length > 0 then
@@ -1741,7 +1821,7 @@ M.csv_align = function()
 		end
 		local has_line_edit = false
 		local line = vim.fn.getline(linenum)
-		if comment_prefix ~= '' and lua_stridx(line, comment_prefix) == 0 then
+		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
 			goto next
 		end
 		local fields = M.preserving_smart_split(line, delim, policy)[1]
@@ -1848,7 +1928,7 @@ M.csv_shrink = function()
 		end
 		local has_line_edit = false
 		local line = vim.fn.getline(linenum)
-		if comment_prefix ~= '' and lua_stridx(line, comment_prefix) == 0 then
+		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
 			goto next
 		end
 		local fields, has_warning = unpack(M.preserving_smart_split(line, delim, policy))
@@ -1899,7 +1979,7 @@ M.get_csv_header = function(delim, policy, comment_prefix)
 	local max_lines_to_check = vim.fn.min({ vim.fn.line("$"), 20 })
 	for linenum = 1, max_lines_to_check, 1 do
 		local line = vim.fn.getline(linenum)
-		if comment_prefix ~= '' and lua_stridx(line, comment_prefix) == 0 then
+		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
 		else
 			return M.smart_split(line, delim, policy)
 		end
@@ -1979,7 +2059,7 @@ local function do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, e
 	local current_line_offset = 0
 	local col_num = 0
 	while col_num < #fields do
-		current_line_offset = current_line_offset + #vim.fn.split(fields[col_num + 1], '\n', 1) - 1
+		current_line_offset = current_line_offset + #lit_split(fields[col_num + 1], '\n', true) - 1
 		if current_line_offset >= cursor_line_offset then
 			goto done
 		end
@@ -1994,7 +2074,7 @@ local function do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, e
 	end
 	local length_of_previous_field_segment_on_cursor_line = 0
 	if current_line_offset > 0 then
-		local splitcol = vim.fn.split(fields[col_num + 1], '\n', 1)
+		local splitcol = lit_split(fields[col_num + 1], '\n', true)
 		length_of_previous_field_segment_on_cursor_line = #splitcol[#splitcol] + #delim
 		if vim.fn.col('.') <= length_of_previous_field_segment_on_cursor_line then
 			return { fields, col_num }
@@ -2040,7 +2120,7 @@ local function find_unbalanced_lines_around(cur_line)
 	local lnmb = vim.fn.max({ 1, cur_line - multiline_search_range })
 	local lnme = vim.fn.min({ vim.fn.line('$'), cur_line + multiline_search_range })
 	while lnmb < lnme do
-		if #vim.fn.split(vim.fn.getline(lnmb), '"', 1) % 2 == 0 then
+		if #lit_split(vim.fn.getline(lnmb), '"', true) % 2 == 0 then
 			if lnmb < cur_line then
 				start_line = lnmb
 			end
@@ -2107,7 +2187,7 @@ end
 local function get_col_num_rfc_lines(line, delim, expected_num_fields)
 	local cur_line = vim.api.nvim_get_current_line()
 	local start_line, end_line = unpack(find_unbalanced_lines_around(cur_line))
-	local even_number_of_dquotes = #vim.fn.split(line, '"', 1) % 2 == 1
+	local even_number_of_dquotes = #lit_split(line, '"', true) % 2 == 1
 	if even_number_of_dquotes then
 		if start_line ~= -1 and end_line ~= -1 then
 			local report = do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
@@ -2194,7 +2274,7 @@ M.provide_column_info_on_hover = function()
 	end
 	local line = vim.api.nvim_get_current_line()
 
-	if comment_prefix ~= '' and lua_stridx(line, comment_prefix) == 0 then
+	if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
 		vim.cmd('echo ""')
 		return
 	end
@@ -2279,7 +2359,7 @@ local function get_num_columns_if_delimited(delim, policy)
 	for linenum = 1, lastLineNo, 1 do
 		local line = vim.fn.getline(linenum)
 		local comment_prefix = get_auto_comment_prefix()
-		if comment_prefix ~= '' and lua_stridx(line, comment_prefix) == 0 then
+		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
 			goto next
 		end
 		num_lines_tested = num_lines_tested + 1
@@ -2359,11 +2439,11 @@ local function guess_table_params_from_content_frequency_based()
 	local best_score = 0
 	local lastLineNo = vim.fn.min({ vim.fn.line('$'), 50 })
 	for _, delim in ipairs(autodetection_delims) do
-		local regex_delim = lua_escape(delim, magic_chars)
+		-- local regex_delim = lua_escape(delim, magic_chars)
 		local score = 0
 		for linenum = 1, lastLineNo, 1 do
 			local line = vim.fn.getline(linenum)
-			score = score + #vim.fn.split(line, regex_delim, 1) - 1
+			score = score + #lit_split(line, delim, true) - 1
 		end
 		if score > best_score then
 			best_delim = delim
@@ -2548,10 +2628,10 @@ M.set_statusline_columns = function(eval_value)
 	if policy == 'quoted_rfc' then
 		cur_line = vim.fn.getline(1)
 	else
-		cur_line = vim.fn.getline(vim.fn.line('.'))
+		cur_line = vim.api.nvim_get_current_line()
 	end
 
-	if comment_prefix ~= '' and lua_stridx(cur_line, comment_prefix) == 0 then
+	if comment_prefix ~= '' and lua_startswith(cur_line, comment_prefix) then
 		return eval_value
 	end
 
@@ -2884,7 +2964,7 @@ end
 -- endfunc
 -- ]])
 M.parse_report = function(report_content)
-	local lines = vim.fn.split(report_content, '\n')
+	local lines = lit_split(report_content, '\n')
 	local psv_warning_report = ''
 	local psv_error_report = ''
 	local psv_query_status = 'Unknown error'
@@ -3137,7 +3217,7 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 		vim.cmd('bd! ' .. query_buf_nr)
 	end
 
-	if vim.fn.index(vim.fn.split(psv_warning_report, '\n'),
+	if vim.fn.index(lit_split(psv_warning_report, '\n'),
 		'Output has multiple fields: using "CSV" output format instead of "Monocolumn"') == -1 then
 		update_table_record(psv_dst_table_path, out_delim, out_policy, '@auto_comment_prefix@')
 	else
@@ -3157,7 +3237,7 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 	end
 
 	if #psv_warning_report > 0 then
-		local warnings = vim.fn.split(psv_warning_report, '\n')
+		local warnings = lit_split(psv_warning_report, '\n')
 		for wnum = 1, #warnings, 1 do
 			warnings[wnum] = 'Warning: ' .. warnings[wnum]
 		end
