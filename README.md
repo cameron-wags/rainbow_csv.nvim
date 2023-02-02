@@ -33,7 +33,7 @@ use {
         'csv_whitespace',
         'csv_pipe',
         'rfc_csv',
-        'rfc_semicolon',
+        'rfc_semicolon'
     }
 }
 ```
@@ -50,7 +50,13 @@ use {
         'csv_whitespace',
         'csv_pipe',
         'rfc_csv',
-        'rfc_semicolon',
+        'rfc_semicolon'
+    },
+    cmd = {
+        'RainbowDelim',
+        'RainbowDelimSimple',
+        'RainbowDelimQuoted',
+        'RainbowMultiDelim'
     }
 }
 ```
