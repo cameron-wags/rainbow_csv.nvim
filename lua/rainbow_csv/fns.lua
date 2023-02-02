@@ -2280,6 +2280,10 @@ M.provide_column_info_on_hover = function()
 		return
 	end
 	local line = vim.api.nvim_get_current_line()
+	if #line < 1 then
+		vim.cmd('echo ""')
+		return
+	end
 
 	if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
 		vim.cmd('echo ""')
