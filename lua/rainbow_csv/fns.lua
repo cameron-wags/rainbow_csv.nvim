@@ -32,8 +32,15 @@ end
 
 -- let s:script_folder_path = expand('<sfile>:p:h:h')
 -- this one's a bit of a mess, we find it eventually though
-local script_folder_path, _ = vim.fn.globpath(vim.o.rtp, 'rbql_core/'):gsub('/rbql_core/', '')
-
+local script_folder_path = nil
+for _, path in ipairs(vim.fn.globpath(vim.o.rtp, 'rbql_core/', 0, 1)) do
+	if string.find(path, '/rainbow_csv.nvim/rbql_core/') ~= nil then
+		script_folder_path = path:gsub('/rbql_core/', '')
+		goto out
+	end
+end
+vim.notify('Unable to find plugin install folder in runtimepath.', vim.log.levels.WARN, {})
+::out::
 -- let s:python_env_initialized = 0
 local python_env_initialized = false
 -- let s:js_env_initialized = 0
