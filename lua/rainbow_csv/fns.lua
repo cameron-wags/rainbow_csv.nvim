@@ -27,15 +27,16 @@ if vim.g.rainbow_table_index ~= nil then
 end
 
 -- this one's a bit of a mess, we find it eventually though
-local script_folder_path = nil
-for _, path in ipairs(vim.fn.globpath(vim.o.rtp, 'rbql_core/', 0, 1)) do
-	if string.find(path, '/rainbow_csv.nvim/rbql_core/') ~= nil then
-		script_folder_path = path:gsub('/rbql_core/', '')
-		goto out
-	end
-end
-vim.notify('Unable to find plugin install folder in runtimepath.', vim.log.levels.WARN, {})
-::out::
+local script_folder_path = (function()
+			for _, path in ipairs(vim.fn.globpath(vim.o.rtp, 'rbql_core/', 0, 1)) do
+				if string.find(path, '/rainbow_csv.nvim/rbql_core/') ~= nil then
+					return path:gsub('/rbql_core/', '')
+				end
+			end
+			vim.notify('Unable to find plugin install folder in runtimepath.', vim.log.levels.WARN, {})
+			return nil
+		end)()
+
 local python_env_initialized = false
 local js_env_initialized = false
 local system_python_interpreter = ''
@@ -267,15 +268,15 @@ end
 
 local function init_groups_from_colors()
 	local pairs = { { 'red', 'red' },
-		{ 'green', 'green' },
-		{ 'blue', 'blue' },
-		{ 'magenta', 'magenta' },
-		{ 'NONE', 'NONE' },
-		{ 'darkred', 'darkred' },
-		{ 'darkblue', 'darkblue' },
-		{ 'darkgreen', 'darkgreen' },
+		{ 'green',       'green' },
+		{ 'blue',        'blue' },
+		{ 'magenta',     'magenta' },
+		{ 'NONE',        'NONE' },
+		{ 'darkred',     'darkred' },
+		{ 'darkblue',    'darkblue' },
+		{ 'darkgreen',   'darkgreen' },
 		{ 'darkmagenta', 'darkmagenta' },
-		{ 'darkcyan', 'darkcyan' } }
+		{ 'darkcyan',    'darkcyan' } }
 	if has_custom_colors() then
 		pairs = vim.g.rcsv_colorpairs
 	end
@@ -353,7 +354,7 @@ local function update_records(records, key, new_record)
 end
 
 local function index_encode_delim(delim)
-	if delim == "\t" then
+	if delim == '\t' then
 		return 'TAB'
 	end
 	if #delim > 1 then
@@ -1722,9 +1723,11 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 	if get_rbql_with_headers() then
 		with_headers_py_tf = 'True'
 	end
-	local py_call = lua_join({ 'vim_rbql.run_execute("', table_path_esc, '", "', rb_script_path_esc, '", "', rbql_encoding,
-		'", "', input_delim_escaped, '", "', input_policy, '", "', comment_prefix_escaped, '", "', out_delim_escaped, '", "',
-		out_policy, '", ', with_headers_py_tf, ')' }, '')
+	local py_call = lua_join(
+		{ 'vim_rbql.run_execute("', table_path_esc, '", "', rb_script_path_esc, '", "', rbql_encoding,
+			'", "', input_delim_escaped, '", "', input_policy, '", "', comment_prefix_escaped, '", "', out_delim_escaped,
+			'", "',
+			out_policy, '", ', with_headers_py_tf, ')' }, '')
 	if meta_language == 'js' then
 		local rbql_executable_path = script_folder_path .. '/rbql_core/vim_rbql.js'
 		local cmd_args = { 'node', vim.fn.shellescape(rbql_executable_path), vim.fn.shellescape(table_path),
@@ -1735,7 +1738,8 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 		psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path = unpack(M.parse_report(report_content))
 	elseif system_python_interpreter ~= "" then
 		local rbql_executable_path = script_folder_path .. '/rbql_core/vim_rbql.py'
-		local cmd_args = { system_python_interpreter, vim.fn.shellescape(rbql_executable_path), vim.fn.shellescape(table_path),
+		local cmd_args = { system_python_interpreter, vim.fn.shellescape(rbql_executable_path),
+			vim.fn.shellescape(table_path),
 			vim.fn.shellescape(rb_script_path), rbql_encoding, vim.fn.shellescape(input_delim), input_policy,
 			vim.fn.shellescape(input_comment_prefix), vim.fn.shellescape(out_delim), out_policy, with_headers_py_tf }
 		local cmd = lua_join(cmd_args, ' ')
@@ -1761,7 +1765,7 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 	end
 
 	if vim.fn.index(lit_split(psv_warning_report, '\n'),
-		'Output has multiple fields: using "CSV" output format instead of "Monocolumn"') == -1 then
+				'Output has multiple fields: using "CSV" output format instead of "Monocolumn"') == -1 then
 		update_table_record(psv_dst_table_path, out_delim, out_policy, '@auto_comment_prefix@')
 	else
 		update_table_record(psv_dst_table_path, ',', 'quoted', '@auto_comment_prefix@')
@@ -1871,7 +1875,8 @@ M.generate_escaped_rfc_rainbow_syntax = function(delim)
 			next_group_id = groupid + 1
 			local cmd = [[syntax match column%d /.\{-}\(%s\|$\)/ nextgroup=escaped_column%d,column%d]]
 			table.insert(syntax_lines, cmd:format(groupid, regex_delim, next_group_id, next_group_id))
-			cmd = [[syntax match escaped_column%d / *"\(\([^"]\|\n\)*""\)*\([^"]\|\n\)*" *\(%s\|$\)/ nextgroup=escaped_column%d,column%d]]
+			cmd =
+			[[syntax match escaped_column%d / *"\(\([^"]\|\n\)*""\)*\([^"]\|\n\)*" *\(%s\|$\)/ nextgroup=escaped_column%d,column%d]]
 			table.insert(syntax_lines, cmd:format(groupid, regex_delim, next_group_id, next_group_id))
 			groupid = groupid - 1
 		end
@@ -1909,11 +1914,7 @@ end
 
 M.buffer_disable_rainbow_features = function()
 	vim.b.rainbow_features_enabled = false
-	vim.cmd([[
-        augroup RainbowHintGrp
-            autocmd! CursorMoved <buffer>
-        augroup END
-    ]])
+	vim.api.nvim_create_augroup('RainbowHintGrp', { clear = true })
 	if vim.g.disable_rainbow_key_mappings == nil then
 		vim.cmd('unmap <buffer> <F5>')
 	end
@@ -1985,7 +1986,8 @@ M.manual_set = function(arg_policy, is_multidelim)
 			max_delim_len = vim.g.max_multichar_delim_len
 		end
 		if #delim > max_delim_len then
-			vim.cmd('echoerr "Multicharater delimiter is too long. Adjust g:max_multichar_delim_len or use a different separator"')
+			vim.cmd(
+				'echoerr "Multicharater delimiter is too long. Adjust g:max_multichar_delim_len or use a different separator"')
 			return
 		end
 	else

@@ -10,8 +10,12 @@ local M = {}
 M.setup = function()
 	local fns = require 'rainbow_csv.fns'
 
-	local function mkcmd(name, cb)
-		vim.api.nvim_create_user_command(name, cb, {})
+	local function mkcmd(name, cb, opts)
+		if opts == nil then
+			vim.api.nvim_create_user_command(name, cb, {})
+		else
+			vim.api.nvim_create_user_command(name, cb, opts)
+		end
 	end
 
 	mkcmd('RainbowDelim', function() fns.manual_set('auto', false) end)
@@ -33,28 +37,19 @@ M.setup = function()
 	mkcmd('RbSelect', function() fns.select_from_file() end)
 	mkcmd('RbRun', function() fns.finish_query_editing() end)
 
-	vim.api.nvim_exec([[
-		augroup RainbowInitAuGrp
-			autocmd!
-			autocmd Syntax * lua require'rainbow_csv.fns'.handle_syntax_change()
-			autocmd BufEnter * lua require'rainbow_csv.fns'.handle_buffer_enter()
-		augroup END
+	mkcmd('Select', function(param) fns.run_select_cmd_query(param.args) end, { nargs = '+' })
+	mkcmd('Update', function(param) fns.run_update_cmd_query(param.args) end, { nargs = '+' })
+	mkcmd('RainbowName', function(param) fns.set_table_name_for_buffer(param.args) end, { nargs = 1 })
 
-		" command! -nargs=+ Select call rainbow_csv#run_select_cmd_query(<q-args>)
-		" command! -nargs=+ Update call rainbow_csv#run_update_cmd_query(<q-args>)
-		" command! -nargs=1 RainbowName call rainbow_csv#set_table_name_for_buffer(<q-args>)
-	]], false)
-
-	-- <q-args> may pose an issue, but we'll see
-	vim.api.nvim_create_user_command('Select', function(param)
-		fns.run_select_cmd_query(param.args)
-	end, { nargs = '+' })
-	vim.api.nvim_create_user_command('Update', function(param)
-		fns.run_update_cmd_query(param.args)
-	end, { nargs = '+' })
-	vim.api.nvim_create_user_command('RainbowName', function(param)
-		fns.set_table_name_for_buffer(param.args)
-	end, { nargs = 1 })
+	vim.api.nvim_create_augroup('RainbowInitAuGrp', { clear = true })
+	vim.api.nvim_create_autocmd('Syntax', {
+		pattern = '*',
+		callback = fns.handle_syntax_change,
+	})
+	vim.api.nvim_create_autocmd('BufEnter', {
+		pattern = '*',
+		callback = fns.handle_buffer_enter,
+	})
 end
 
 return M
