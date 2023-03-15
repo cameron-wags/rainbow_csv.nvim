@@ -407,7 +407,7 @@ local function get_table_record(table_path)
 	local records = try_read_index(rainbow_table_index)
 	for _, record in ipairs(records) do
 		if #record >= 3 and record[1] == table_path then
-			local delim = index_encode_delim(record[2])
+			local delim = index_decode_delim(record[2])
 			local policy = record[3]
 			local comment_prefix
 			if #record > 3 then
