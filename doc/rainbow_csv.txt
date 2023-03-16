@@ -178,6 +178,14 @@ let g:disable_rainbow_hover = 1
 <
 
 
+*g:rainbow_hover_debounce_ms*
+Max frequency column hover info is calculated when moving the cursor rapidly.
+Set to `0` to disable this behavior.
+Example: >
+let g:rainbow_hover_debounce_ms = 300
+<
+
+
 *g:rcsv_colorpairs*
 List of color name pairs to customize rainbow highlighting.
 Each entry in the list is a pair of two colors: the first color is for terminal mode, the second one is for GUI mode.

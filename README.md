@@ -223,6 +223,14 @@ Example:
 let g:disable_rainbow_hover = 1
 ```
 
+#### g:rainbow_hover_debounce_ms
+Max frequency column hover info is calculated when moving the cursor rapidly.
+Set to `0` to disable this behavior.
+Example:
+```
+let g:rainbow_hover_debounce_ms = 300
+```
+
 #### g:rcsv_delimiters
 Default: _["\t", ",", ";", "|"]_
 List of separators to try for content-based autodetection  
@@ -498,4 +506,3 @@ Rainbow CSV name and original implementation was significantly influenced by [ra
 
 There also exists an old vim syntax file [csv_color](https://vim.sourceforge.io/scripts/script.php?script_id=518) which, despite it's name, can highlight only *.tsv files.  
 And, of course, there is [csv.vim](https://github.com/chrisbra/csv.vim)
-

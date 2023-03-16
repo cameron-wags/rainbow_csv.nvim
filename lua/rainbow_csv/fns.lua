@@ -66,6 +66,11 @@ local progress_bar_size = 20
 
 local num_groups = nil
 
+local rainbow_hover_debounce_ms = 300
+if vim.g.rainbow_hover_debounce_ms ~= nil then
+	rainbow_hover_debounce_ms = vim.g.rainbow_hover_debounce_ms
+end
+
 -- " Vim has 2 different variables: filetype and syntax. syntax is a subset of filetype
 -- " We need to use both of them.
 
@@ -1258,8 +1263,34 @@ local function get_col_num_rfc_lines(line, delim, expected_num_fields)
 	end
 end
 
+-- debounce_state[key]:
+--	0 = not debounced
+--	1 = debounced
+--	2 = invoked during debounce period, (cb will be fired)
+local debounce_state = {}
+local function check_debounce(name, debounce_ms, cb)
+	if debounce_state[name] == nil or debounce_state[name] == 0 then
+		debounce_state[name] = 1
+		vim.defer_fn(function()
+			if cb ~= nil and debounce_state[name] == 2 then
+				debounce_state[name] = 0
+				cb()
+			else
+				debounce_state[name] = 0
+			end
+		end, debounce_ms)
+		return false
+	else
+		debounce_state[name] = 2
+		return true
+	end
+end
+
 M.provide_column_info_on_hover = function()
-	-- todo debounce this or something, I get wrecked if I hold l in wide files
+	if rainbow_hover_debounce_ms ~= 0 and check_debounce('provide_column_info_on_hover', rainbow_hover_debounce_ms, M.provide_column_info_on_hover) then
+		return
+	end
+
 	local delim, policy, comment_prefix = unpack(M.get_current_dialect())
 	if policy == 'monocolumn' then
 		return
