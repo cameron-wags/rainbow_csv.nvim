@@ -239,10 +239,10 @@ local function init_groups_from_links()
 		link_groups = vim.g.rcsv_colorlinks
 	end
 	for index, value in ipairs(link_groups) do
-		vim.cmd('highlight link status_color' .. index - 1 .. ' ' .. value)
-		vim.cmd('highlight link rbql_color' .. index - 1 .. ' ' .. value)
-		vim.cmd('highlight link column' .. index - 1 .. ' ' .. value)
-		vim.cmd('highlight link escaped_column' .. index - 1 .. ' ' .. value)
+		vim.cmd.highlight { 'link', 'status_color' .. index - 1, value }
+		vim.cmd.highlight { 'link', 'rbql_color' .. index - 1, value }
+		vim.cmd.highlight { 'link', 'column' .. index - 1, value }
+		vim.cmd.highlight { 'link', 'escaped_column' .. index - 1, value }
 	end
 	num_groups = #link_groups
 end
@@ -286,11 +286,11 @@ local function init_groups_from_colors()
 		pairs = vim.g.rcsv_colorpairs
 	end
 	for index, value in ipairs(pairs) do
-		vim.cmd('highlight status_color' ..
-			index - 1 .. ' ctermfg=' .. value[1] .. ' guifg=' .. value[2] .. ' ctermbg=black guibg = black')
-		vim.cmd('highlight rbql_color' .. index - 1 .. ' ctermfg=' .. value[1] .. ' guifg=' .. value[2])
-		vim.cmd('highlight column' .. index - 1 .. ' ctermfg=' .. value[1] .. ' guifg=' .. value[2])
-		vim.cmd('highlight escaped_column' .. index - 1 .. ' ctermfg=' .. value[1] .. ' guifg=' .. value[2])
+		vim.cmd.highlight { 'status_color' .. index - 1, 'ctermfg=' .. value[1], 'guifg=' .. value[2], 'ctermbg=black',
+			'guibg=black' }
+		vim.cmd.highlight { 'rbql_color' .. index - 1, 'ctermfg=' .. value[1], 'guifg=' .. value[2] }
+		vim.cmd.highlight { 'column' .. index - 1, 'ctermfg=' .. value[1], 'guifg=' .. value[2] }
+		vim.cmd.highlight { 'escaped_column' .. index - 1, 'ctermfg=' .. value[1], 'guifg=' .. value[2] }
 	end
 	num_groups = #pairs
 end
@@ -303,8 +303,8 @@ M.init_rb_color_groups = function()
 		init_groups_from_links()
 	end
 
-	vim.cmd('highlight link escaped_startcolumn column0')
-	vim.cmd('highlight RbCmd ctermbg=blue guibg=blue')
+	vim.cmd.highlight { 'link', 'escaped_startcolumn', 'column0' }
+	vim.cmd.highlight { 'RbCmd', 'ctermbg=blue', 'guibg=blue' }
 end
 
 
@@ -484,7 +484,7 @@ M.ensure_syntax_exists = function(rainbow_ft, delim, policy, comment_prefix)
 	elseif policy == 'whitespace' then
 		syntax_lines = M.generate_whitespace_syntax()
 	else
-		vim.cmd.echoerr('bad delim policy: ' .. 'policy')
+		vim.cmd.echoerr(string.format('"bad delim policy: %s"', policy))
 	end
 	if comment_prefix ~= '' then
 		local regex_comment_prefix = lua_escape(comment_prefix, magic_chars)
@@ -797,7 +797,7 @@ M.smart_split = function(line, delim, policy)
 	elseif policy == 'whitespace' then
 		return M.whitespace_split(line, false)
 	else
-		vim.cmd("echoerr'bad delim policy'")
+		vim.cmd.echoerr '"bad delim policy"'
 	end
 end
 
@@ -813,18 +813,18 @@ M.preserving_smart_split = function(line, delim, policy)
 	elseif policy == 'whitespace' then
 		return { M.whitespace_split(line, true), false }
 	else
-		vim.cmd("echoerr 'bad delim policy'")
+		vim.cmd.echoerr '"bad delim policy"'
 	end
 end
 
 M.csv_lint = function()
 	local delim, policy, comment_prefix = unpack(M.get_current_dialect())
 	if policy == 'monocolumn' then
-		vim.cmd('echoerr "CSVLint is available only for highlighted CSV files"')
+		vim.cmd.echoerr '"CSVLint is available only for highlighted CSV files"'
 		return
 	elseif policy == 'quoted_rfc' then
 		-- TODO implement
-		vim.cmd('echoerr "CSVLint is not implemented yet for rfc_csv"')
+		vim.cmd.echoerr '"CSVLint is not implemented yet for rfc_csv"'
 		return
 	end
 	local lastLineNo = vim.fn.line('$')
@@ -836,7 +836,7 @@ M.csv_lint = function()
 		end
 		local fields, has_warning = unpack(M.preserving_smart_split(line, delim, policy))
 		if has_warning then
-			vim.cmd('echoerr "Line ' .. linenum .. ' has formatting error: double quote chars are not consistent"')
+			vim.cmd.echoerr(string.format('"Line %d has formatting error: double quote chars are not consistent"', linenum))
 			return
 		end
 		local num_fields_cur = #fields
@@ -844,13 +844,14 @@ M.csv_lint = function()
 			num_fields = num_fields_cur
 		end
 		if num_fields ~= num_fields_cur then
-			vim.cmd('echoerr "Number of fields is not consistent: e.g. line 1 has ' ..
-				num_fields .. ' fields, and line ' .. linenum .. ' has ' .. num_fields_cur .. ' fields"')
+			vim.cmd.echoerr(string.format(
+				'"Number of fields is not consistent: e.g. line 1 has %d fields, and line %d has %d fields"', num_fields, linenum,
+				num_fields_cur))
 			return
 		end
 		::next::
 	end
-	vim.cmd('echomsg "CSVLint: OK"')
+	vim.cmd.echomsg '"CSVLint: OK"'
 end
 
 local num_regex = vim.regex(number_regex)
@@ -898,7 +899,8 @@ end
 local function display_progress_bar(cur_progress_pos)
 	local progress_display_str = 'Processing... [' ..
 			string.rep('#', cur_progress_pos) .. string.rep(' ', progress_bar_size - cur_progress_pos) .. ']'
-	vim.cmd('redraw | echo "' .. progress_display_str .. '"')
+	vim.cmd.redraw()
+	vim.cmd.echo(string.format('%q', progress_display_str))
 end
 
 M.adjust_column_stats = function(column_stats)
@@ -1019,13 +1021,14 @@ M.align_field = function(field, is_first_line, max_field_components_lens, is_las
 end
 
 M.csv_align = function()
+	vim.cmd.set 'nowrap'
 	local show_progress_bar = vim.fn.wordcount()['bytes'] > 200000
 	local delim, policy, comment_prefix = unpack(M.get_current_dialect())
 	if policy == 'monocolumn' then
-		vim.cmd('echoerr "RainbowAlign is available only for highlighted CSV files"')
+		vim.cmd.echoerr '"RainbowAlign is available only for highlighted CSV files"'
 		return
 	elseif policy == 'quoted_rfc' then
-		vim.cmd('echoerr "RainbowAlign not available for \"rfc_csv\" filetypes, consider using \"csv\" instead"')
+		vim.cmd.echoerr '"RainbowAlign not available for \"rfc_csv\" filetypes, consider using \"csv\" instead"'
 		return
 	end
 	local lastLineNo = vim.fn.line('$')
@@ -1036,12 +1039,12 @@ M.csv_align = function()
 	align_progress_bar_position = 0
 	local column_stats, first_failed_line = unpack(calc_column_stats(delim, policy, comment_prefix, progress_bucket_size))
 	if first_failed_line ~= 0 then
-		vim.cmd('echoerr "Unable to align: Inconsistent double quotes at line ' .. first_failed_line .. '"')
+		vim.cmd.echoerr('"Unable to align: Inconsistent double quotes at line ' .. first_failed_line .. '"')
 		return
 	end
 	column_stats = M.adjust_column_stats(column_stats)
 	if #column_stats == 0 then
-		vim.cmd('echoerr "Unable to align: Internal Rainbow CSV Error"')
+		vim.cmd.echoerr '"Unable to align: Internal Rainbow CSV Error"'
 		return
 	end
 	local has_edit = false
@@ -1079,17 +1082,17 @@ M.csv_align = function()
 		::next::
 	end
 	if not has_edit then
-		vim.cmd('echoerr "File is already aligned"')
+		vim.cmd.echoerr '"File is already aligned"'
 	end
 end
 
 M.csv_shrink = function()
 	local delim, policy, comment_prefix = unpack(M.get_current_dialect())
 	if policy == 'monocolumn' then
-		vim.cmd('echoerr "RainbowAlign is available only for highlighted CSV files"')
+		vim.cmd.echoerr '"RainbowAlign is available only for highlighted CSV files"'
 		return
 	elseif policy == 'quoted_rfc' then
-		vim.cmd('echoerr "RainbowAlign not available for \"rfc_csv\" filetypes, consider using \"csv\" instead"')
+		vim.cmd.echoerr '"RainbowAlign not available for \"rfc_csv\" filetypes, consider using \"csv\" instead"'
 		return
 	end
 	local lastLineNo = vim.fn.line('$')
@@ -1112,7 +1115,7 @@ M.csv_shrink = function()
 		end
 		local fields, has_warning = unpack(M.preserving_smart_split(line, delim, policy))
 		if has_warning then
-			vim.cmd('echoerr "Unable to shrink: Inconsistent double quotes at line ' .. linenum .. '"')
+			vim.cmd.echoerr('"Unable to shrink: Inconsistent double quotes at line ' .. linenum .. '"')
 			return
 		end
 		for fnum = 1, #fields, 1 do
@@ -1130,7 +1133,7 @@ M.csv_shrink = function()
 		::next::
 	end
 	if not has_edit then
-		vim.cmd('echoerr "File is already shrinked"')
+		vim.cmd.echoerr '"File is already shrinked"'
 	end
 end
 
@@ -1297,12 +1300,12 @@ M.provide_column_info_on_hover = function()
 	end
 	local line = vim.api.nvim_get_current_line()
 	if #line < 1 then
-		vim.cmd('echo ""')
+		vim.cmd.echo '""'
 		return
 	end
 
 	if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
-		vim.cmd('echo ""')
+		vim.cmd.echo '""'
 		return
 	end
 
@@ -1315,7 +1318,7 @@ M.provide_column_info_on_hover = function()
 	if policy == 'quoted_rfc' then
 		local report = get_col_num_rfc_lines(line, delim, #header)
 		if #report ~= 2 then
-			vim.cmd('echo ""')
+			vim.cmd.echo '""'
 			return
 		end
 		fields, col_num = unpack(report)
@@ -1344,7 +1347,7 @@ M.provide_column_info_on_hover = function()
 	if vim.b.root_table_name ~= nil then
 		ui_message = ui_message .. '; F7: Copy to ' .. vim.b.root_table_name
 	end
-	vim.cmd(string.format('echo %q', ui_message))
+	vim.cmd.echo(string.format('%q', ui_message))
 end
 
 local function get_num_columns_if_delimited(delim, policy)
@@ -1460,13 +1463,9 @@ M.restore_statusline = function()
 	if vim.b.statusline_before == nil then
 		return
 	end
-	vim.api.nvim_exec([[
-    augroup StatusDisableGrp
-        autocmd!
-    augroup END
-	]], false)
+	vim.api.nvim_create_augroup('StatusDisableGrp', { clear = true })
 	local escaped_statusline = status_escape_string(vim.b.statusline_before)
-	vim.cmd('set statusline=' .. escaped_statusline)
+	vim.cmd.set { 'statusline=' .. escaped_statusline }
 	vim.b.statusline_before = nil
 end
 
@@ -1517,13 +1516,14 @@ M.set_statusline_columns = function(eval_value)
 	::done::
 	rb_statusline = status_escape_string(rb_statusline)
 	vim.notify(rb_statusline, vim.log.levels.INFO, {})
-	vim.cmd('setlocal statusline=' .. rb_statusline)
-	vim.cmd([[
-		redraw!
-    augroup StatusDisableGrp
-        autocmd CursorMoved * lua require'rainbow_csv.fns'.restore_statusline()
-    augroup END
-	]])
+	vim.cmd.setlocal { 'statusline=' .. rb_statusline }
+
+	vim.cmd.redraw { bang = true }
+	vim.api.nvim_create_autocmd('CursorMoved', {
+		group = vim.api.nvim_create_augroup('StatusDisableGrp', { clear = false }),
+		pattern = '*',
+		callback = M.restore_statusline
+	})
 	return eval_value
 end
 
@@ -1542,8 +1542,8 @@ local function generate_microlang_syntax(nfields)
 
 	for lnum = 1, nfields, 1 do
 		local color_num = (lnum - 1) % num_groups
-		vim.cmd(('syntax keyword rbql_color%d a%d'):format(color_num, lnum))
-		vim.cmd(('syntax keyword rbql_color%d b%d'):format(color_num, lnum))
+		vim.cmd.syntax { 'keyword', 'rbql_color' .. color_num, 'a' .. lnum }
+		vim.cmd.syntax { 'keyword', 'rbql_color' .. color_num, 'b' .. lnum }
 	end
 
 	vim.api.nvim_exec([[
@@ -1581,7 +1581,7 @@ local function make_rbql_demo(num_fields, rbql_welcome_path)
 	end
 	vim.api.nvim_buf_set_lines(0, 0, 0, false, lines)
 	vim.fn.cursor(query_line_num, 1)
-	vim.cmd('w')
+	vim.cmd.write()
 end
 
 M.select_from_file = function()
@@ -1613,14 +1613,14 @@ M.select_from_file = function()
 	M.set_statusline_columns()
 
 	local splitbelow_before = vim.o.splitbelow
-	vim.cmd('set splitbelow')
-	vim.cmd('split ' .. vim.fn.fnameescape(rb_script_path))
+	vim.cmd.set 'splitbelow'
+	vim.cmd.split(vim.fn.fnameescape(rb_script_path))
 	if vim.fn.bufnr('%') == buf_number then
 		vim.notify('Something went wrong', vim.log.levels.ERROR)
 		return -- todo shouldn't this return a value?
 	end
 	if not splitbelow_before then
-		vim.cmd('set nosplitbelow')
+		vim.cmd.set 'nosplitbelow'
 	end
 
 	vim.b.table_path = buf_path
@@ -1628,7 +1628,7 @@ M.select_from_file = function()
 	vim.b.rainbow_select = true
 
 	if vim.g.disable_rainbow_key_mappings == nil then
-		vim.cmd('nnoremap <buffer> <F5> :RbRun<cr>')
+		vim.keymap.set('n', '<F5>', M.finish_query_editing, { noremap = true, buffer = true })
 	end
 
 	generate_microlang_syntax(num_fields)
@@ -1644,12 +1644,10 @@ M.select_from_file = function()
 end
 
 M.copy_file_content_to_buf = function(src_file_path, dst_buf_no)
-	vim.cmd([[
-		bd!
-		redraw!
-		echo 'executing...'
-	]])
-	vim.cmd('buffer ' .. dst_buf_no)
+	vim.cmd.bdelete { bang = true }
+	vim.cmd.redraw { bang = true }
+	vim.cmd.echo '"executing..."'
+	vim.cmd.buffer(dst_buf_no)
 	M.clear_current_buf_content()
 	local lines = vim.fn.readfile(src_file_path)
 	vim.api.nvim_buf_set_lines(dst_buf_no, 0, 0, true, lines)
@@ -1732,7 +1730,7 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 	if table_path == '' then
 		local tmp_file_name = 'tmp_table_' .. vim.fn.strftime('%Y_%m_%d_%H_%M_%S') .. '.txt'
 		table_path = rb_storage_dir .. '/' .. tmp_file_name
-		vim.cmd(string.format('w %q', table_path))
+		vim.cmd.write(string.format('%q', table_path))
 	end
 
 	local psv_query_status = 'Unknown error'
@@ -1740,10 +1738,8 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 	local psv_warning_report = ''
 	local psv_dst_table_path = ''
 
-	vim.cmd([[
-		redraw!
-		echo "executing..."
-	]])
+	vim.cmd.redraw { bang = true }
+	vim.cmd.echo '"executing..."'
 	local table_path_esc = py_source_escape(table_path)
 	local rb_script_path_esc = py_source_escape(rb_script_path)
 	local input_delim_escaped = py_source_escape(input_delim)
@@ -1777,9 +1773,9 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 		local report_content = vim.fn.system(cmd)
 		psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path = unpack(M.parse_report(report_content))
 	elseif vim.fn.has('python3') ~= 0 then
-		vim.cmd('python3 ' .. py_call)
+		vim.cmd.python3(py_call)
 	elseif has_python_27() then
-		vim.cmd('python3 ' .. py_call)
+		vim.cmd.python3(py_call)
 	else
 		ShowImportantMessage('Error',
 			{ "Python not found, vim must have 'python' or 'python3' feature installed to run in this mode" })
@@ -1792,7 +1788,7 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 	end
 
 	if query_buf_nr ~= -1 then
-		vim.cmd('bd! ' .. query_buf_nr)
+		vim.cmd.bdelete { query_buf_nr, bang = true }
 	end
 
 	if vim.fn.index(lit_split(psv_warning_report, '\n'),
@@ -1801,7 +1797,7 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 	else
 		update_table_record(psv_dst_table_path, ',', 'quoted', '@auto_comment_prefix@')
 	end
-	vim.cmd('e ' .. vim.fn.fnameescape(psv_dst_table_path))
+	vim.cmd.edit(vim.fn.fnameescape(psv_dst_table_path))
 
 	vim.b.self_path = psv_dst_table_path
 	vim.b.root_table_buf_number = table_buf_number
@@ -1810,8 +1806,9 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 	vim.fn.setbufvar(table_buf_number, 'selected_buf', vim.b.self_buf_number)
 
 	if vim.g.disable_rainbow_key_mappings == nil then
-		-- todo later
-		vim.cmd('nnoremap <buffer> <F7> :echoerr "Not implemented"<cr>')
+		vim.keymap.set('n', '<F7>', function()
+			M.copy_file_content_to_buf(vim.b.self_path, vim.b.root_table_buf_number)
+		end, { noremap = true, buffer = true })
 	end
 
 	if #psv_warning_report > 0 then
@@ -1852,10 +1849,10 @@ end
 
 M.finish_query_editing = function()
 	if vim.b.rainbow_select == nil then
-		vim.cmd('echoerr "Execute from rainbow query buffer"')
+		vim.cmd.echoerr '"Execute from rainbow query buffer"'
 		return
 	end
-	vim.cmd('w')
+	vim.cmd.write()
 	local rb_script_path = vim.fn.expand('%:p')
 	local query_buf_nr = vim.fn.bufnr('%')
 	local table_buf_number = vim.b.table_buf_number
@@ -1932,7 +1929,7 @@ end
 
 M.do_set_rainbow_filetype = function(rainbow_ft)
 	vim.b.originial_ft = vim.b.ft
-	vim.cmd('set ft=' .. rainbow_ft)
+	vim.cmd.set('ft=' .. rainbow_ft)
 end
 
 M.set_rainbow_filetype = function(delim, policy, comment_prefix)
@@ -1947,7 +1944,7 @@ M.buffer_disable_rainbow_features = function()
 	vim.b.rainbow_features_enabled = false
 	vim.api.nvim_create_augroup('RainbowHintGrp', { clear = true })
 	if vim.g.disable_rainbow_key_mappings == nil then
-		vim.cmd('unmap <buffer> <F5>')
+		vim.keymap.del('n', '<F5>', { buffer = true })
 	end
 end
 
@@ -1958,16 +1955,16 @@ M.buffer_enable_rainbow_features = function()
 
 	vim.b.rainbow_features_enabled = true
 
-	vim.cmd('set laststatus=2')
+	vim.cmd.set 'laststatus=2'
 
 	if vim.o.compatible then
-		vim.cmd('set nocompatible')
+		vim.cmd.set 'nocompatible'
 	end
 
-	vim.cmd('set number')
+	vim.cmd.set 'number'
 
 	if vim.g.disable_rainbow_key_mappings == nil then
-		vim.cmd('nnoremap <buffer> <F5> :RbSelect<cr>')
+		vim.keymap.set('n', '<F5>', M.select_from_file, { noremap = true, buffer = true })
 	end
 
 	vim.api.nvim_exec([[
@@ -2017,8 +2014,7 @@ M.manual_set = function(arg_policy, is_multidelim)
 			max_delim_len = vim.g.max_multichar_delim_len
 		end
 		if #delim > max_delim_len then
-			vim.cmd(
-				'echoerr "Multicharater delimiter is too long. Adjust g:max_multichar_delim_len or use a different separator"')
+			vim.cmd.echoerr '"Multicharater delimiter is too long. Adjust g:max_multichar_delim_len or use a different separator"'
 			return
 		end
 	else
@@ -2029,7 +2025,7 @@ M.manual_set = function(arg_policy, is_multidelim)
 		policy = get_auto_policy_for_delim(delim)
 	end
 	if delim == '"' and policy == 'quoted' then
-		vim.cmd("echoerr 'Double quote delimiter is incompatible with \"quoted\" policy'")
+		vim.cmd.echoerr '"Double quote delimiter is incompatible with \"quoted\" policy"'
 		return
 	end
 	vim.notify('delim = "' .. delim .. '"', vim.log.levels.WARN, {})
@@ -2044,7 +2040,7 @@ M.manual_disable = function()
 		if vim.b.originial_ft ~= nil then
 			original_filetype = vim.b.originial_ft
 		end
-		vim.cmd('set ft=' .. original_filetype)
+		vim.cmd.set('ft=' .. original_filetype)
 	end
 end
 
@@ -2119,7 +2115,7 @@ M.handle_buffer_enter = function()
 	if vim.b.rainbow_features_enabled ~= nil then
 		if vim.b.rainbow_features_enabled then
 			local ft_power_cycle = vim.o.ft
-			vim.cmd('set ft=' .. ft_power_cycle)
+			vim.cmd.set('ft=' .. ft_power_cycle)
 		end
 		return
 	end
