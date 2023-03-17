@@ -225,7 +225,7 @@ local function get_auto_policy_for_delim(delim)
 end
 
 local function has_custom_links()
-	if vim.g.rcsv_colorlinks then
+	if vim.g.rcsv_colorlinks ~= nil then
 		return #vim.g.rcsv_colorlinks > 1
 	else
 		return false
@@ -248,7 +248,7 @@ local function init_groups_from_links()
 end
 
 local function has_custom_colors()
-	if vim.g.rcsv_colorpairs then
+	if vim.g.rcsv_colorpairs ~= nil then
 		return #vim.g.rcsv_colorpairs > 1
 	else
 		return false
@@ -257,7 +257,7 @@ end
 
 local function use_system_python()
 	if vim.g.rbql_use_system_python then
-		return vim.g.rbql_use_system_python
+		return vim.g.rbql_use_system_python == 1
 	else
 		return false
 	end
@@ -265,7 +265,7 @@ end
 
 local function get_rbql_with_headers()
 	if vim.g.rbql_with_headers then
-		return vim.g.rbql_with_headers
+		return vim.g.rbql_with_headers == 1
 	else
 		return false
 	end
@@ -1598,15 +1598,15 @@ M.select_from_file = function()
 		return false
 	end
 
-	if vim.b.selected_buf ~= nil and vim.fn.buflisted(vim.b.selected_buf) then
-		vim.cmd('bd ' .. vim.b.selected_buf)
+	if vim.b.selected_buf ~= nil and vim.fn.buflisted(vim.b.selected_buf) ~= 0 then
+		vim.cmd.bdelete(vim.b.selected_buf)
 	end
 
 	local buf_number = vim.fn.bufnr('%')
 	local buf_path = vim.fn.resolve(vim.fn.expand('%:p'))
 
 	local rb_script_path = get_rb_script_path_for_this_table()
-	local already_exists = vim.fn.filereadable(rb_script_path)
+	local already_exists = vim.fn.filereadable(rb_script_path) == 1
 
 	local num_fields = #M.preserving_smart_split(vim.fn.getline(1), delim, policy)[1]
 
@@ -2139,7 +2139,7 @@ M.handle_buffer_enter = function()
 		return
 	end
 
-	if vim.g.disable_rainbow_csv_autodetect ~= nil and vim.g.disable_rainbow_csv_autodetect then
+	if vim.g.disable_rainbow_csv_autodetect ~= nil and vim.g.disable_rainbow_csv_autodetect ~= 0 then
 		return
 	end
 
