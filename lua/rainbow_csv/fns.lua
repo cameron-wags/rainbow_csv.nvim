@@ -665,8 +665,16 @@ M.rstrip = function(line)
 end
 
 M.strip_spaces = function(input_string)
-	local lstrip = string.gsub(input_string, '^ *([^ ])', '%1', 1)
-	return string.gsub(lstrip, '([^ ]) *$', '%1', 1)
+	local _, start = input_string:find('^ +')
+	local endof, _ = input_string:find(' +$')
+
+	if start == nil then
+		start = 0
+	end
+	if endof == nil then
+		return input_string:sub(start + 1)
+	end
+	return input_string:sub(start + 1, endof - 1)
 end
 
 
