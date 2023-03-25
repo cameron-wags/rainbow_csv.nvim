@@ -198,6 +198,31 @@ local function lit_split(str, sep, keepempty)
 	return vim_split(str, sep, { plain = true, trimempty = not keepempty })
 end
 
+vim.g.enable_experimental_optimizations = false
+local lua_pad_space = (function()
+			if vim.g.enable_experimental_optimizations ~= nil and vim.g.enable_experimental_optimizations == true then
+				local _lua_pad_space_memo = {}
+				return function(number)
+					-- trading memory for speed only goes so far
+					if number > 100 then
+						return string.rep(' ', number)
+					end
+					local key = number
+					if _lua_pad_space_memo[key] ~= nil then
+						return _lua_pad_space_memo[key]
+					end
+					local result = string.rep(' ', number)
+					_lua_pad_space_memo[key] = result
+					return result
+				end
+			else
+				return function(number) return string.rep(' ', number) end
+			end
+		end)()
+
+
+
+
 -- " XXX Use :syntax command to list all current syntax groups
 -- " XXX Use :highlight command to list all current highlight groups
 
@@ -667,7 +692,6 @@ end
 M.strip_spaces = function(input_string)
 	local _, start = input_string:find('^ +')
 	local endof, _ = input_string:find(' +$')
-
 	if start == nil then
 		start = 0
 	end
@@ -695,7 +719,7 @@ M.preserving_quoted_split = function(line, delim)
 	-- todo hot function
 	local src = line
 	if string.find(src, '"') == nil then
-		return { lit_split(src, delim, true), false }
+		return lit_split(src, delim, true), false
 	end
 	local result = {}
 	local cidx = 0
@@ -711,7 +735,7 @@ M.preserving_quoted_split = function(line, delim)
 				uidx = lua_stridx(src, '"', uidx)
 				if uidx == -1 then
 					table.insert(result, lua_strpart(src, cidx))
-					return { result, true }
+					return result, true
 				end
 				uidx = uidx + 1
 				if uidx < #src and lua_charat(src, uidx) == '"' then
@@ -744,11 +768,11 @@ M.preserving_quoted_split = function(line, delim)
 	if string.sub(src, -1) == delim then
 		table.insert(result, '')
 	end
-	return { result, has_warning }
+	return result, has_warning
 end
 
 M.quoted_split = function(line, delim)
-	local quoted_fields = M.preserving_quoted_split(line, delim)[1]
+	local quoted_fields, _ = M.preserving_quoted_split(line, delim)
 	return M.unescape_quoted_fields(quoted_fields)
 end
 
@@ -813,13 +837,13 @@ M.preserving_smart_split = function(line, delim, policy)
 	-- todo hot function
 	local stripped = M.rstrip(line)
 	if policy == 'monocolumn' then
-		return { { stripped }, false }
+		return { stripped }, false
 	elseif policy == 'quoted' or policy == 'quoted_rfc' then
 		return M.preserving_quoted_split(stripped, delim)
 	elseif policy == 'simple' then
-		return { lit_split(stripped, delim, true), false }
+		return lit_split(stripped, delim, true), false
 	elseif policy == 'whitespace' then
-		return { M.whitespace_split(line, true), false }
+		return M.whitespace_split(line, true), false
 	else
 		vim.cmd.echoerr '"bad delim policy"'
 	end
@@ -842,7 +866,7 @@ M.csv_lint = function()
 		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
 			goto next
 		end
-		local fields, has_warning = unpack(M.preserving_smart_split(line, delim, policy))
+		local fields, has_warning = M.preserving_smart_split(line, delim, policy)
 		if has_warning then
 			vim.cmd.echoerr(string.format('"Line %d has formatting error: double quote chars are not consistent"', linenum))
 			return
@@ -906,7 +930,7 @@ end
 
 local function display_progress_bar(cur_progress_pos)
 	local progress_display_str = 'Processing... [' ..
-			string.rep('#', cur_progress_pos) .. string.rep(' ', progress_bar_size - cur_progress_pos) .. ']'
+			string.rep('#', cur_progress_pos) .. lua_pad_space(progress_bar_size - cur_progress_pos) .. ']'
 	vim.cmd.redraw()
 	vim.cmd.echo(string.format('%q', progress_display_str))
 end
@@ -934,41 +958,75 @@ M.adjust_column_stats = function(column_stats)
 	return adjusted_stats
 end
 
-local function calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
+local function calc_column_stats(delim, policy, comment_prefix)
 	local column_stats = {}
 	local lastLineNo = vim.fn.line('$')
 	local is_first_line = true
-	for linenum = 1, lastLineNo, 1 do
-		if progress_bucket_size > 0 and linenum % progress_bucket_size == 0 then
-			align_progress_bar_position = align_progress_bar_position + 1
-			display_progress_bar(align_progress_bar_position)
+	local chunkSize = 100
+	local lastProgress = 0
+	for chunkStart = 1, lastLineNo, chunkSize do
+		local progress = math.floor((chunkStart / lastLineNo) * (progress_bar_size / 2))
+		if progress > lastProgress then
+			lastProgress = progress
+			display_progress_bar(progress)
 		end
-		local line = vim.fn.getline(linenum)
-		local fields, has_warning = unpack(M.preserving_smart_split(line, delim, policy))
-		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
-			goto next
-		end
-		if has_warning then
-			return { column_stats, linenum }
-		end
-		for fnum = 1, #fields, 1 do
-			local field = M.strip_spaces(fields[fnum])
-			if #column_stats <= fnum then
-				table.insert(column_stats, { 0, 0, 0 })
+		local chunk = vim.api.nvim_buf_get_lines(0, chunkStart - 1, chunkStart + chunkSize, false)
+		for chunkIdx = 1, #chunk, 1 do
+			local fields, has_warning = M.preserving_smart_split(chunk[chunkIdx], delim, policy)
+			if comment_prefix ~= '' and lua_startswith(chunk[chunkIdx], comment_prefix) then
+				goto next
 			end
-			M.update_subcomponent_stats(field, is_first_line, column_stats[fnum])
+			if has_warning then
+				return { column_stats, chunkStart + chunkIdx - 1 }
+			end
+			for fnum = 1, #fields, 1 do
+				local field = M.strip_spaces(fields[fnum])
+				if #column_stats <= fnum then
+					table.insert(column_stats, { 0, 0, 0 })
+				end
+				M.update_subcomponent_stats(field, is_first_line, column_stats[fnum])
+			end
+			is_first_line = false
+			::next::
 		end
-		is_first_line = false
-		::next::
 	end
 	return { column_stats, 0 }
 end
+
+-- local function calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
+-- 	local column_stats = {}
+-- 	local lastLineNo = vim.fn.line('$')
+-- 	local is_first_line = true
+-- 	for linenum = 1, lastLineNo, 1 do
+-- 		if progress_bucket_size > 0 and linenum % progress_bucket_size == 0 then
+-- 			align_progress_bar_position = align_progress_bar_position + 1
+-- 			display_progress_bar(align_progress_bar_position)
+-- 		end
+-- 		local line = vim.fn.getline(linenum)
+-- 		local fields, has_warning = M.preserving_smart_split(line, delim, policy)
+-- 		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
+-- 			goto next
+-- 		end
+-- 		if has_warning then
+-- 			return { column_stats, linenum }
+-- 		end
+-- 		for fnum = 1, #fields, 1 do
+-- 			local field = M.strip_spaces(fields[fnum])
+-- 			if #column_stats <= fnum then
+-- 				table.insert(column_stats, { 0, 0, 0 })
+-- 			end
+-- 			M.update_subcomponent_stats(field, is_first_line, column_stats[fnum])
+-- 		end
+-- 		is_first_line = false
+-- 		::next::
+-- 	end
+-- 	return { column_stats, 0 }
+-- end
 
 M.align_field = function(field, is_first_line, max_field_components_lens, is_last_column)
 	-- todo hottest function
 	local extra_readability_whitespace_length = 1
 	local clean_field = M.strip_spaces(field)
-	-- local field_length = vim.fn.strdisplaywidth(clean_field) -- todo hot code, maybe refactor
 	local field_length = vim.api.nvim_strwidth(clean_field)
 	if max_field_components_lens[2] == non_numeric then
 		local delta_length
@@ -980,17 +1038,19 @@ M.align_field = function(field, is_first_line, max_field_components_lens, is_las
 		if is_last_column then
 			return clean_field
 		else
-			return clean_field .. string.rep(' ', delta_length + extra_readability_whitespace_length)
+			return clean_field .. lua_pad_space(delta_length + extra_readability_whitespace_length)
+			-- return clean_field .. string.rep(' ', delta_length + extra_readability_whitespace_length)
 		end
 	end
 	if is_first_line then
 		local pos = vim.fn.match(clean_field, number_regex)
 		if pos == -1 then
-			local delta_length = vim.fn.max({ max_field_components_lens[1] - field_length, 0 })
+			local delta_length = math.max(max_field_components_lens[1] - field_length, 0)
 			if is_last_column then
 				return clean_field
 			else
-				return clean_field .. string.rep(' ', delta_length + extra_readability_whitespace_length)
+				return clean_field .. lua_pad_space(delta_length + extra_readability_whitespace_length)
+				-- return clean_field .. string.rep(' ', delta_length + extra_readability_whitespace_length)
 			end
 		end
 	end
@@ -1023,14 +1083,13 @@ M.align_field = function(field, is_first_line, max_field_components_lens, is_las
 	if is_last_column then
 		trailing_spaces = ''
 	else
-		trailing_spaces = string.rep(' ', fractional_delta_length + extra_readability_whitespace_length)
+		trailing_spaces = lua_pad_space(fractional_delta_length + extra_readability_whitespace_length)
 	end
-	return string.rep(' ', integer_delta_length) .. clean_field .. trailing_spaces
+	return lua_pad_space(integer_delta_length) .. clean_field .. trailing_spaces
 end
 
 M.csv_align = function()
-	vim.cmd.set 'nowrap'
-	local show_progress_bar = vim.fn.wordcount()['bytes'] > 200000
+	vim.cmd.set 'nowrap' -- todo there is a much better place for this
 	local delim, policy, comment_prefix = unpack(M.get_current_dialect())
 	if policy == 'monocolumn' then
 		vim.cmd.echoerr '"RainbowAlign is available only for highlighted CSV files"'
@@ -1039,13 +1098,7 @@ M.csv_align = function()
 		vim.cmd.echoerr '"RainbowAlign not available for \"rfc_csv\" filetypes, consider using \"csv\" instead"'
 		return
 	end
-	local lastLineNo = vim.fn.line('$')
-	local progress_bucket_size = (lastLineNo * 2) / progress_bar_size
-	if not show_progress_bar or progress_bucket_size < 10 then
-		progress_bucket_size = 0
-	end
-	align_progress_bar_position = 0
-	local column_stats, first_failed_line = unpack(calc_column_stats(delim, policy, comment_prefix, progress_bucket_size))
+	local column_stats, first_failed_line = unpack(calc_column_stats(delim, policy, comment_prefix))
 	if first_failed_line ~= 0 then
 		vim.cmd.echoerr('"Unable to align: Inconsistent double quotes at line ' .. first_failed_line .. '"')
 		return
@@ -1057,37 +1110,45 @@ M.csv_align = function()
 	end
 	local has_edit = false
 	local is_first_line = true
-	for linenum = 1, lastLineNo, 1 do
-		if progress_bucket_size > 0 and linenum % progress_bucket_size == 0 then
-			align_progress_bar_position = align_progress_bar_position + 1
-			display_progress_bar(align_progress_bar_position)
+
+	local lastLineNo = vim.fn.line('$')
+	local chunkSize = 100
+	local lastProgress = math.floor(progress_bar_size / 2) - 1;
+	for chunkStart = 1, lastLineNo, chunkSize do
+		local progress = math.floor(((chunkStart / lastLineNo) + 0.5) * (progress_bar_size / 2))
+		if progress > lastProgress then
+			lastProgress = progress
+			display_progress_bar(progress)
 		end
-		local has_line_edit = false
-		local line = vim.fn.getline(linenum)
-		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
-			goto next
-		end
-		local fields = M.preserving_smart_split(line, delim, policy)[1]
-		for fnum = 1, #fields, 1 do
-			if fnum > #column_stats then
-				vim.notify('bad off by one in csv_align', vim.log.levels.ERROR, {})
-				goto ibreak
+		local chunk = vim.api.nvim_buf_get_lines(0, chunkStart - 1, chunkStart + chunkSize, false)
+		for chunkIdx = 1, #chunk, 1 do
+			local has_line_edit = false
+			if comment_prefix ~= '' and lua_startswith(chunk[chunkIdx], comment_prefix) then
+				goto next
 			end
-			local is_last_column = fnum == #column_stats
-			local field = M.align_field(fields[fnum], is_first_line, column_stats[fnum], is_last_column)
-			if fields[fnum] ~= field then
-				fields[fnum] = field
-				has_line_edit = true
+			local fields, _ = M.preserving_smart_split(chunk[chunkIdx], delim, policy)
+			for fnum = 1, #fields, 1 do
+				if fnum > #column_stats then
+					vim.notify('bad off by one in csv_align', vim.log.levels.ERROR, {})
+					goto ibreak
+				end
+				local is_last_column = fnum == #column_stats
+				local field = M.align_field(fields[fnum], is_first_line, column_stats[fnum], is_last_column)
+				if fields[fnum] ~= field then
+					fields[fnum] = field
+					has_line_edit = true
+				end
 			end
+			::ibreak::
+			if has_line_edit then
+				local updated_line = lua_join(fields, delim)
+				chunk[chunkIdx] = updated_line
+				has_edit = true
+			end
+			is_first_line = false
+			::next::
 		end
-		::ibreak::
-		if has_line_edit then
-			local updated_line = lua_join(fields, delim)
-			vim.fn.setline(linenum, updated_line)
-			has_edit = true
-		end
-		is_first_line = false
-		::next::
+		vim.api.nvim_buf_set_lines(0, chunkStart - 1, chunkStart + chunkSize, false, chunk)
 	end
 	if not has_edit then
 		vim.cmd.echoerr '"File is already aligned"'
@@ -1121,7 +1182,7 @@ M.csv_shrink = function()
 		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
 			goto next
 		end
-		local fields, has_warning = unpack(M.preserving_smart_split(line, delim, policy))
+		local fields, has_warning = M.preserving_smart_split(line, delim, policy)
 		if has_warning then
 			vim.cmd.echoerr('"Unable to shrink: Inconsistent double quotes at line ' .. linenum .. '"')
 			return
@@ -1149,7 +1210,7 @@ M.get_csv_header = function(delim, policy, comment_prefix)
 	if vim.b.cached_virtual_header ~= nil and #vim.b.cached_virtual_header > 0 then
 		return vim.b.cached_virtual_header
 	end
-	local max_lines_to_check = vim.fn.min({ vim.fn.line("$"), 20 })
+	local max_lines_to_check = math.min(vim.fn.line("$"), 20)
 	for linenum = 1, max_lines_to_check, 1 do
 		local line = vim.fn.getline(linenum)
 		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
@@ -1174,7 +1235,7 @@ end
 local function do_get_col_num_rfc_lines(cur_line, delim, start_line, end_line, expected_num_fields)
 	local record_lines = vim.api.nvim_buf_get_lines(0, start_line, end_line + 1, true) -- todo this impl doesn't match getline()
 	local record_str = lua_join(record_lines, '\n')
-	local fields, has_warning = unpack(M.preserving_smart_split(record_str, delim, 'quoted_rfc'))
+	local fields, has_warning = M.preserving_smart_split(record_str, delim, 'quoted_rfc')
 	if has_warning or #fields ~= expected_num_fields then
 		return {}
 	end
@@ -1218,8 +1279,8 @@ local function find_unbalanced_lines_around(cur_line)
 	if vim.g.multiline_search_range ~= nil then
 		multiline_search_range = vim.g.multiline_search_range
 	end
-	local lnmb = vim.fn.max({ 1, cur_line - multiline_search_range })
-	local lnme = vim.fn.min({ vim.fn.line('$'), cur_line + multiline_search_range })
+	local lnmb = math.max(1, cur_line - multiline_search_range)
+	local lnme = math.min(vim.fn.line('$'), cur_line + multiline_search_range)
 	while lnmb < lnme do
 		if #lit_split(vim.fn.getline(lnmb), '"', true) % 2 == 0 then
 			if lnmb < cur_line then
@@ -1237,7 +1298,7 @@ local function find_unbalanced_lines_around(cur_line)
 end
 
 local function get_col_num_rfc_basic_even_case(line, delim, expected_num_fields)
-	local fields, has_warning = unpack(M.preserving_smart_split(line, delim, 'quoted_rfc'))
+	local fields, has_warning = M.preserving_smart_split(line, delim, 'quoted_rfc')
 	if not has_warning and #fields == expected_num_fields then
 		local col_num = get_col_num_single_line(fields, delim, 0)
 		return { fields, col_num }
@@ -1331,7 +1392,7 @@ M.provide_column_info_on_hover = function()
 		end
 		fields, col_num = unpack(report)
 	else
-		fields = M.preserving_smart_split(line, delim, policy)[1]
+		fields, _ = M.preserving_smart_split(line, delim, policy)
 		col_num = get_col_num_single_line(fields, delim, 0)
 	end
 	local num_cols = #fields
@@ -1359,7 +1420,7 @@ M.provide_column_info_on_hover = function()
 end
 
 local function get_num_columns_if_delimited(delim, policy)
-	local lastLineNo = vim.fn.min({ vim.fn.line('$'), 100 })
+	local lastLineNo = math.min(vim.fn.line('$'), 100)
 	if lastLineNo < 5 then
 		return 0
 	end
@@ -1372,7 +1433,8 @@ local function get_num_columns_if_delimited(delim, policy)
 			goto next
 		end
 		num_lines_tested = num_lines_tested + 1
-		local num_fields_cur = #M.preserving_smart_split(line, delim, policy)[1]
+		local result, _ = M.preserving_smart_split(line, delim, policy)
+		local num_fields_cur = #result
 		if num_fields == 0 then
 			num_fields = num_fields_cur
 		end
@@ -1407,7 +1469,7 @@ end
 local function guess_table_params_from_content_frequency_based()
 	local best_delim = ','
 	local best_score = 0
-	local lastLineNo = vim.fn.min({ vim.fn.line('$'), 50 })
+	local lastLineNo = math.min(vim.fn.line('$'), 50)
 	for _, delim in ipairs(autodetection_delims) do
 		local score = 0
 		for linenum = 1, lastLineNo, 1 do
@@ -1441,11 +1503,11 @@ M.generate_tab_statusline = function(tabstop_val, delim_len, template_fields)
 			space_deficit = space_deficit - extra_len
 			extra_len = 0
 		else
-			local regained = vim.fn.min({ space_deficit, extra_len })
+			local regained = math.min(space_deficit, extra_len)
 			space_deficit = space_deficit - regained
 			extra_len = extra_len - regained
 		end
-		local space_filling = string.rep(' ', extra_len + 1)
+		local space_filling = lua_pad_space(extra_len + 1)
 		if nf == #template_fields then
 			space_filling = ''
 		end
@@ -1485,8 +1547,8 @@ M.set_statusline_columns = function(eval_value)
 	local has_number_column = vim.o.number
 	local indent = ''
 	if has_number_column then
-		local indent_len = vim.fn.max({ #('' .. vim.fn.line('$')) + 1, 4 })
-		indent = ' NR' .. string.rep(' ', indent_len - 1) -- gutter width adjust
+		local indent_len = math.max(#('' .. vim.fn.line('$')) + 1, 4)
+		indent = ' NR' .. lua_pad_space(indent_len - 1) -- gutter width adjust
 	end
 	local cur_line
 	if policy == 'quoted_rfc' then
@@ -1499,7 +1561,7 @@ M.set_statusline_columns = function(eval_value)
 		return eval_value
 	end
 
-	local cur_fields = M.preserving_smart_split(cur_line, delim, policy)[1]
+	local cur_fields, _ = M.preserving_smart_split(cur_line, delim, policy)
 	local status_labels = {}
 	if delim == '\t' then
 		status_labels = M.generate_tab_statusline(vim.o.tabstop, #delim, cur_fields)
@@ -1616,7 +1678,8 @@ M.select_from_file = function()
 	local rb_script_path = get_rb_script_path_for_this_table()
 	local already_exists = vim.fn.filereadable(rb_script_path) == 1
 
-	local num_fields = #M.preserving_smart_split(vim.fn.getline(1), delim, policy)[1]
+	local result, _ = M.preserving_smart_split(vim.fn.getline(1), delim, policy)
+	local num_fields = #result
 
 	M.set_statusline_columns()
 
