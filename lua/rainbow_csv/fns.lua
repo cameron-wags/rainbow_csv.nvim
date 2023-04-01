@@ -198,7 +198,7 @@ local function lit_split(str, sep, keepempty)
 	return vim_split(str, sep, { plain = true, trimempty = not keepempty })
 end
 
-vim.g.enable_experimental_optimizations = false
+vim.g.enable_experimental_optimizations = true
 local lua_pad_space = (function()
 			if vim.g.enable_experimental_optimizations ~= nil and vim.g.enable_experimental_optimizations == true then
 				local _lua_pad_space_memo = {}
@@ -1115,7 +1115,7 @@ M.csv_align = function()
 	local chunkSize = 100
 	local lastProgress = math.floor(progress_bar_size / 2) - 1;
 	for chunkStart = 1, lastLineNo, chunkSize do
-		local progress = math.floor(((chunkStart / lastLineNo) + 0.5) * (progress_bar_size / 2))
+		local progress = math.floor((chunkStart / lastLineNo) * (progress_bar_size / 2) + 0.5)
 		if progress > lastProgress then
 			lastProgress = progress
 			display_progress_bar(progress)
