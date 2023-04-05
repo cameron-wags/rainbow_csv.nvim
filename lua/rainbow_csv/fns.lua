@@ -198,8 +198,6 @@ local function lit_split(str, sep, keepempty)
 	return vim_split(str, sep, { plain = true, trimempty = not keepempty })
 end
 
-
-
 -- " XXX Use :syntax command to list all current syntax groups
 -- " XXX Use :highlight command to list all current highlight groups
 
@@ -969,36 +967,6 @@ local function calc_column_stats(delim, policy, comment_prefix)
 	end
 	return { column_stats, 0 }
 end
-
--- local function calc_column_stats(delim, policy, comment_prefix, progress_bucket_size)
--- 	local column_stats = {}
--- 	local lastLineNo = vim.fn.line('$')
--- 	local is_first_line = true
--- 	for linenum = 1, lastLineNo, 1 do
--- 		if progress_bucket_size > 0 and linenum % progress_bucket_size == 0 then
--- 			align_progress_bar_position = align_progress_bar_position + 1
--- 			display_progress_bar(align_progress_bar_position)
--- 		end
--- 		local line = vim.fn.getline(linenum)
--- 		local fields, has_warning = M.preserving_smart_split(line, delim, policy)
--- 		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
--- 			goto next
--- 		end
--- 		if has_warning then
--- 			return { column_stats, linenum }
--- 		end
--- 		for fnum = 1, #fields, 1 do
--- 			local field = M.strip_spaces(fields[fnum])
--- 			if #column_stats <= fnum then
--- 				table.insert(column_stats, { 0, 0, 0 })
--- 			end
--- 			M.update_subcomponent_stats(field, is_first_line, column_stats[fnum])
--- 		end
--- 		is_first_line = false
--- 		::next::
--- 	end
--- 	return { column_stats, 0 }
--- end
 
 M.align_field = function(field, is_first_line, max_field_components_lens, is_last_column)
 	-- todo hottest function
