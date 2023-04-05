@@ -28,14 +28,14 @@ end
 
 -- this one's a bit of a mess, we find it eventually though
 local script_folder_path = (function()
-			for _, path in ipairs(vim.fn.globpath(vim.o.rtp, 'rbql_core/', 0, 1)) do
-				if string.find(path, '/rainbow_csv.nvim/rbql_core/') ~= nil then
-					return path:gsub('/rbql_core/', '')
-				end
-			end
-			vim.notify('Unable to find plugin install folder in runtimepath.', vim.log.levels.WARN, {})
-			return nil
-		end)()
+	for _, path in ipairs(vim.fn.globpath(vim.o.rtp, 'rbql_core/', 0, 1)) do
+		if string.find(path, '/rainbow_csv.nvim/rbql_core/') ~= nil then
+			return path:gsub('/rbql_core/', '')
+		end
+	end
+	vim.notify('Unable to find plugin install folder in runtimepath.', vim.log.levels.WARN, {})
+	return nil
+end)()
 
 local python_env_initialized = false
 local js_env_initialized = false
