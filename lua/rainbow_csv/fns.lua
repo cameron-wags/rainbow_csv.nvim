@@ -1141,40 +1141,41 @@ M.csv_shrink = function()
 	end
 	local lastLineNo = vim.fn.line('$')
 	local has_edit = false
-	local show_progress_bar = vim.fn.wordcount()['bytes'] > 200000
-	local progress_bucket_size = (lastLineNo * 2) / progress_bar_size
-	if not show_progress_bar or progress_bucket_size < 10 then
-		progress_bucket_size = 0
-	end
-	align_progress_bar_position = 0
-	for linenum = 1, lastLineNo, 1 do
-		if progress_bucket_size > 0 and linenum % progress_bucket_size == 0 then
-			align_progress_bar_position = align_progress_bar_position + 1
-			display_progress_bar(align_progress_bar_position)
+
+	local chunkSize = 100
+	local lastProgress = math.floor(progress_bar_size / 2) - 1;
+	for chunkStart = 1, lastLineNo, chunkSize do
+		local progress = math.floor((chunkStart / lastLineNo) * (progress_bar_size / 2) + 0.5)
+		if progress > lastProgress then
+			lastProgress = progress
+			display_progress_bar(progress)
 		end
-		local has_line_edit = false
-		local line = vim.fn.getline(linenum)
-		if comment_prefix ~= '' and lua_startswith(line, comment_prefix) then
-			goto next
-		end
-		local fields, has_warning = M.preserving_smart_split(line, delim, policy)
-		if has_warning then
-			vim.cmd.echoerr('"Unable to shrink: Inconsistent double quotes at line ' .. linenum .. '"')
-			return
-		end
-		for fnum = 1, #fields, 1 do
-			local field = M.strip_spaces(fields[fnum])
-			if fields[fnum] ~= field then
-				fields[fnum] = field
-				has_line_edit = true
+		local chunk = vim.api.nvim_buf_get_lines(0, chunkStart - 1, chunkStart + chunkSize, false)
+		for chunkIdx = 1, #chunk, 1 do
+			local has_line_edit = false
+			if comment_prefix ~= '' and lua_startswith(chunk[chunkIdx], comment_prefix) then
+				goto next
 			end
+			local fields, has_warning = M.preserving_smart_split(chunk[chunkIdx], delim, policy)
+			if has_warning then
+				vim.cmd.echoerr('"Unable to shrink: Inconsistent double quotes at line ' .. chunkStart + chunkIdx - 1 .. '"')
+				return
+			end
+			for fnum = 1, #fields, 1 do
+				local field = M.strip_spaces(fields[fnum])
+				if fields[fnum] ~= field then
+					fields[fnum] = field
+					has_line_edit = true
+				end
+			end
+			if has_line_edit then
+				local updated_line = lua_join(fields, delim)
+				chunk[chunkIdx] = updated_line
+				has_edit = true
+			end
+			::next::
 		end
-		if has_line_edit then
-			local updated_line = lua_join(fields, delim)
-			vim.fn.setline(linenum, updated_line)
-			has_edit = true
-		end
-		::next::
+		vim.api.nvim_buf_set_lines(0, chunkStart - 1, chunkStart + chunkSize, false, chunk)
 	end
 	if not has_edit then
 		vim.cmd.echoerr '"File is already shrinked"'
