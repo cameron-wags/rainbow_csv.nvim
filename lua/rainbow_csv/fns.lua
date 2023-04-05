@@ -198,29 +198,6 @@ local function lit_split(str, sep, keepempty)
 	return vim_split(str, sep, { plain = true, trimempty = not keepempty })
 end
 
-vim.g.enable_experimental_optimizations = true
-local lua_pad_space = (function()
-			if vim.g.enable_experimental_optimizations ~= nil and vim.g.enable_experimental_optimizations == true then
-				local _lua_pad_space_memo = {}
-				return function(number)
-					-- trading memory for speed only goes so far
-					if number > 100 then
-						return string.rep(' ', number)
-					end
-					local key = number
-					if _lua_pad_space_memo[key] ~= nil then
-						return _lua_pad_space_memo[key]
-					end
-					local result = string.rep(' ', number)
-					_lua_pad_space_memo[key] = result
-					return result
-				end
-			else
-				return function(number) return string.rep(' ', number) end
-			end
-		end)()
-
-
 
 
 -- " XXX Use :syntax command to list all current syntax groups
@@ -930,7 +907,7 @@ end
 
 local function display_progress_bar(cur_progress_pos)
 	local progress_display_str = 'Processing... [' ..
-			string.rep('#', cur_progress_pos) .. lua_pad_space(progress_bar_size - cur_progress_pos) .. ']'
+			string.rep('#', cur_progress_pos) .. string.rep(' ', progress_bar_size - cur_progress_pos) .. ']'
 	vim.cmd.redraw()
 	vim.cmd.echo(string.format('%q', progress_display_str))
 end
@@ -1038,8 +1015,7 @@ M.align_field = function(field, is_first_line, max_field_components_lens, is_las
 		if is_last_column then
 			return clean_field
 		else
-			return clean_field .. lua_pad_space(delta_length + extra_readability_whitespace_length)
-			-- return clean_field .. string.rep(' ', delta_length + extra_readability_whitespace_length)
+			return clean_field .. string.rep(' ', delta_length + extra_readability_whitespace_length)
 		end
 	end
 	if is_first_line then
@@ -1049,8 +1025,7 @@ M.align_field = function(field, is_first_line, max_field_components_lens, is_las
 			if is_last_column then
 				return clean_field
 			else
-				return clean_field .. lua_pad_space(delta_length + extra_readability_whitespace_length)
-				-- return clean_field .. string.rep(' ', delta_length + extra_readability_whitespace_length)
+				return clean_field .. string.rep(' ', delta_length + extra_readability_whitespace_length)
 			end
 		end
 	end
@@ -1083,9 +1058,9 @@ M.align_field = function(field, is_first_line, max_field_components_lens, is_las
 	if is_last_column then
 		trailing_spaces = ''
 	else
-		trailing_spaces = lua_pad_space(fractional_delta_length + extra_readability_whitespace_length)
+		trailing_spaces = string.rep(' ', fractional_delta_length + extra_readability_whitespace_length)
 	end
-	return lua_pad_space(integer_delta_length) .. clean_field .. trailing_spaces
+	return string.rep(' ', integer_delta_length) .. clean_field .. trailing_spaces
 end
 
 M.csv_align = function()
@@ -1507,7 +1482,7 @@ M.generate_tab_statusline = function(tabstop_val, delim_len, template_fields)
 			space_deficit = space_deficit - regained
 			extra_len = extra_len - regained
 		end
-		local space_filling = lua_pad_space(extra_len + 1)
+		local space_filling = string.rep(' ', extra_len + 1)
 		if nf == #template_fields then
 			space_filling = ''
 		end
@@ -1548,7 +1523,7 @@ M.set_statusline_columns = function(eval_value)
 	local indent = ''
 	if has_number_column then
 		local indent_len = math.max(#('' .. vim.fn.line('$')) + 1, 4)
-		indent = ' NR' .. lua_pad_space(indent_len - 1) -- gutter width adjust
+		indent = ' NR' .. string.rep(' ', indent_len - 1) -- gutter width adjust
 	end
 	local cur_line
 	if policy == 'quoted_rfc' then
