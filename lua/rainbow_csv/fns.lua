@@ -1058,7 +1058,7 @@ M.csv_align = function()
 	local chunkSize = 100
 	local lastProgress = math.floor(progress_bar_size / 2) - 1;
 	for chunkStart = 1, lastLineNo, chunkSize do
-		local progress = math.floor((chunkStart / lastLineNo) * (progress_bar_size / 2) + 0.5)
+		local progress = math.floor((chunkStart / lastLineNo + 0.5) * progress_bar_size / 2)
 		if progress > lastProgress then
 			lastProgress = progress
 			display_progress_bar(progress)
