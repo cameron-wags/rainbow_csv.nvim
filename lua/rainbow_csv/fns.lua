@@ -198,6 +198,10 @@ local function lit_split(str, sep, keepempty)
 	return vim_split(str, sep, { plain = true, trimempty = not keepempty })
 end
 
+local function notify_err(msg)
+	vim.notify(msg, vim.log.levels.ERROR, {})
+end
+
 -- " XXX Use :syntax command to list all current syntax groups
 -- " XXX Use :highlight command to list all current highlight groups
 
@@ -484,7 +488,7 @@ M.ensure_syntax_exists = function(rainbow_ft, delim, policy, comment_prefix)
 	elseif policy == 'whitespace' then
 		syntax_lines = M.generate_whitespace_syntax()
 	else
-		vim.cmd.echoerr(string.format('"bad delim policy: %s"', policy))
+		notify_err(string.format('bad delim policy: %s', policy))
 	end
 	if comment_prefix ~= '' then
 		local regex_comment_prefix = lua_escape(comment_prefix, magic_chars)
@@ -804,7 +808,7 @@ M.smart_split = function(line, delim, policy)
 	elseif policy == 'whitespace' then
 		return M.whitespace_split(line, false)
 	else
-		vim.cmd.echoerr '"bad delim policy"'
+		notify_err 'bad delim policy'
 	end
 end
 
@@ -820,18 +824,18 @@ M.preserving_smart_split = function(line, delim, policy)
 	elseif policy == 'whitespace' then
 		return M.whitespace_split(line, true), false
 	else
-		vim.cmd.echoerr '"bad delim policy"'
+		notify_err 'bad delim policy'
 	end
 end
 
 M.csv_lint = function()
 	local delim, policy, comment_prefix = unpack(M.get_current_dialect())
 	if policy == 'monocolumn' then
-		vim.cmd.echoerr '"CSVLint is available only for highlighted CSV files"'
+		notify_err 'CSVLint is available only for highlighted CSV files'
 		return
 	elseif policy == 'quoted_rfc' then
 		-- TODO implement
-		vim.cmd.echoerr '"CSVLint is not implemented yet for rfc_csv"'
+		notify_err 'CSVLint is not implemented yet for rfc_csv'
 		return
 	end
 	local lastLineNo = vim.fn.line('$')
@@ -843,7 +847,8 @@ M.csv_lint = function()
 		end
 		local fields, has_warning = M.preserving_smart_split(line, delim, policy)
 		if has_warning then
-			vim.cmd.echoerr(string.format('"Line %d has formatting error: double quote chars are not consistent"', linenum))
+			notify_err(string.format('Line %d has formatting error: double quote chars are not consistent',
+				linenum))
 			return
 		end
 		local num_fields_cur = #fields
@@ -851,8 +856,8 @@ M.csv_lint = function()
 			num_fields = num_fields_cur
 		end
 		if num_fields ~= num_fields_cur then
-			vim.cmd.echoerr(string.format(
-				'"Number of fields is not consistent: e.g. line 1 has %d fields, and line %d has %d fields"', num_fields, linenum,
+			notify_err(string.format(
+				'Number of fields is not consistent: e.g. line 1 has %d fields, and line %d has %d fields', num_fields, linenum,
 				num_fields_cur))
 			return
 		end
@@ -1035,20 +1040,20 @@ M.csv_align = function()
 	vim.cmd.set 'nowrap' -- todo there is a much better place for this
 	local delim, policy, comment_prefix = unpack(M.get_current_dialect())
 	if policy == 'monocolumn' then
-		vim.cmd.echoerr '"RainbowAlign is available only for highlighted CSV files"'
+		notify_err 'RainbowAlign is available only for highlighted CSV files'
 		return
 	elseif policy == 'quoted_rfc' then
-		vim.cmd.echoerr '"RainbowAlign not available for \"rfc_csv\" filetypes, consider using \"csv\" instead"'
+		notify_err 'RainbowAlign not available for "rfc_csv" filetypes, consider using "csv" instead'
 		return
 	end
 	local column_stats, first_failed_line = unpack(calc_column_stats(delim, policy, comment_prefix))
 	if first_failed_line ~= 0 then
-		vim.cmd.echoerr('"Unable to align: Inconsistent double quotes at line ' .. first_failed_line .. '"')
+		notify_err('Unable to align: Inconsistent double quotes at line ' .. first_failed_line)
 		return
 	end
 	column_stats = M.adjust_column_stats(column_stats)
 	if #column_stats == 0 then
-		vim.cmd.echoerr '"Unable to align: Internal Rainbow CSV Error"'
+		notify_err 'Unable to align: Internal Rainbow CSV Error'
 		return
 	end
 	local has_edit = false
@@ -1072,7 +1077,7 @@ M.csv_align = function()
 			local fields, _ = M.preserving_smart_split(chunk[chunkIdx], delim, policy)
 			for fnum = 1, #fields, 1 do
 				if fnum > #column_stats then
-					vim.notify('bad off by one in csv_align', vim.log.levels.ERROR, {})
+					notify_err 'bad off by one in csv_align'
 					goto ibreak
 				end
 				local is_last_column = fnum == #column_stats
@@ -1094,17 +1099,17 @@ M.csv_align = function()
 		vim.api.nvim_buf_set_lines(0, chunkStart - 1, chunkStart + chunkSize, false, chunk)
 	end
 	if not has_edit then
-		vim.cmd.echoerr '"File is already aligned"'
+		notify_err 'File is already aligned'
 	end
 end
 
 M.csv_shrink = function()
 	local delim, policy, comment_prefix = unpack(M.get_current_dialect())
 	if policy == 'monocolumn' then
-		vim.cmd.echoerr '"RainbowAlign is available only for highlighted CSV files"'
+		notify_err 'RainbowAlign is available only for highlighted CSV files'
 		return
 	elseif policy == 'quoted_rfc' then
-		vim.cmd.echoerr '"RainbowAlign not available for \"rfc_csv\" filetypes, consider using \"csv\" instead"'
+		notify_err 'RainbowAlign not available for "rfc_csv" filetypes, consider using "csv" instead'
 		return
 	end
 	local lastLineNo = vim.fn.line('$')
@@ -1126,7 +1131,7 @@ M.csv_shrink = function()
 			end
 			local fields, has_warning = M.preserving_smart_split(chunk[chunkIdx], delim, policy)
 			if has_warning then
-				vim.cmd.echoerr('"Unable to shrink: Inconsistent double quotes at line ' .. chunkStart + chunkIdx - 1 .. '"')
+				notify_err('Unable to shrink: Inconsistent double quotes at line ' .. chunkStart + chunkIdx - 1)
 				return
 			end
 			for fnum = 1, #fields, 1 do
@@ -1146,7 +1151,7 @@ M.csv_shrink = function()
 		vim.api.nvim_buf_set_lines(0, chunkStart - 1, chunkStart + chunkSize, false, chunk)
 	end
 	if not has_edit then
-		vim.cmd.echoerr '"File is already shrinked"'
+		notify_err 'File is already shrinked'
 	end
 end
 
@@ -1604,11 +1609,11 @@ M.select_from_file = function()
 	local meta_language = get_meta_language()
 
 	if meta_language == 'python' and not EnsurePythonInitialization() then
-		vim.notify('Python interpreter not found. Unable to run in this mode.', vim.log.levels.ERROR, {})
+		notify_err 'Python interpreter not found. Unable to run in this mode.'
 		return false
 	end
 	if meta_language == 'js' and not EnsureJavaScriptInitialization() then
-		vim.notify('Node.js interpreter not found. Unable to run in this mode.', vim.log.levels.ERROR, {})
+		notify_err 'Node.js interpreter not found. Unable to run in this mode.'
 		return false
 	end
 
@@ -1631,7 +1636,7 @@ M.select_from_file = function()
 	vim.cmd.set 'splitbelow'
 	vim.cmd.split(vim.fn.fnameescape(rb_script_path))
 	if vim.fn.bufnr('%') == buf_number then
-		vim.notify('Something went wrong', vim.log.levels.ERROR)
+		notify_err 'Something went wrong'
 		return -- todo shouldn't this return a value?
 	end
 	if not splitbelow_before then
@@ -1670,7 +1675,7 @@ end
 
 local function ShowImportantMessage(msg_header, msg_lines)
 	local lines = msg_header .. '\n' .. lua_join(msg_lines, '\n')
-	vim.api.nvim_notify(lines, vim.log.levels.ERROR, {})
+	notify_err(lines)
 end
 
 M.parse_report = function(report_content)
@@ -1864,7 +1869,7 @@ end
 
 M.finish_query_editing = function()
 	if vim.b.rainbow_select == nil then
-		vim.cmd.echoerr '"Execute from rainbow query buffer"'
+		notify_err 'Execute from rainbow query buffer'
 		return
 	end
 	vim.cmd.write()
@@ -2029,7 +2034,7 @@ M.manual_set = function(arg_policy, is_multidelim)
 			max_delim_len = vim.g.max_multichar_delim_len
 		end
 		if #delim > max_delim_len then
-			vim.cmd.echoerr '"Multicharater delimiter is too long. Adjust g:max_multichar_delim_len or use a different separator"'
+			notify_err 'Multicharater delimiter is too long. Adjust g:max_multichar_delim_len or use a different separator'
 			return
 		end
 	else
@@ -2040,7 +2045,7 @@ M.manual_set = function(arg_policy, is_multidelim)
 		policy = get_auto_policy_for_delim(delim)
 	end
 	if delim == '"' and policy == 'quoted' then
-		vim.cmd.echoerr '"Double quote delimiter is incompatible with \"quoted\" policy"'
+		notify_err 'Double quote delimiter is incompatible with "quoted" policy'
 		return
 	end
 	vim.notify('delim = "' .. delim .. '"', vim.log.levels.WARN, {})
@@ -2088,7 +2093,7 @@ end
 -- endfunc
 -- ]])
 M.manual_set_comment_prefix = function(is_multi_comment_prefix)
-	vim.notify('Not implemented', vim.log.levels.ERROR, {})
+	notify_err 'Not implemented'
 end
 
 -- todo port?
@@ -2101,7 +2106,7 @@ end
 -- endfunc
 -- ]])
 M.manual_disable_comment_prefix = function()
-	vim.notify('Not implemented', vim.log.levels.ERROR, {})
+	notify_err 'Not implemented'
 end
 
 M.handle_new_file = function()
