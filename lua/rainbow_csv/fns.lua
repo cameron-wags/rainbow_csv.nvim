@@ -4,6 +4,15 @@
 -- " Authors: Dmitry Ignatovich, ...
 -- "
 -- "==============================================================================
+
+local function notify_err(msg)
+	vim.notify(msg, vim.log.levels.ERROR)
+end
+
+local function notify_warn(msg)
+	vim.notify(msg, vim.log.levels.WARN)
+end
+
 local M = {}
 
 local max_columns = 30
@@ -33,7 +42,7 @@ local script_folder_path = (function()
 			return path:gsub('/rbql_core/', '')
 		end
 	end
-	vim.notify('Unable to find plugin install folder in runtimepath.', vim.log.levels.WARN, {})
+	notify_warn 'Unable to find plugin install folder in runtimepath.'
 	return nil
 end)()
 
@@ -196,10 +205,6 @@ local function lit_split(str, sep, keepempty)
 		return vim_split(str, sep, { plain = true, trimempty = true })
 	end
 	return vim_split(str, sep, { plain = true, trimempty = not keepempty })
-end
-
-local function notify_err(msg)
-	vim.notify(msg, vim.log.levels.ERROR, {})
 end
 
 -- " XXX Use :syntax command to list all current syntax groups
@@ -1099,7 +1104,7 @@ M.csv_align = function()
 		vim.api.nvim_buf_set_lines(0, chunkStart - 1, chunkStart + chunkSize, false, chunk)
 	end
 	if not has_edit then
-		notify_err 'File is already aligned'
+		notify_warn 'File is already aligned'
 	end
 end
 
@@ -1151,7 +1156,7 @@ M.csv_shrink = function()
 		vim.api.nvim_buf_set_lines(0, chunkStart - 1, chunkStart + chunkSize, false, chunk)
 	end
 	if not has_edit then
-		notify_err 'File is already shrinked'
+		notify_warn 'File is already shrinked'
 	end
 end
 
@@ -1719,11 +1724,11 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 	local meta_language = get_meta_language()
 
 	if meta_language == 'python' and not EnsurePythonInitialization() then
-		vim.notify('Python interpreter not found. Unable to run in this mode.', vim.log.levels.WARN, {})
+		notify_warn 'Python interpreter not found. Unable to run in this mode.'
 		return false
 	end
 	if meta_language == 'js' and not EnsureJavaScriptInitialization() then
-		vim.notify('Node.js interpreter not found. Unable to run in this mode.', vim.log.levels.WARN, {})
+		notify_warn 'Node.js interpreter not found. Unable to run in this mode.'
 		return false
 	end
 
@@ -1732,14 +1737,14 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 		rbql_encoding = vim.g.rbql_encoding
 	end
 	if rbql_encoding ~= 'utf-8' and rbql_encoding ~= 'latin-1' then
-		vim.notify("Unsupported rbql encoding. Must be 'utf-8' or 'latin-1'", vim.log.levels.WARN, {})
+		notify_warn "Unsupported rbql encoding. Must be 'utf-8' or 'latin-1'"
 		return false
 	end
 
 	local table_filetype = vim.api.nvim_buf_get_option(table_buf_number, 'filetype')
 	local input_dialect = M.ft_to_dialect(table_filetype)
 	if #input_dialect == 0 then
-		vim.notify('File is not a rainbow table', vim.log.levels.WARN, {})
+		notify_warn 'File is not a rainbow table'
 		return false
 	end
 	local input_delim = input_dialect[1]
@@ -2048,7 +2053,7 @@ M.manual_set = function(arg_policy, is_multidelim)
 		notify_err 'Double quote delimiter is incompatible with "quoted" policy'
 		return
 	end
-	vim.notify('delim = "' .. delim .. '"', vim.log.levels.WARN, {})
+	notify_warn('delim = "' .. delim .. '"')
 	M.set_rainbow_filetype(delim, policy, get_auto_comment_prefix())
 	local table_path = vim.fn.resolve(vim.fn.expand('%:p'))
 	update_table_record(table_path, delim, policy, '@auto_comment_prefix@')
