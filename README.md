@@ -13,7 +13,7 @@ made it a few times faster.
 
 ## Installation
 
-In packer:
+With [packer.nvim](https://github.com/wbthomason/packer.nvim):
 
 ```lua
 use {
@@ -37,10 +37,11 @@ use {
     }
 }
 ```
-In Lazy:
+
+With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
-use {
+{
     'cameron-wags/rainbow_csv.nvim',
     config = true,
     ft = {
