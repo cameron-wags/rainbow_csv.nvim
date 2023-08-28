@@ -638,12 +638,12 @@ local function EnsurePythonInitialization()
 	if vim.fn.has('python3') == 1 and not use_system_python() and not test_coverage() then
 		vim.cmd('py3 import sys')
 		vim.cmd('py3 import vim')
-		vim.cmd("exe 'python3 sys.path.insert(0, \"'" .. py_home_dir .. "\")'")
+		vim.cmd([[exe 'python3 sys.path.insert(0, "]] .. py_home_dir .. [[")']])
 		vim.cmd('py3 import vim_rbql')
 	elseif has_python_27() and not use_system_python() and not test_coverage() then
 		vim.cmd('py import sys')
 		vim.cmd('py import vim')
-		vim.cmd("exe 'python sys.path.insert(0, \"'" .. py_home_dir .. "\")'")
+		vim.cmd([[exe 'python sys.path.insert(0, "]] .. py_home_dir .. [[")']])
 		vim.cmd('py import vim_rbql')
 	else
 		M.find_python_interpreter()
