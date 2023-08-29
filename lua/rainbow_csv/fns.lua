@@ -1797,10 +1797,13 @@ local function converged_select(table_buf_number, rb_script_path, query_buf_nr)
 		local cmd = lua_join(cmd_args, ' ')
 		local report_content = vim.fn.system(cmd)
 		psv_query_status, psv_error_report, psv_warning_report, psv_dst_table_path = unpack(M.parse_report(report_content))
-	elseif vim.fn.has('python3') ~= 0 then
+	elseif vim.fn.has('python3') ~= 0 or has_python_27() then
 		vim.cmd.python3(py_call)
-	elseif has_python_27() then
-		vim.cmd.python3(py_call)
+		-- variables set from python must be copied to lua scope
+		psv_query_status = vim.g.psv_query_status
+		psv_error_report = vim.g.psv_error_report
+		psv_warning_report = vim.g.psv_warning_report
+		psv_dst_table_path = vim.g.psv_dst_table_path
 	else
 		ShowImportantMessage('Error',
 			{ "Python not found, vim must have 'python' or 'python3' feature installed to run in this mode" })
