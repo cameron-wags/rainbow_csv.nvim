@@ -1872,7 +1872,7 @@ M.run_select_cmd_query = function(query_string)
 end
 
 M.run_update_cmd_query = function(query_string)
-	run_cmd_query('UPDATE' .. query_string)
+	run_cmd_query('UPDATE ' .. query_string)
 end
 
 M.finish_query_editing = function()
