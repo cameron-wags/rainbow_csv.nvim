@@ -201,7 +201,7 @@ end
 local function lit_split(str, sep, keepempty)
 	-- internal use of lit_split relies on plain = true to avoid calling escape()
 	-- a bunch of times
-	if keepempty ~= nil then
+	if keepempty == nil then
 		return vim_split(str, sep, { plain = true, trimempty = true })
 	end
 	return vim_split(str, sep, { plain = true, trimempty = not keepempty })
