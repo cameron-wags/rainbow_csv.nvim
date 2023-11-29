@@ -1983,10 +1983,8 @@ M.buffer_enable_rainbow_features = function()
 
 	vim.b.rainbow_features_enabled = true
 
-	vim.cmd.set 'laststatus=2'
-
-	if vim.o.compatible then
-		vim.cmd.set 'nocompatible'
+	if vim.g.disable_rainbow_statusline ~= 1 then
+		vim.cmd.set 'laststatus=2'
 	end
 
 	vim.cmd.set 'number'

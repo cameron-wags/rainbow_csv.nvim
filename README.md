@@ -219,7 +219,7 @@ JOIN /path/to/my/customers/table ON a1 == b1
 
 #### g:disable_rainbow_hover
 Set to `1` to stop showing info about the column under the cursor in Vim command line  
-Example:  
+Example:
 ```
 let g:disable_rainbow_hover = 1
 ```
@@ -230,6 +230,15 @@ Set to `0` to disable this behavior.
 Example:
 ```
 let g:rainbow_hover_debounce_ms = 300
+```
+
+#### g:disable_rainbow_statusline
+Set to 1 to stop modifying 'statusline' settings when rainbow csv features are
+enabled.
+Example:
+```
+let g:disable_rainbow_statusline = 1
+
 ```
 
 #### g:rcsv_delimiters
