@@ -1042,7 +1042,7 @@ M.align_field = function(field, is_first_line, max_field_components_lens, is_las
 end
 
 M.csv_align = function()
-	vim.cmd.set 'nowrap' -- todo there is a much better place for this
+	vim.cmd.setlocal 'nowrap' -- todo there is a much better place for this
 	local delim, policy, comment_prefix = unpack(M.get_current_dialect())
 	if policy == 'monocolumn' then
 		notify_err 'RainbowAlign is available only for highlighted CSV files'
@@ -1987,7 +1987,7 @@ M.buffer_enable_rainbow_features = function()
 		vim.cmd.set 'laststatus=2'
 	end
 
-	vim.cmd.set 'number'
+	vim.cmd.setlocal 'number'
 
 	if vim.g.disable_rainbow_key_mappings == nil then
 		vim.keymap.set('n', '<F5>', M.select_from_file, { noremap = true, buffer = true })
