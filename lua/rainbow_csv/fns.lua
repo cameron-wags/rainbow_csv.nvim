@@ -35,16 +35,7 @@ if vim.g.rainbow_table_index ~= nil then
 	rainbow_table_index = vim.g.rainbow_table_index
 end
 
--- this one's a bit of a mess, we find it eventually though
-local script_folder_path = (function()
-	for _, path in ipairs(vim.fn.globpath(vim.o.rtp, 'rbql_core/', 0, 1)) do
-		if string.find(path, '/rainbow_csv.nvim/rbql_core/') ~= nil then
-			return path:gsub('/rbql_core/', '')
-		end
-	end
-	notify_warn 'Unable to find plugin install folder in runtimepath.'
-	return nil
-end)()
+local script_folder_path = vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':p:h:h:h')
 
 local python_env_initialized = false
 local js_env_initialized = false
