@@ -1530,7 +1530,7 @@ M.set_statusline_columns = function(eval_value)
 	end
 	::done::
 	rb_statusline = status_escape_string(rb_statusline)
-	vim.notify(rb_statusline, vim.log.levels.INFO, {})
+	-- vim.notify(rb_statusline, vim.log.levels.INFO, {})
 	vim.cmd.setlocal { 'statusline=' .. rb_statusline }
 
 	vim.cmd.redraw { bang = true }
@@ -1626,7 +1626,9 @@ M.select_from_file = function()
 	local result, _ = M.preserving_smart_split(vim.fn.getline(1), delim, policy)
 	local num_fields = #result
 
-	M.set_statusline_columns()
+	if vim.g.disable_rainbow_statusline ~= 1 then
+		M.set_statusline_columns()
+	end
 
 	local splitbelow_before = vim.o.splitbelow
 	vim.cmd.set 'splitbelow'
@@ -1984,15 +1986,17 @@ M.buffer_enable_rainbow_features = function()
 		vim.keymap.set('n', '<F5>', M.select_from_file, { noremap = true, buffer = true })
 	end
 
-	vim.api.nvim_exec([[
-		cnoreabbrev <expr> <buffer> Select luaeval('require("rainbow_csv.fns").set_statusline_columns("Select")')
-		cnoreabbrev <expr> <buffer> select luaeval('require("rainbow_csv.fns").set_statusline_columns("Select")')
-		cnoreabbrev <expr> <buffer> SELECT luaeval('require("rainbow_csv.fns").set_statusline_columns("Select")')
+	if vim.g.disable_rainbow_statusline ~= 1 then
+		vim.api.nvim_exec([[
+			cnoreabbrev <expr> <buffer> Select luaeval('require("rainbow_csv.fns").set_statusline_columns("Select")')
+			cnoreabbrev <expr> <buffer> select luaeval('require("rainbow_csv.fns").set_statusline_columns("Select")')
+			cnoreabbrev <expr> <buffer> SELECT luaeval('require("rainbow_csv.fns").set_statusline_columns("Select")')
 
-		cnoreabbrev <expr> <buffer> Update luaeval('require("rainbow_csv.fns").set_statusline_columns("Update")')
-		cnoreabbrev <expr> <buffer> update luaeval('require("rainbow_csv.fns").set_statusline_columns("Update")')
-		cnoreabbrev <expr> <buffer> UPDATE luaeval('require("rainbow_csv.fns").set_statusline_columns("Update")')
-	]], false)
+			cnoreabbrev <expr> <buffer> Update luaeval('require("rainbow_csv.fns").set_statusline_columns("Update")')
+			cnoreabbrev <expr> <buffer> update luaeval('require("rainbow_csv.fns").set_statusline_columns("Update")')
+			cnoreabbrev <expr> <buffer> UPDATE luaeval('require("rainbow_csv.fns").set_statusline_columns("Update")')
+		]], false)
+	end
 
 	vim.api.nvim_create_autocmd('CursorMoved', {
 		group = vim.api.nvim_create_augroup('RainbowHintGrp', { clear = true }),
